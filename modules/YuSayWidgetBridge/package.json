@@ -1,0 +1,7 @@
+{
+  "name": "yusay-widget-bridge",
+  "version": "1.0.0",
+  "description": "YuSay native widget bridge — writes to App Groups / SharedPreferences and triggers widget refresh",
+  "main": "index.ts",
+  "types": "index.ts"
+}

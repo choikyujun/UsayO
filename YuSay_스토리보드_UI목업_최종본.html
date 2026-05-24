@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YuSay — 스토리보드 & UI 목업 최종본</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --purple: #534AB7;
+    --purple-deep: #26215C;
+    --purple-soft: #AFA9EC;
+    --purple-bg: #E8E6FF;
+    --green: #1D9E75;
+    --orange: #D85A30;
+    --blue: #378ADD;
+    --amber: #EF9F27;
+    --dark-bg: #0E0C1F;
+    --dark-card: #1C1A35;
+    --dark-nav: #09081A;
+    --dark-border: #2E2B52;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #F8F8FC;
+    color: #1a1a2e;
+    line-height: 1.6;
+  }
+
+  /* COVER */
+  .cover {
+    background: var(--dark-bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 40px;
+    text-align: center;
+    page-break-after: always;
+  }
+  .cover-logo {
+    width: 80px; height: 80px;
+    background: var(--purple);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 24px;
+  }
+  .cover-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 48px; font-weight: 700;
+    color: #E8E6FF; letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+  .cover-tagline {
+    font-size: 18px; color: var(--purple-soft);
+    margin-bottom: 40px;
+  }
+  .cover-meta {
+    display: flex; gap: 40px; justify-content: center; flex-wrap: wrap;
+  }
+  .cover-meta-item { text-align: center; }
+  .cover-meta-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 32px; font-weight: 700; color: var(--purple-soft);
+  }
+  .cover-meta-label { font-size: 12px; color: #4a4670; margin-top: 4px; }
+  .cover-date { margin-top: 60px; font-size: 13px; color: #2e2b52; }
+
+  /* SECTION DIVIDER */
+  .section-divider {
+    background: var(--purple-deep);
+    padding: 48px 60px;
+    page-break-before: always;
+  }
+  .sec-badge {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    padding: 4px 12px; border-radius: 4px;
+    margin-bottom: 12px;
+  }
+  .sec-title { font-size: 32px; font-weight: 600; color: #E8E6FF; margin-bottom: 8px; }
+  .sec-desc { font-size: 15px; color: var(--purple-soft); }
+  .sec-count { font-family: 'Space Mono', monospace; font-size: 12px; color: #4a4670; margin-top: 8px; }
+
+  /* CONTENT WRAPPER */
+  .content { padding: 48px 60px; }
+
+  /* SCREEN GRID */
+  .screen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 40px;
+  }
+
+  /* SCREEN CARD */
+  .screen-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #E8E5FF;
+    overflow: hidden;
+  }
+  .screen-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid #F0EEFF;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .screen-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    color: var(--purple);
+    background: var(--purple-bg);
+    padding: 2px 8px; border-radius: 4px;
+  }
+  .screen-name { font-size: 14px; font-weight: 600; color: #1a1a2e; }
+  .screen-tag {
+    margin-left: auto;
+    font-size: 10px; padding: 2px 8px;
+    border-radius: 12px; font-weight: 500;
+  }
+
+  /* PHONE MOCKUP */
+  .phone-mockup {
+    background: var(--dark-bg);
+    margin: 16px 20px;
+    border-radius: 20px;
+    border: 2px solid var(--dark-border);
+    height: 280px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  .phone-mockup::before {
+    content: '';
+    position: absolute; top: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 40px; height: 4px;
+    background: #18163a; border-radius: 2px; z-index: 10;
+  }
+  .phone-status {
+    display: flex; justify-content: space-between;
+    padding: 18px 14px 0;
+    font-size: 8px; color: #2e2b52;
+    font-family: 'Space Mono', monospace;
+    flex-shrink: 0;
+  }
+  .phone-content { flex: 1; padding: 8px; overflow: hidden; }
+  .phone-bnav {
+    height: 36px;
+    background: var(--dark-nav);
+    border-top: 1px solid var(--dark-border);
+    flex-shrink: 0;
+    position: relative;
+    display: flex; align-items: center; justify-content: space-around;
+  }
+  .phone-fab {
+    position: absolute; top: -14px; left: 50%;
+    transform: translateX(-50%);
+    width: 30px; height: 30px;
+    background: var(--purple);
+    border-radius: 50%;
+    border: 3px solid var(--dark-bg);
+    z-index: 5;
+  }
+
+  /* SCREEN DESC */
+  .screen-desc { padding: 14px 20px 16px; }
+  .screen-desc-title { font-size: 12px; font-weight: 600; color: #1a1a2e; margin-bottom: 6px; }
+  .screen-desc-body { font-size: 11px; color: #5a5a7a; line-height: 1.6; }
+  .screen-ux-note {
+    margin-top: 8px; padding: 8px 10px;
+    background: var(--purple-bg);
+    border-radius: 6px;
+    font-size: 10px; color: var(--purple-deep);
+    line-height: 1.5;
+  }
+  .screen-ux-note::before { content: '💡 '; }
+
+  /* PHONE CONTENT ELEMENTS */
+  .big-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 36px; font-weight: 700;
+    color: #E8E6FF; text-align: center;
+    line-height: 1; margin-top: 8px;
+  }
+  .small-date { font-size: 9px; color: #4a4670; text-align: center; margin-top: 4px; }
+  .fab-center {
+    width: 52px; height: 52px;
+    background: var(--purple);
+    border-radius: 50%;
+    margin: 12px auto 4px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fab-label { font-size: 8px; color: #3a3660; text-align: center; }
+  .divider { height: 1px; background: var(--dark-border); margin: 6px 0; }
+  .section-label { font-size: 7px; color: #3a3660; text-transform: uppercase; letter-spacing: .08em; padding: 3px 0; }
+  .ev-item {
+    display: flex; gap: 6px; align-items: center;
+    background: var(--dark-card); border-radius: 6px;
+    padding: 5px 7px; margin-bottom: 3px;
+  }
+  .ev-bar { width: 2px; height: 18px; border-radius: 1px; flex-shrink: 0; }
+  .ev-text { font-size: 8px; color: #E8E6FF; }
+  .ev-time { font-size: 7px; color: #4a4670; font-family: 'Space Mono', monospace; min-width: 28px; }
+  .fade-overlay {
+    height: 32px;
+    background: linear-gradient(transparent, var(--dark-bg));
+    margin-top: -10px;
+  }
+
+  /* FLOW DIAGRAM */
+  .flow-diagram {
+    background: var(--dark-bg);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+  .flow-title { font-size: 13px; font-weight: 600; color: #E8E6FF; margin-bottom: 16px; }
+  .flow-steps {
+    display: flex; align-items: center; gap: 0;
+    flex-wrap: wrap;
+  }
+  .flow-step {
+    background: #1a1740;
+    border: 1px solid var(--dark-border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 11px; color: #AFA9EC;
+    text-align: center; min-width: 90px;
+  }
+  .flow-step.active { border-color: var(--purple); color: #E8E6FF; }
+  .flow-step.success { border-color: var(--green); color: #5DCAA5; }
+  .flow-arrow {
+    font-size: 16px; color: var(--purple);
+    padding: 0 8px; flex-shrink: 0;
+  }
+
+  /* DESIGN TOKENS */
+  .token-section { margin-bottom: 36px; }
+  .token-title { font-size: 16px; font-weight: 600; color: #1a1a2e; margin-bottom: 16px; }
+  .color-grid {
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .color-swatch {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 6px;
+  }
+  .color-circle {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,.08);
+  }
+  .color-name { font-size: 10px; font-weight: 600; color: #1a1a2e; text-align: center; }
+  .color-hex { font-family: 'Space Mono', monospace; font-size: 9px; color: #6a6a8a; }
+
+  /* SUMMARY TABLE */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 28px; }
+  th {
+    background: var(--purple); color: #fff;
+    padding: 10px 14px; font-size: 11px; font-weight: 600;
+    text-align: left;
+  }
+  td {
+    padding: 9px 14px; font-size: 11px; color: #3a3a5a;
+    border-bottom: 1px solid #F0EEFF;
+  }
+  tr:nth-child(even) td { background: #F8F7FF; }
+  .tag {
+    display: inline-block;
+    font-size: 9px; font-weight: 700;
+    padding: 2px 7px; border-radius: 3px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* PRICING TABLE */
+  .pricing-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px; margin-bottom: 28px;
+  }
+  .plan-card {
+    border: 1px solid #E8E5FF;
+    border-radius: 12px; padding: 20px;
+    background: #fff;
+  }
+  .plan-card.featured { border-color: var(--purple); border-width: 2px; }
+  .plan-name { font-size: 18px; font-weight: 600; color: #1a1a2e; margin-bottom: 4px; }
+  .plan-price {
+    font-family: 'Space Mono', monospace;
+    font-size: 24px; font-weight: 700;
+    color: var(--purple); margin-bottom: 4px;
+  }
+  .plan-period { font-size: 11px; color: #6a6a8a; margin-bottom: 12px; }
+  .plan-feature { font-size: 11px; color: #3a3a5a; padding: 3px 0; display: flex; gap: 6px; }
+  .plan-feature::before { content: '✓'; color: var(--green); flex-shrink: 0; }
+  .plan-feature.no::before { content: '—'; color: #ccc; }
+  .plan-feature.no { color: #aaa; }
+
+  /* GATE CARDS */
+  .gate-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 16px; margin-bottom: 28px;
+  }
+  .gate-card {
+    border: 1px solid #E8E5FF;
+    border-radius: 10px; padding: 16px;
+    background: #fff;
+  }
+  .gate-type { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 3px; display: inline-block; margin-bottom: 8px; }
+  .gate-name { font-size: 14px; font-weight: 600; color: #1a1a2e; margin-bottom: 4px; }
+  .gate-desc { font-size: 11px; color: #5a5a7a; line-height: 1.5; margin-bottom: 8px; }
+  .gate-example { font-size: 10px; color: #8888aa; }
+
+  /* PAGE BREAK */
+  .page-break { page-break-before: always; }
+
+  /* FOOTER */
+  .footer {
+    background: var(--dark-bg);
+    padding: 32px 60px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .footer-logo { font-family: 'Space Mono', monospace; font-size: 18px; font-weight: 700; color: var(--purple); }
+  .footer-text { font-size: 12px; color: #2e2b52; }
+
+  @media print {
+    .section-divider { page-break-before: always; }
+    .screen-card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ COVER ══════════ -->
+<div class="cover">
+  <div class="cover-logo">
+    <svg width="36" height="28" viewBox="0 0 36 28" fill="none">
+      <rect x="0" y="8" width="6" height="12" rx="3" fill="white" opacity=".5"/>
+      <rect x="9" y="4" width="6" height="20" rx="3" fill="white"/>
+      <rect x="18" y="0" width="6" height="28" rx="3" fill="white"/>
+      <rect x="27" y="4" width="6" height="20" rx="3" fill="white"/>
+      <rect x="33" y="10" width="3" height="8" rx="1.5" fill="white" opacity=".4"/>
+    </svg>
+  </div>
+  <div class="cover-title">YuSay</div>
+  <div class="cover-tagline">"Yu say. It's done." — Voice-First 캘린더 앱</div>
+  <div style="height:1px;background:#1e1b3a;width:120px;margin:0 auto 40px;"></div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="cover-meta-num">28</div>
+      <div class="cover-meta-label">화면 설계</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-num">6</div>
+      <div class="cover-meta-label">섹션</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-num">4</div>
+      <div class="cover-meta-label">음성 플로우</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-num">9</div>
+      <div class="cover-meta-label">진출 국가</div>
+    </div>
+  </div>
+  <div style="margin-top:48px;">
+    <div style="display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+      <span style="background:#1a1740;color:#AFA9EC;padding:6px 16px;border-radius:20px;font-size:12px;">스토리보드</span>
+      <span style="background:#1a1740;color:#AFA9EC;padding:6px 16px;border-radius:20px;font-size:12px;">UI 목업</span>
+      <span style="background:#1a1740;color:#AFA9EC;padding:6px 16px;border-radius:20px;font-size:12px;">요금제 설계</span>
+      <span style="background:#1a1740;color:#AFA9EC;padding:6px 16px;border-radius:20px;font-size:12px;">기능 게이트</span>
+      <span style="background:#1a1740;color:#AFA9EC;padding:6px 16px;border-radius:20px;font-size:12px;">개발 프롬프트 14개</span>
+    </div>
+  </div>
+  <div class="cover-date">YuSay 프로젝트팀 · 2026년 5월</div>
+</div>
+
+<!-- ══════════ SECTION 1: ONBOARDING ══════════ -->
+<div class="section-divider">
+  <div class="sec-badge" style="background:#1a1740;color:#AFA9EC;">SECTION 01</div>
+  <div class="sec-title">온보딩</div>
+  <div class="sec-desc">최초 설치 시 7단계 — 스플래시 → 소개 3장 → 권한 요청 → 캘린더 연동 → 시작</div>
+  <div class="sec-count">7 screens · PROMPT_11 참조</div>
+</div>
+
+<div class="content">
+
+  <div class="flow-diagram">
+    <div class="flow-title">온보딩 플로우</div>
+    <div class="flow-steps">
+      <div class="flow-step active">스플래시<br/><span style="font-size:9px;color:#5a5480;">로고+파형</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step active">소개 1<br/><span style="font-size:9px;color:#5a5480;">말하면 잡혀요</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step active">소개 2<br/><span style="font-size:9px;color:#5a5480;">전부 음성으로</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step active">소개 3<br/><span style="font-size:9px;color:#5a5480;">한국어 특화</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step active">마이크 권한<br/><span style="font-size:9px;color:#5a5480;">이유 먼저</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step active">캘린더 연동<br/><span style="font-size:9px;color:#5a5480;">건너뛰기 가능</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step success">준비 완료<br/><span style="font-size:9px;color:#0F6E56;">첫 음성 유도</span></div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>화면</th><th>핵심 요소</th><th>UX 원칙</th><th>구현 포인트</th></tr>
+    <tr><td><span class="tag" style="background:#E8E6FF;color:#534AB7;">01</span> 스플래시</td><td>YuSay 로고, 파형 애니메이션, 로딩바</td><td>브랜드 첫인상 — 1.5초 자동 전환</td><td>Animated API, 파형 5막대 루프</td></tr>
+    <tr><td><span class="tag" style="background:#E8E6FF;color:#534AB7;">02</span> 소개 1</td><td>마이크→캘린더 일러스트, 진행 도트</td><td>"말하면 일정이 잡혀요" 단일 메시지</td><td>SVG 일러스트, 스와이프 제스처</td></tr>
+    <tr><td><span class="tag" style="background:#E8E6FF;color:#534AB7;">03</span> 소개 2</td><td>생성·수정·삭제 3카드</td><td>업계 유일 완전 음성 CRUD 강조</td><td>카드 3개, 색상별 카테고리</td></tr>
+    <tr><td><span class="tag" style="background:#E8E6FF;color:#534AB7;">04</span> 소개 3</td><td>🇰🇷 + 한국어 자연어 예시</td><td>"퇴근 후" → 18:00 실제 예시 보여주기</td><td>말풍선 → 변환값 화살표</td></tr>
+    <tr><td><span class="tag" style="background:#E8E6FF;color:#534AB7;">05</span> 마이크 권한</td><td>마이크 아이콘, 3가지 안심 포인트</td><td>시스템 팝업 전 이유 먼저 설명</td><td>Audio.requestPermissionsAsync()</td></tr>
+    <tr><td><span class="tag" style="background:#E8E6FF;color:#534AB7;">06</span> 캘린더 연동</td><td>Google·Apple 라디오 선택</td><td>건너뛰기 항상 제공, 강제 아님</td><td>OAuth 플로우, 나중에 설정 안내</td></tr>
+    <tr><td><span class="tag" style="background:#E8E6FF;color:#534AB7;">07</span> 준비 완료</td><td>초록 체크, 연결 상태, 첫 예시 문장</td><td>완료 후 즉시 첫 성공 경험 유도</td><td>AsyncStorage 완료 플래그 저장</td></tr>
+  </table>
+
+</div>
+
+<!-- ══════════ SECTION 2: HOME ══════════ -->
+<div class="section-divider page-break">
+  <div class="sec-badge" style="background:#26215C;color:#AFA9EC;">SECTION 02</div>
+  <div class="sec-title">홈 탭</div>
+  <div class="sec-desc">기본 진입 화면 — 시간 상단 · 음성 FAB 중앙 · 일정 페이드 하단</div>
+  <div class="sec-count">3 screens · PROMPT_08 참조</div>
+</div>
+
+<div class="content">
+
+  <div style="background:#F0EEFF;border-radius:12px;padding:20px 24px;margin-bottom:28px;border-left:4px solid #534AB7;">
+    <div style="font-size:13px;font-weight:600;color:#26215C;margin-bottom:8px;">홈 화면 설계 철학</div>
+    <div style="font-size:12px;color:#534AB7;line-height:1.7;">
+      앱을 켜는 이유가 "말하기"이므로, 화면 전체가 그 하나의 행동을 향해야 한다.<br>
+      시선 흐름: <strong>시간 (지금 몇 시?) → FAB (말하기) → 일정 (오늘 뭐가 있지?)</strong>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>요소</th><th>스펙</th><th>동작</th></tr>
+    <tr><td>빅 타임</td><td>Space Mono Bold 52px, #E8E6FF</td><td>실시간 업데이트 (1분 인터벌)</td></tr>
+    <tr><td>날짜</td><td>DM Sans 14px, #4a4670</td><td>요일 포함 표시</td></tr>
+    <tr><td>음성 FAB</td><td>62px 퍼플 원, 펄스 애니메이션</td><td>탭 → 햅틱 → 플랜 체크 → 음성 시작</td></tr>
+    <tr><td>일정 리스트</td><td>스크롤 가능, 스크롤바 숨김</td><td>완료 항목 흐림, 다음 항목 강조 테두리</td></tr>
+    <tr><td>페이드 오버레이</td><td>transparent → #0E0C1F, 70px</td><td>스크롤 시 페이드 아래로 이동</td></tr>
+    <tr><td>탭바 FAB</td><td>중앙 돌출 42px, 5개 탭</td><td>어느 탭에서든 음성 접근</td></tr>
+    <tr><td>라이트 모드</td><td>배경 #F5F4FF, 카드 #FFFFFF</td><td>시스템 설정 자동 추적</td></tr>
+  </table>
+
+  <div style="background:#0E0C1F;border-radius:12px;padding:20px 24px;margin-bottom:0;">
+    <div style="font-size:12px;font-weight:600;color:#E8E6FF;margin-bottom:12px;">레이아웃 구조 (위→아래)</div>
+    <div style="font-family:'Space Mono',monospace;font-size:11px;color:#AFA9EC;line-height:2;">
+      StatusBar<br>
+      ────────────────────────────────<br>
+      09:41 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← Space Mono 52px<br>
+      2026.5.25 월요일 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← 날짜<br>
+      ────────────────────────────────<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[ 🎙 ]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← FAB 중앙<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;말하려면 탭하세요<br>
+      ── ── ── ── ── ── ── ── ── ──<br>
+      오늘 일정<br>
+      09:00 │ 스탠드업 (완료, 흐림처리)<br>
+      11:00 │ 디자인 리뷰 ←── 다음 강조<br>
+      14:00 │ 팀장 1:1<br>
+      18:00 │ 팀 저녁 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓ FADE OUT<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▓▓▓▓▓▓▓▓▓▓▓▓▓▓<br>
+      아래로 스크롤 · 6개 일정<br>
+      ────────────────────────────────<br>
+      [홈] [캘린더] [ FAB ] [다가올] [설정]
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════ SECTION 3: CALENDAR ══════════ -->
+<div class="section-divider page-break">
+  <div class="sec-badge" style="background:#0d1f14;color:#5DCAA5;">SECTION 03</div>
+  <div class="sec-title">캘린더 탭</div>
+  <div class="sec-desc">월간 · 주간 · 일간 · 연간 4가지 뷰 — 탭 전환으로 이동</div>
+  <div class="sec-count">4 screens · PROMPT_09 참조</div>
+</div>
+
+<div class="content">
+  <table>
+    <tr><th>뷰</th><th>핵심 요소</th><th>특징</th><th>인터랙션</th></tr>
+    <tr>
+      <td><strong>월간</strong></td>
+      <td>7열 그리드, 도트 인디케이터</td>
+      <td>도트 색상: 업무(보라)·개인(초록)·중요(주황)</td>
+      <td>날짜 탭 → 바텀시트 슬라이드업 (달력 유지)</td>
+    </tr>
+    <tr>
+      <td><strong>주간</strong></td>
+      <td>타임라인, 현재 시각 빨간 라인</td>
+      <td>오늘 컬럼 미세 배경 강조, 빈 시간 점선</td>
+      <td>이벤트 탭 → 상세, 좌우 스와이프로 주 이동</td>
+    </tr>
+    <tr>
+      <td><strong>일간</strong></td>
+      <td>시간 블록, 빈 슬롯 점선, 요약 칩</td>
+      <td>상단 칩: N개 일정 · N시간 여유 · 밀집도</td>
+      <td>블록 높이 = 소요 시간, 탭 → 상세</td>
+    </tr>
+    <tr>
+      <td><strong>연간</strong></td>
+      <td>12달 히트맵, 농도 5단계</td>
+      <td>가장 바쁜 달 🔥 자동 강조</td>
+      <td>달 탭 → 해당 월간 뷰 드릴다운</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ══════════ SECTION 4: VOICE FLOWS ══════════ -->
+<div class="section-divider page-break">
+  <div class="sec-badge" style="background:#26215C;color:#E8E6FF;">SECTION 04</div>
+  <div class="sec-title">음성 플로우</div>
+  <div class="sec-desc">CREATE · UPDATE · DELETE · QUERY · 인식 실패 — 업계 유일 완전 음성 CRUD</div>
+  <div class="sec-count">6 screens · PROMPT_03~06 참조</div>
+</div>
+
+<div class="content">
+
+  <div class="flow-diagram" style="margin-bottom:20px;">
+    <div class="flow-title">공통 파이프라인</div>
+    <div class="flow-steps">
+      <div class="flow-step active">FAB 탭</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step active">소음 감지</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step active">STT 변환</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step active">LLM 인텐트</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step active">AI 재확인</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step active">확정</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step success">DB 저장</div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>플로우</th><th>예시 발화</th><th>핵심 로직</th><th>차별점</th></tr>
+    <tr>
+      <td><span class="tag" style="background:#1a1740;color:#AFA9EC;">CREATE</span></td>
+      <td>"내일 오후 3시에 팀 회의 잡아줘"</td>
+      <td>날짜 파싱 → 확인 → DB INSERT</td>
+      <td>한국어 자연어 날짜 완전 지원</td>
+    </tr>
+    <tr>
+      <td><span class="tag" style="background:#1a1740;color:#5DCAA5;">UPDATE</span></td>
+      <td>"내일 팀 회의 4시로 바꿔줘"</td>
+      <td>DB 검색 → Before→After 미리보기 → UPDATE</td>
+      <td>⭐ 업계 최초 음성 수정</td>
+    </tr>
+    <tr>
+      <td><span class="tag" style="background:#1a1210;color:#F0997B;">DELETE</span></td>
+      <td>"내일 약속 취소해줘"</td>
+      <td>중복 시 선택 → 확인 → DELETE + 5초 되돌리기</td>
+      <td>⭐ 업계 최초 음성 삭제</td>
+    </tr>
+    <tr>
+      <td><span class="tag" style="background:#0d1220;color:#85B7EB;">QUERY</span></td>
+      <td>"이번 주 일정 알려줘"</td>
+      <td>TTS 읽기 + 시각 리스트 동시 + 연속 대화</td>
+      <td>컨텍스트 유지 멀티턴</td>
+    </tr>
+    <tr>
+      <td><span class="tag" style="background:#1a1514;color:#EF9F27;">FAIL</span></td>
+      <td>소음 환경 / 낮은 신뢰도</td>
+      <td>confidence < 60% → 하이브리드 입력 전환</td>
+      <td>자연스러운 실패 복구</td>
+    </tr>
+  </table>
+
+  <div style="background:#0E0C1F;border-radius:12px;padding:20px 24px;">
+    <div style="font-size:12px;font-weight:600;color:#E8E6FF;margin-bottom:12px;">UPDATE 플로우 상세 — Before → After 미리보기</div>
+    <div style="font-size:11px;color:#AFA9EC;line-height:1.8;">
+      발화: "내일 팀 회의 4시로 바꿔줘"<br>
+      ① intent: UPDATE, targetQuery: "팀 회의", newTime: 16:00<br>
+      ② DB 검색: 내일 "팀 회의" 15:00 → 매칭 (confidence 91%)<br>
+      ③ 미리보기: [15:00] → [16:00] 나란히 표시<br>
+      ④ TTS: "팀 회의를 4시로 바꿀까요?"<br>
+      ⑤ 확정 (탭 또는 "응") → DB UPDATE → 완료
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════ SECTION 5: UPCOMING + SETTINGS ══════════ -->
+<div class="section-divider page-break">
+  <div class="sec-badge" style="background:#0d1220;color:#85B7EB;">SECTION 05</div>
+  <div class="sec-title">다가올 탭 + 설정 탭</div>
+  <div class="sec-desc">이번 주·이번 달·AI 빈 슬롯 / 설정 5개 서브메뉴</div>
+  <div class="sec-count">8 screens · PROMPT_10 참조</div>
+</div>
+
+<div class="content">
+  <table>
+    <tr><th>화면</th><th>핵심 기능</th><th>특이사항</th></tr>
+    <tr><td>다가올 — 이번 주</td><td>요일별 그룹, 다음 일정 "곧" 뱃지</td><td>오늘·내일 색상 강조</td></tr>
+    <tr><td>다가올 — 이번 달</td><td>주차별 그룹, D-Day 카운트, AI 인사이트</td><td>"5월 마지막 주가 가장 여유로워요"</td></tr>
+    <tr><td>AI 빈 슬롯</td><td>비어있는 시간 3개 추천 + 즉시 음성 등록</td><td>Pro 이상 전용 (FeatureGate)</td></tr>
+    <tr><td>설정 메인</td><td>프로필 + Pro 업그레이드 배너 + 5개 메뉴</td><td>Free 유저에게만 배너 노출</td></tr>
+    <tr><td>캘린더 연동</td><td>Google ✓ / Apple / Naver 준비중</td><td>OAuth 플로우</td></tr>
+    <tr><td>알림 설정</td><td>시작 10분·1시간 전, 이어폰 읽기</td><td>토글 방식</td></tr>
+    <tr><td>언어·음성</td><td>한국어(기본), 영어·일본어(Pro 잠금)</td><td>TTS 속도 슬라이더</td></tr>
+    <tr><td>프라이버시</td><td>녹음 즉시 삭제, On-Device(Team), 데이터 삭제</td><td>투명성 우선 설계</td></tr>
+  </table>
+</div>
+
+<!-- ══════════ SECTION 6: PRICING ══════════ -->
+<div class="section-divider page-break">
+  <div class="sec-badge" style="background:#1a1740;color:#E8E6FF;">SECTION 06</div>
+  <div class="sec-title">요금제 & 기능 제한</div>
+  <div class="sec-desc">3티어 Freemium · PPP 기반 9개국 현지화 · 피처 게이트 4종</div>
+</div>
+
+<div class="content">
+
+  <div class="pricing-grid">
+    <div class="plan-card">
+      <div class="plan-name">Free</div>
+      <div class="plan-price">₩0</div>
+      <div class="plan-period">영구 무료</div>
+      <div class="plan-feature">음성 CRUD 월 50회</div>
+      <div class="plan-feature">한국어만</div>
+      <div class="plan-feature">기본 캘린더</div>
+      <div class="plan-feature">홈 위젯 스몰</div>
+      <div class="plan-feature no">Google·Apple 연동</div>
+      <div class="plan-feature no">AI 빈 슬롯</div>
+      <div class="plan-feature no">팀 기능</div>
+    </div>
+    <div class="plan-card featured">
+      <div style="background:#534AB7;color:#fff;font-size:10px;font-weight:600;padding:3px 10px;border-radius:4px;display:inline-block;margin-bottom:8px;">가장 인기</div>
+      <div class="plan-name" style="color:#534AB7;">Pro</div>
+      <div class="plan-price">₩3,900</div>
+      <div class="plan-period">/ 월 · 연간 ₩39,000 (17% 절약)</div>
+      <div class="plan-feature">음성 CRUD 무제한</div>
+      <div class="plan-feature">4개 언어 (한·영·일·동남아1)</div>
+      <div class="plan-feature">Google·Apple 양방향 연동</div>
+      <div class="plan-feature">AI 빈 슬롯 제안</div>
+      <div class="plan-feature">전체 위젯 (미디엄·잠금)</div>
+      <div class="plan-feature">7일 무료 체험</div>
+      <div class="plan-feature no">팀 기능</div>
+    </div>
+    <div class="plan-card">
+      <div class="plan-name">Team</div>
+      <div class="plan-price">₩9,900</div>
+      <div class="plan-period">/ 인 / 월 · 최소 5인</div>
+      <div class="plan-feature">Pro 전체 포함</div>
+      <div class="plan-feature">전체 언어 (14개)</div>
+      <div class="plan-feature">팀 공유 캘린더</div>
+      <div class="plan-feature">On-Device 처리</div>
+      <div class="plan-feature">WokyToky 근태 연동</div>
+      <div class="plan-feature">관리자 대시보드</div>
+      <div class="plan-feature">전용 고객 지원</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:28px;">
+    <div style="font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:14px;">지역별 현지화 가격 (PPP 기반)</div>
+    <table>
+      <tr><th>지역</th><th>Pro / 월</th><th>Pro / 연</th><th>Team / 인·월</th><th>비고</th></tr>
+      <tr><td>🇰🇷 한국</td><td>₩3,900</td><td>₩39,000</td><td>₩9,900</td><td>기준 시장</td></tr>
+      <tr><td>🇺🇸 미국</td><td>$3.99</td><td>$39.99</td><td>$9.99</td><td>글로벌 기준</td></tr>
+      <tr><td>🇯🇵 일본</td><td>¥480</td><td>¥4,800</td><td>¥1,200</td><td>아시아 2위</td></tr>
+      <tr><td>🇸🇬 싱가포르</td><td>S$2.99</td><td>S$29.99</td><td>S$7.99</td><td>동남아 허브</td></tr>
+      <tr><td>🇲🇾 말레이시아</td><td>RM8.90</td><td>RM89</td><td>RM22</td><td>—</td></tr>
+      <tr><td>🇹🇭 태국</td><td>฿69</td><td>฿690</td><td>฿179</td><td>—</td></tr>
+      <tr><td>🇵🇭 필리핀</td><td>₱119</td><td>₱1,190</td><td>₱299</td><td>영어 친화적</td></tr>
+      <tr><td>🇮🇩 인도네시아</td><td>Rp29,000</td><td>Rp290,000</td><td>Rp75,000</td><td>최대 인구</td></tr>
+      <tr><td>🇻🇳 베트남</td><td>₫49,000</td><td>₫490,000</td><td>₫129,000</td><td>성장 시장</td></tr>
+    </table>
+  </div>
+
+  <div style="font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:14px;">피처 게이트 시스템 — 4가지 유형</div>
+  <div class="gate-grid">
+    <div class="gate-card">
+      <div class="gate-type" style="background:#1a1210;color:#F0997B;">HARD GATE</div>
+      <div class="gate-name">하드 게이트</div>
+      <div class="gate-desc">기능 자체 잠금. 탭하면 업그레이드 모달. 회색 처리 + 자물쇠.</div>
+      <div class="gate-example">Google·Apple 연동, AI 빈 슬롯, 미디엄 위젯</div>
+    </div>
+    <div class="gate-card">
+      <div class="gate-type" style="background:#1a1514;color:#EF9F27;">USAGE GATE</div>
+      <div class="gate-name">사용량 게이트</div>
+      <div class="gate-desc">횟수 제한. 80% 경고 배너, 100% 소프트 모달.</div>
+      <div class="gate-example">음성 CREATE 월 50회, UPDATE·DELETE 월 20회</div>
+    </div>
+    <div class="gate-card">
+      <div class="gate-type" style="background:#0d1220;color:#85B7EB;">LANG GATE</div>
+      <div class="gate-name">언어 게이트</div>
+      <div class="gate-desc">잠긴 언어에 Pro 뱃지. 탭하면 플랜 비교 모달.</div>
+      <div class="gate-example">영어·일본어(Pro), 동남아 전체(Team)</div>
+    </div>
+    <div class="gate-card">
+      <div class="gate-type" style="background:#0d1f14;color:#5DCAA5;">TEAM GATE</div>
+      <div class="gate-name">팀 게이트</div>
+      <div class="gate-desc">기업 전용. "문의하기"로 B2B 영업 퍼널 연결.</div>
+      <div class="gate-example">팀 공유 캘린더, On-Device, WokyToky</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════ DESIGN TOKENS ══════════ -->
+<div class="section-divider page-break">
+  <div class="sec-badge" style="background:#1a1740;color:#AFA9EC;">APPENDIX</div>
+  <div class="sec-title">디자인 토큰</div>
+  <div class="sec-desc">브랜드 컬러 · 타이포그래피 · 컴포넌트 스펙</div>
+</div>
+
+<div class="content">
+
+  <div class="token-section">
+    <div class="token-title">브랜드 컬러 팔레트</div>
+    <div class="color-grid">
+      <div class="color-swatch"><div class="color-circle" style="background:#534AB7;"></div><div class="color-name">Voice Purple</div><div class="color-hex">#534AB7</div></div>
+      <div class="color-swatch"><div class="color-circle" style="background:#26215C;"></div><div class="color-name">Night Ink</div><div class="color-hex">#26215C</div></div>
+      <div class="color-swatch"><div class="color-circle" style="background:#AFA9EC;"></div><div class="color-name">Soft Wave</div><div class="color-hex">#AFA9EC</div></div>
+      <div class="color-swatch"><div class="color-circle" style="background:#E8E6FF;border:1px solid #ddd;"></div><div class="color-name">Whisper</div><div class="color-hex">#E8E6FF</div></div>
+      <div class="color-swatch"><div class="color-circle" style="background:#1D9E75;"></div><div class="color-name">Done Green</div><div class="color-hex">#1D9E75</div></div>
+      <div class="color-swatch"><div class="color-circle" style="background:#D85A30;"></div><div class="color-name">Delete Coral</div><div class="color-hex">#D85A30</div></div>
+      <div class="color-swatch"><div class="color-circle" style="background:#EF9F27;"></div><div class="color-name">Warning</div><div class="color-hex">#EF9F27</div></div>
+      <div class="color-swatch"><div class="color-circle" style="background:#378ADD;"></div><div class="color-name">Query Blue</div><div class="color-hex">#378ADD</div></div>
+      <div class="color-swatch"><div class="color-circle" style="background:#0E0C1F;"></div><div class="color-name">Dark BG</div><div class="color-hex">#0E0C1F</div></div>
+      <div class="color-swatch"><div class="color-circle" style="background:#1C1A35;"></div><div class="color-name">Dark Card</div><div class="color-hex">#1C1A35</div></div>
+    </div>
+  </div>
+
+  <div class="token-section">
+    <div class="token-title">타이포그래피</div>
+    <table>
+      <tr><th>용도</th><th>폰트</th><th>크기</th><th>굵기</th><th>색상</th></tr>
+      <tr><td>빅 타임 (홈)</td><td>Space Mono</td><td>52px</td><td>700</td><td>#E8E6FF</td></tr>
+      <tr><td>섹션 타이틀</td><td>DM Sans</td><td>22px</td><td>600</td><td>#E8E6FF</td></tr>
+      <tr><td>카드 타이틀</td><td>DM Sans</td><td>16px</td><td>500</td><td>#E8E6FF</td></tr>
+      <tr><td>본문</td><td>DM Sans</td><td>14px</td><td>400</td><td>#AFA9EC</td></tr>
+      <tr><td>캡션</td><td>DM Sans</td><td>12px</td><td>400</td><td>#4a4670</td></tr>
+      <tr><td>시간 표시</td><td>Space Mono</td><td>12px</td><td>400</td><td>#4a4670</td></tr>
+    </table>
+  </div>
+
+  <div class="token-section">
+    <div class="token-title">개발 프롬프트 파일 목록</div>
+    <table>
+      <tr><th>파일명</th><th>내용</th><th>우선순위</th></tr>
+      <tr><td>PROMPT_00_AUDIT_EXISTING.md</td><td>기존 코드 현황 파악 (기존 작업 있을 때)</td><td><span class="tag" style="background:#1a1210;color:#F0997B;">먼저</span></td></tr>
+      <tr><td>PROMPT_01_PROJECT_SETUP.md</td><td>프로젝트 초기 설정, 디렉토리 구조</td><td><span class="tag" style="background:#1a1740;color:#534AB7;">01</span></td></tr>
+      <tr><td>PROMPT_02_DATABASE_SCHEMA.md</td><td>Supabase DB 스키마 + RLS</td><td><span class="tag" style="background:#1a1740;color:#534AB7;">02</span></td></tr>
+      <tr><td>PROMPT_03_VOICE_ENGINE.md</td><td>음성 엔진 (STT + LLM + TTS)</td><td><span class="tag" style="background:#1a1740;color:#534AB7;">03</span></td></tr>
+      <tr><td>PROMPT_04_KOREAN_NLP.md</td><td>한국어 날짜·시간 파싱</td><td><span class="tag" style="background:#1a1740;color:#534AB7;">04</span></td></tr>
+      <tr><td>PROMPT_05~08.md</td><td>이벤트 매칭·소음·피처게이트·홈화면</td><td><span class="tag" style="background:#1a1740;color:#534AB7;">05~08</span></td></tr>
+      <tr><td>PROMPT_09~11.md</td><td>캘린더 4뷰·다가올·설정·온보딩</td><td><span class="tag" style="background:#1a1740;color:#534AB7;">09~11</span></td></tr>
+      <tr><td>PROMPT_12~14.md</td><td>위젯·팀B2B·RevenueCat 결제</td><td><span class="tag" style="background:#1a1740;color:#534AB7;">12~14</span></td></tr>
+    </table>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-logo">YuSay</div>
+  <div class="footer-text">스토리보드 & UI 목업 최종본 · 2026년 5월 · YuSay 프로젝트팀</div>
+  <div class="footer-text">총 28개 화면 · 6개 섹션</div>
+</div>
+
+</body>
+</html>

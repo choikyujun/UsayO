@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.reddit.com)",
+      "Bash(sudo chown -R 502:20 \"/Users/seobang/.npm\")",
+      "Bash(node -e \"const p=require\\('/Users/seobang/.openclaw/workspace/wokytoky/package.json'\\); console.log\\('expo:', p.dependencies.expo, '\\\\nreact-native:', p.dependencies['react-native'], '\\\\nreact:', p.dependencies.react\\)\")",
+      "Bash(node -e \"const p=require\\('/Users/seobang/.openclaw/workspace/wokytoky/package.json'\\); console.log\\(JSON.stringify\\(p.dependencies, null, 2\\)\\)\")",
+      "Bash(node -e \"const p=require\\('./node_modules/expo/package.json'\\); console.log\\('expo:', p.version\\)\")",
+      "Bash(curl -s -H \"Expo-Platform: android\" \"http://172.30.1.88:8081\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('✅ SDK:', d['extra']['expoClient']['sdkVersion'], '| host:', d['extra']['expoGo']['debuggerHost']\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('✅ SDK:', d['extra']['expoClient']['sdkVersion']\\)\")",
+      "Bash(curl -s \"http://localhost:8081/_expo/manifest\" -H \"expo-platform: android\" -H \"expo-runtime-version: exposdk:54.0.0\")",
+      "Bash(curl -s \"http://172.30.1.88:8081/_expo/manifest\" -H \"expo-platform: android\")",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('expo-router:', p.dependencies['expo-router']\\); console.log\\('zustand:', p.dependencies['zustand']\\); console.log\\('nativewind:', p.dependencies['nativewind']\\); console.log\\('tailwindcss:', p.devDependencies?.tailwindcss || p.dependencies?.tailwindcss\\);\")",
+      "Bash(npm ls *)",
+      "Bash(kill %1)",
+      "Bash(node -e \"require\\('@expo/metro-config'\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(python3 -c ' *)",
+      "Bash(node)",
+      "Read(//Users/seobang/.openclaw/node_modules/**)",
+      "Read(//Users/seobang/node_modules/**)",
+      "Bash(python3 -c \"import json,sys; v=json.load\\(sys.stdin\\); print\\('\\\\n'.join\\(v[-10:]\\)\\)\")",
+      "Bash(node -e \"require\\('/Users/seobang/.openclaw/workspace/yusay/node_modules/expo-linking'\\)\")",
+      "Bash(node -e \"require\\('/Users/seobang/.openclaw/workspace/yusay/node_modules/expo-constants'\\)\")",
+      "Bash(awk -F: '{print $1}')",
+      "Bash(curl -s http://localhost:8081/status)",
+      "Bash(lsof -ti:8081)",
+      "Bash(xargs kill -9)",
+      "Bash(rm /Users/seobang/.openclaw/workspace/yusay/components/VoiceOverlay.tsx /Users/seobang/.openclaw/workspace/yusay/navigation/TabNavigator.tsx /Users/seobang/.openclaw/workspace/yusay/navigation/TabBar.tsx)",
+      "Bash(npm list *)",
+      "Bash(wait %1)"
+    ],
+    "additionalDirectories": [
+      "/Users/seobang/.openclaw/workspace/yusay/components"
+    ]
+  }
+}

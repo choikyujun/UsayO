@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "newArchEnabled": true,
+    "name": "YuSay",
+    "slug": "yusay",
+    "scheme": "yusay",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.yusay.app",
+      "supportsTablet": true,
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.yusay.app"]
+      },
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "음성으로 일정을 등록하기 위해 필요합니다.",
+        "NSMicrophoneUsageDescription": "음성으로 일정을 등록하기 위해 필요합니다."
+      }
+    },
+    "android": {
+      "package": "com.yusay.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "./plugins/withYuSayWidgets"
+    ],
+    "jsEngine": "hermes"
+  }
+}

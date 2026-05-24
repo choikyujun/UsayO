@@ -1,0 +1,99 @@
+import * as Speech from 'expo-speech';
+import { ClassifiedIntent } from '../../types';
+
+export class TTSService {
+  async speak(text: string, language = 'ko-KR', rate = 0.95): Promise<void> {
+    return new Promise((resolve, reject) => {
+      Speech.speak(text, {
+        language,
+        rate,
+        onDone: resolve,
+        onError: (e) => reject(new Error(String(e) ?? 'TTS 오류')),
+      });
+    });
+  }
+
+  stop(): void {
+    Speech.stop();
+  }
+
+  generateConfirmMessage(intent: ClassifiedIntent, language = 'ko'): string {
+    if (language !== 'ko') return this.generateEnglishConfirm(intent);
+
+    switch (intent.intent) {
+      case 'CREATE': {
+        const title = intent.title ?? '일정';
+        const dateStr = intent.startDateTime
+          ? this.formatDateTime(intent.startDateTime.date, intent.startDateTime.originalText)
+          : '';
+        const recurStr = intent.startDateTime?.isRecurring ? ' (반복)' : '';
+        return dateStr
+          ? `${dateStr}에 ${title}을 잡았어요${recurStr}. 맞나요?`
+          : `${title}을 추가할까요?`;
+      }
+      case 'UPDATE': {
+        const target = intent.targetEventQuery ?? '일정';
+        if (intent.updateFields?.startDateTime) {
+          const newTime = this.formatDateTime(intent.updateFields.startDateTime.date);
+          return `${target}을(를) ${newTime}으로 바꿀까요?`;
+        }
+        if (intent.updateFields?.title) {
+          return `${target}의 제목을 "${intent.updateFields.title}"으로 바꿀까요?`;
+        }
+        return `${target}을(를) 수정할까요?`;
+      }
+      case 'DELETE': {
+        const target = intent.deleteTargetQuery ?? '이 일정';
+        return `${target}을(를) 삭제할까요?`;
+      }
+      case 'QUERY': {
+        return '일정을 불러올게요.';
+      }
+      default:
+        return '다시 말씀해 주세요.';
+    }
+  }
+
+  generateErrorMessage(type: 'network' | 'lowConfidence' | 'noSpeech' | 'unknown'): string {
+    switch (type) {
+      case 'network': return '인터넷 연결을 확인해주세요.';
+      case 'lowConfidence': return '잘 못 들었어요. 다시 말씀해 주실래요?';
+      case 'noSpeech': return '음성이 감지되지 않았어요. 다시 시도해주세요.';
+      default: return '오류가 발생했어요. 다시 시도해주세요.';
+    }
+  }
+
+  generateSuccessMessage(intent: ClassifiedIntent): string {
+    switch (intent.intent) {
+      case 'CREATE': return `${intent.title ?? '일정'}이 추가됐어요!`;
+      case 'UPDATE': return '일정이 수정됐어요!';
+      case 'DELETE': return '일정이 삭제됐어요.';
+      case 'QUERY': return '';
+      default: return '완료됐어요!';
+    }
+  }
+
+  private formatDateTime(iso: string, originalText?: string): string {
+    if (originalText) return originalText;
+    const d = new Date(iso);
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    const hour = d.getHours();
+    const min = d.getMinutes();
+    const ampm = hour < 12 ? '오전' : '오후';
+    const h12 = hour % 12 || 12;
+    const minStr = min > 0 ? ` ${min}분` : '';
+    return `${month}월 ${day}일 ${ampm} ${h12}시${minStr}`;
+  }
+
+  private generateEnglishConfirm(intent: ClassifiedIntent): string {
+    switch (intent.intent) {
+      case 'CREATE': return `Create "${intent.title}"?`;
+      case 'UPDATE': return `Update "${intent.targetEventQuery}"?`;
+      case 'DELETE': return `Delete "${intent.deleteTargetQuery}"?`;
+      default: return 'Confirm?';
+    }
+  }
+}
+
+export const ttsService = new TTSService();

@@ -1,0 +1,10 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["YuSayWidgetBridgeModule"],
+    "podspecPath": "ios/YuSayWidgetBridge.podspec"
+  },
+  "android": {
+    "modules": ["com.yusay.app.widget.YuSayWidgetBridgeModule"]
+  }
+}
