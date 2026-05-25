@@ -29,17 +29,20 @@ import EventActionSheet, { RecurringDeleteScope } from '../components/EventActio
 import HourGrid from '../components/HourGrid';
 import InlineConfirmCard from '../components/InlineConfirmCard';
 import LunchHint from '../components/LunchHint';
+import VoiceInputOverlay from '../components/VoiceInputOverlay';
 import { useColors } from '../constants/colors';
 import { useDayEvents } from '../hooks/useDayEvents';
 import { useSchedules } from '../hooks/useSchedules';
-import { useVoiceFlow } from '../hooks/useVoiceFlow';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { ttsService } from '../services/voice/TTSService';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   GRID_TOTAL_H,
   getNowY,
   scrollTargetForHour,
+  yToTime,
 } from '../utils/dayViewLayout';
 import { localDateStr } from '../utils/timeHelpers';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
@@ -56,6 +59,7 @@ export default function DayViewScreen() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { ttsEnabled } = useTheme();
 
   // ── Date state ──────────────────────────────────────────────────────
   const todayStr = localDateStr(new Date());
@@ -120,7 +124,7 @@ export default function DayViewScreen() {
   }
 
   // ── Voice flow ──────────────────────────────────────────────────────
-  const voice = useVoiceFlow();
+  const voice = useVoiceInput(ttsEnabled);
 
   // TTS when confirming
   const prevPhase = useRef(voice.phase);
@@ -140,9 +144,18 @@ export default function DayViewScreen() {
     }
   }, [voice.phase]);
 
-  function handleGridLongPress() {
+  function handleGridLongPress(y: number) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    voice.startVoice(
+    const { hours, minutes: rawMin } = yToTime(y);
+    const snappedMin  = Math.round(rawMin / 30) * 30;
+    const finalHour   = snappedMin === 60 ? (hours + 1) % 24 : hours;
+    const finalMin    = snappedMin === 60 ? 0 : snappedMin;
+    const ampm        = finalHour < 12 ? '오전' : '오후';
+    const h12         = finalHour % 12 || 12;
+    const ttsLabel    = `${ampm} ${h12}시${finalMin > 0 ? ` ${finalMin}분` : ''}`;
+
+    voice.startWithPrefill(
+      { dateStr, hour: finalHour, minute: finalMin, ttsLabel },
       intent => applyClassifiedIntent(intent),
       async eventId => undoSave(eventId),
     );
@@ -155,7 +168,7 @@ export default function DayViewScreen() {
 
   const handleVoiceCancel = useCallback(() => {
     ttsService.stop();
-    voice.cancelVoice();
+    voice.cancelVoiceInput();
   }, [voice]);
 
   // ── Date navigation ─────────────────────────────────────────────────
@@ -234,8 +247,11 @@ export default function DayViewScreen() {
             scrollEventThrottle={16}
             contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
           >
-            {/* Long-press on empty area → voice; event blocks absorb their own long-press */}
-            <Pressable onLongPress={handleGridLongPress} delayLongPress={500}>
+            {/* Long-press on empty area → voice with time prefill; event blocks absorb their own */}
+            <Pressable
+              onLongPress={e => handleGridLongPress(e.nativeEvent.locationY)}
+              delayLongPress={500}
+            >
               <View style={{ height: GRID_TOTAL_H }}>
                 <LunchHint  colors={colors} />
                 <DinnerHint colors={colors} />
@@ -259,8 +275,11 @@ export default function DayViewScreen() {
         </ReAnimated.View>
       </GestureDetector>
 
+      {/* ── Long-press voice overlay ─────────────────────────────── */}
+      <VoiceInputOverlay visible={voice.overlayVisible} onCancel={handleVoiceCancel} />
+
       {/* ── Voice overlays ───────────────────────────────────────── */}
-      {voice.phase === 'listening' && (
+      {voice.phase === 'listening' && !voice.overlayVisible && (
         <View style={styles.listenOverlay} pointerEvents="box-none">
           <Text style={[styles.listenLabel, { color: colors.textPrimary }]}>듣고 있어요...</Text>
           <Pressable onPress={handleVoiceCancel} style={[styles.cancelBtn, { borderColor: colors.border }]}>
