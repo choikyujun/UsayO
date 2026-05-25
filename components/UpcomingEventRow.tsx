@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
+import { humanReadableRRule } from '../utils/recurrenceHelpers';
 
 const PADDING_H = 20;
 const TIME_W    = 38;
@@ -31,11 +32,19 @@ export default function UpcomingEventRow({ event, colors, expanded, onTap }: Pro
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={expanded ? undefined : 1}>
-          {event.title}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title} numberOfLines={expanded ? undefined : 1}>
+            {event.title}
+          </Text>
+          {event.is_recurring && (
+            <Text style={[styles.recurIcon, { color: colors.accent }]}>🔁</Text>
+          )}
+        </View>
         {expanded && (
           <View style={styles.expandedArea}>
+            {event.is_recurring && event.recurrence_rule ? (
+              <Text style={styles.meta}>🔁 {humanReadableRRule(event.recurrence_rule)}</Text>
+            ) : null}
             {event.end_at && (
               <Text style={styles.meta}>
                 {formatTimeRow(new Date(event.start_at))} – {formatTimeRow(new Date(event.end_at))}
@@ -83,11 +92,18 @@ function makeStyles(c: AppTheme) {
     content: {
       flex: 1,
     },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems:    'center',
+      gap:           4,
+    },
     title: {
       fontSize:   14,
       color:      c.textSecondary,
       fontWeight: '400',
+      flex:       1,
     },
+    recurIcon: { fontSize: 10 },
     expandedArea: {
       marginTop: 4,
       gap: 2,

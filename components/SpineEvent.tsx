@@ -13,6 +13,7 @@ import Animated, {
 import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
+import { humanReadableRRule } from '../utils/recurrenceHelpers';
 
 const PADDING_H = 20;
 const TIME_W    = 38;
@@ -183,12 +184,17 @@ export default function SpineEvent({
 
             {/* Title + meta */}
             <View style={styles.titleArea}>
-              <Text
-                style={[styles.title, isPast && styles.titleStrike]}
-                numberOfLines={expanded ? undefined : 1}
-              >
-                {event.title}
-              </Text>
+              <View style={styles.titleRow}>
+                <Text
+                  style={[styles.title, isPast && styles.titleStrike]}
+                  numberOfLines={expanded ? undefined : 1}
+                >
+                  {event.title}
+                </Text>
+                {event.is_recurring && (
+                  <Text style={[styles.recurIcon, { color: colors.accent }]}>🔁</Text>
+                )}
+              </View>
 
               {isNext    && <Text style={styles.badge}>다음 일정</Text>}
               {isCurrent && <Text style={[styles.badge, { color: colors.primary }]}>진행 중</Text>}
@@ -200,6 +206,11 @@ export default function SpineEvent({
 
               {expanded && (
                 <View style={styles.expandedArea}>
+                  {event.is_recurring && event.recurrence_rule ? (
+                    <Text style={styles.expandedLine}>
+                      🔁 {humanReadableRRule(event.recurrence_rule)}
+                    </Text>
+                  ) : null}
                   {event.location ? (
                     <Text style={styles.expandedLine}>📍 {event.location}</Text>
                   ) : null}
@@ -209,7 +220,7 @@ export default function SpineEvent({
                   {event.attendees?.length ? (
                     <Text style={styles.expandedLine}>👥 {event.attendees.join(', ')}</Text>
                   ) : null}
-                  {!event.location && !event.description && !event.attendees?.length && (
+                  {!event.is_recurring && !event.location && !event.description && !event.attendees?.length && (
                     <Text style={styles.expandedEmpty}>메모나 장소가 없어요</Text>
                   )}
                 </View>
@@ -264,6 +275,8 @@ function makeStyles(c: AppTheme, state: EventState) {
       marginTop:       isNext ? 1 : 4,
     },
     titleArea:    { flex: 1, gap: 2 },
+    titleRow:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    recurIcon:    { fontSize: 10 },
     title: {
       fontSize:   isNext ? 15 : 13,
       fontWeight: isNext ? '600' : '400',
