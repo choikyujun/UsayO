@@ -48,11 +48,15 @@ export function useEventsForDate(selectedDate: string, anchorYearMonth: string) 
 
       let exceptions: EventException[] = [];
       if (allParents.length > 0) {
-        const { data: exData } = await supabase
-          .from('event_exceptions')
-          .select('*')
-          .in('parent_id', allParents.map(p => p.id));
-        exceptions = (exData ?? []) as EventException[];
+        try {
+          const { data: exData, error: exError } = await supabase
+            .from('event_exceptions')
+            .select('*')
+            .in('parent_id', allParents.map(p => p.id));
+          if (!exError) exceptions = (exData ?? []) as EventException[];
+        } catch {
+          // event_exceptions 테이블 미존재 → 스킵
+        }
       }
 
       const instances = allParents.flatMap(p =>

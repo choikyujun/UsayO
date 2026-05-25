@@ -55,15 +55,19 @@ export function useSchedules(date: string, daysAhead = 0) {
         ...(recurringParents ?? []),
       ];
 
-      // 3. exception 목록 fetch (해당 범위)
+      // 3. exception 목록 fetch — 마이그레이션 미적용 시 조용히 스킵
       const parentIds = allParents.map(p => p.id);
       let exceptions: EventException[] = [];
       if (parentIds.length > 0) {
-        const { data: exData } = await supabase
-          .from('event_exceptions')
-          .select('*')
-          .in('parent_id', parentIds);
-        exceptions = (exData ?? []) as EventException[];
+        try {
+          const { data: exData, error: exError } = await supabase
+            .from('event_exceptions')
+            .select('*')
+            .in('parent_id', parentIds);
+          if (!exError) exceptions = (exData ?? []) as EventException[];
+        } catch {
+          // event_exceptions 테이블 미존재 → 예외 없이 계속
+        }
       }
 
       // 4. 반복 인스턴스 확장
@@ -137,6 +141,10 @@ export function useSchedules(date: string, daysAhead = 0) {
       const endAt = intent.endDateTime?.date
         ?? new Date(new Date(intent.startDateTime.date).getTime() + 3_600_000).toISOString();
 
+      const recurrenceEndDate = intent.startDateTime.recurrenceUntil
+        ? intent.startDateTime.recurrenceUntil.split('T')[0]
+        : undefined;
+
       const payload = {
         user_id: userId,
         title: intent.title ?? '새 일정',
@@ -148,9 +156,8 @@ export function useSchedules(date: string, daysAhead = 0) {
         category: intent.category ?? 'work',
         is_recurring: intent.startDateTime.isRecurring,
         recurrence_rule: intent.startDateTime.recurrenceRule ?? null,
-        recurrence_end_date: intent.startDateTime.recurrenceUntil
-          ? intent.startDateTime.recurrenceUntil.split('T')[0]
-          : null,
+        // recurrence_end_date는 마이그레이션 적용 후 활성화 (없으면 생략)
+        ...(recurrenceEndDate ? { recurrence_end_date: recurrenceEndDate } : {}),
         created_via: 'voice' as const,
         voice_transcript: intent.rawTranscript ?? null,
       };
