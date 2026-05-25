@@ -16,9 +16,11 @@ interface Props {
   onClose: () => void;
   onDelete: (event: Event) => void;
   onDeleteRecurring?: (event: Event, scope: RecurringDeleteScope) => void;
+  onEditTitle?: (event: Event) => void;
+  onEditTime?: (event: Event) => void;
 }
 
-export default function EventActionSheet({ event, onClose, onDelete, onDeleteRecurring }: Props) {
+export default function EventActionSheet({ event, onClose, onDelete, onDeleteRecurring, onEditTitle, onEditTime }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const slideY = useRef(new Animated.Value(320)).current;
@@ -96,8 +98,8 @@ export default function EventActionSheet({ event, onClose, onDelete, onDeleteRec
         {!showRecurringPicker ? (
           <>
             <View style={styles.actions}>
-              <ActionBtn label="시간 변경" Icon={Clock}   onPress={onClose}          colors={colors} />
-              <ActionBtn label="제목 수정" Icon={Pencil}  onPress={onClose}          colors={colors} />
+              <ActionBtn label="시간 변경" Icon={Clock}   onPress={() => { onClose(); onEditTime?.(ev);  }} colors={colors} />
+              <ActionBtn label="제목 수정" Icon={Pencil}  onPress={() => { onClose(); onEditTitle?.(ev); }} colors={colors} />
               <ActionBtn label="알림 설정" Icon={Bell}    onPress={onClose}          colors={colors} />
               <ActionBtn label="카카오로 공유" Icon={Share2} onPress={handleShare}   colors={colors} />
               <ActionBtn label="삭제"      Icon={Trash2}  onPress={handleDeletePress} colors={colors} danger />

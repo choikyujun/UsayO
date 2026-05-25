@@ -23,6 +23,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DayEventBlock from '../components/DayEventBlock';
 import DayNowMarker from '../components/DayNowMarker';
 import DinnerHint from '../components/DinnerHint';
+import EditTimeModal from '../components/EditTimeModal';
+import EditTitleModal from '../components/EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from '../components/EventActionSheet';
 import HourGrid from '../components/HourGrid';
 import InlineConfirmCard from '../components/InlineConfirmCard';
@@ -84,7 +86,9 @@ export default function DayViewScreen() {
   }, [dateStr]);
 
   // ── Action sheet ────────────────────────────────────────────────────
-  const [sheetEvent, setSheetEvent] = useState<Event | null>(null);
+  const [sheetEvent,      setSheetEvent]      = useState<Event | null>(null);
+  const [editTitleEvent,  setEditTitleEvent]  = useState<Event | null>(null);
+  const [editTimeEvent,   setEditTimeEvent]   = useState<Event | null>(null);
 
   function handleDeleteEvent(event: Event) {
     const realId = isVirtualInstance(event.id)
@@ -311,6 +315,18 @@ export default function DayViewScreen() {
         onClose={() => setSheetEvent(null)}
         onDelete={handleDeleteEvent}
         onDeleteRecurring={handleDeleteRecurring}
+        onEditTitle={ev => setEditTitleEvent(ev)}
+        onEditTime={ev  => setEditTimeEvent(ev)}
+      />
+      <EditTitleModal
+        event={editTitleEvent}
+        onClose={() => setEditTitleEvent(null)}
+        onSaved={() => { setEditTitleEvent(null); reload(); }}
+      />
+      <EditTimeModal
+        event={editTimeEvent}
+        onClose={() => setEditTimeEvent(null)}
+        onSaved={() => { setEditTimeEvent(null); reload(); }}
       />
     </View>
   );
