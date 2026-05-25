@@ -119,7 +119,7 @@ export class IntentClassifierService {
   ): Promise<ClassifiedIntent> {
     if (!this.apiKey) {
       console.warn('[Intent] API 키 없음 — regex fallback 사용');
-      return this.regexFallback(transcript);
+      return this.regexFallback(transcript, prefillContext);
     }
 
     const currentDateTime = new Date().toLocaleString('ko-KR', {
@@ -183,7 +183,7 @@ export class IntentClassifierService {
   }
 
   // API 키 없거나 오류 시 기본 regex 분류
-  private regexFallback(text: string): ClassifiedIntent {
+  private regexFallback(text: string, prefillContext?: string): ClassifiedIntent {
     const lower = text;
     let intent: ClassifiedIntent['intent'] = 'CREATE';
     let navigationTarget: ClassifiedIntent['navigationTarget'];
@@ -202,7 +202,36 @@ export class IntentClassifierService {
     else if (/취소|삭제|지워|없애/.test(lower)) intent = 'DELETE';
     else if (/알려줘|보여줘|확인|뭐 있어/.test(lower)) intent = 'QUERY';
 
-    const startDateTime = this.parseDateTime(text);
+    let startDateTime = this.parseDateTime(text);
+
+    // prefillContext로 날짜/시간 보완: 발화에 명시된 날짜/시간이 없으면 prefill 값 적용
+    if (prefillContext && intent !== 'NAVIGATION') {
+      const parts = prefillContext.split(' ');
+      const datePart = parts[0]; // "2026-05-26"
+      const timePart = parts[1]; // "14:30" | undefined
+
+      const hasExplicitDate = this.hasExplicitDate(text);
+      const hasExplicitTime = this.hasExplicitTime(text);
+
+      // 발화에 날짜 없음 → prefill 날짜로 교체
+      // 발화에 시간 없고 prefill에 시간 있음 → prefill 시간으로 교체
+      if (!hasExplicitDate || (!hasExplicitTime && timePart)) {
+        const base = hasExplicitDate
+          ? new Date(startDateTime.date)          // NLP 날짜 유지
+          : new Date(`${datePart}T00:00:00`);     // prefill 날짜 사용
+
+        if (timePart && !hasExplicitTime) {
+          const [h, m] = timePart.split(':').map(Number);
+          base.setHours(h, m, 0, 0);
+          startDateTime = { ...startDateTime, date: base.toISOString(), confidence: 0.95 };
+        } else if (!hasExplicitDate) {
+          // 날짜만 교체, 시간은 NLP 결과 유지
+          const nlp = new Date(startDateTime.date);
+          base.setHours(nlp.getHours(), nlp.getMinutes(), 0, 0);
+          startDateTime = { ...startDateTime, date: base.toISOString() };
+        }
+      }
+    }
 
     return {
       intent,
@@ -224,6 +253,14 @@ export class IntentClassifierService {
       confidence: result.confidence,
       originalText: result.originalText,
     };
+  }
+
+  private hasExplicitTime(text: string): boolean {
+    return /\d+\s*시(\s*\d+\s*분)?|(오전|오후|아침|점심|저녁|밤|새벽|정오|자정|퇴근|출근)/.test(text);
+  }
+
+  private hasExplicitDate(text: string): boolean {
+    return /(내일|모레|오늘|다음\s*주|이번\s*주|\d+\s*월\s*\d+\s*일|\d+일\s*후|월요일|화요일|수요일|목요일|금요일|토요일|일요일)/.test(text);
   }
 
   private extractTitle(text: string, intent: string): string {
