@@ -1,6 +1,5 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -19,10 +18,10 @@ import ReAnimated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AppHeader from '../components/AppHeader';
 import EditTimeModal from '../components/EditTimeModal';
 import EditTitleModal from '../components/EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from '../components/EventActionSheet';
-import ViewTabBar from '../components/ViewTabBar';
 import WeekEventBlock from '../components/WeekEventBlock';
 import WeekGrid from '../components/WeekGrid';
 import WeekHeader from '../components/WeekHeader';
@@ -151,32 +150,20 @@ export default function WeekViewScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      {/* ── Header ────────────────────────────────────────────────── */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-          <ChevronLeft size={22} color={colors.textPrimary} />
-        </Pressable>
+      {/* ── 통합 헤더 ────────────────────────────────────────────── */}
+      <AppHeader currentTab="week" />
 
+      {/* ── 주 범위 + 오늘로 행 ──────────────────────────────────── */}
+      <View style={styles.subHeader}>
         <Text style={[styles.rangeLabel, { color: colors.textPrimary }]}>
           {weekRange}
         </Text>
-
-        {!isCurrentWeek ? (
+        {!isCurrentWeek && (
           <Pressable onPress={goToToday} hitSlop={12} style={styles.todayBtn}>
             <Text style={[styles.todayText, { color: colors.accent }]}>오늘로</Text>
           </Pressable>
-        ) : (
-          <View style={styles.todayBtn} />
         )}
       </View>
-
-      {/* ── View tab bar ──────────────────────────────────────────── */}
-      <ViewTabBar
-        currentView="week"
-        onSelect={view => {
-          if (view === 'day') router.back();
-        }}
-      />
 
       {/* ── Column headers ────────────────────────────────────────── */}
       <WeekHeader days={days} colors={colors} />
@@ -245,18 +232,18 @@ export default function WeekViewScreen() {
 
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    root:   { flex: 1 },
-    header: {
+    root: { flex: 1 },
+    subHeader: {
       flexDirection:     'row',
       alignItems:        'center',
-      paddingHorizontal: 8,
-      paddingBottom:     10,
+      justifyContent:    'space-between',
+      paddingHorizontal: 16,
+      paddingVertical:   6,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
-    backBtn:    { padding: 6, width: 40, alignItems: 'center' },
-    rangeLabel: { flex: 1, textAlign: 'center', fontSize: 14, fontWeight: '600' },
-    todayBtn:   { padding: 6, width: 48, alignItems: 'center' },
+    rangeLabel: { fontSize: 14, fontWeight: '600' },
+    todayBtn:   { paddingHorizontal: 8, paddingVertical: 4 },
     todayText:  { fontSize: 13, fontWeight: '600' },
   });
 }
