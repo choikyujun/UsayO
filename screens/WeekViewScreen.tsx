@@ -19,28 +19,36 @@ import ReAnimated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader from '../components/AppHeader';
+import InlineConfirmCard from '../components/InlineConfirmCard';
 import EditTimeModal from '../components/EditTimeModal';
 import EditTitleModal from '../components/EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from '../components/EventActionSheet';
 import EventDetailSheet from '../components/EventDetailSheet';
+import VoiceInputOverlay from '../components/VoiceInputOverlay';
 import WeekEventBlock from '../components/WeekEventBlock';
 import WeekGrid from '../components/WeekGrid';
 import WeekHeader from '../components/WeekHeader';
 import { useColors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
+import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useWeekEvents } from '../hooks/useWeekEvents';
+import { useSchedules } from '../hooks/useSchedules';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
-import { GRID_TOTAL_H, getNowY, scrollTargetForHour } from '../utils/dayViewLayout';
+import { GRID_TOTAL_H, getNowY, scrollTargetForHour, yToTime, TIME_LABEL_W } from '../utils/dayViewLayout';
 import { localDateStr, todayDateStr } from '../utils/timeHelpers';
-import { formatWeekRange, getWeekDays } from '../utils/weekViewLayout';
+import { formatWeekRange, getWeekDays, COL_W } from '../utils/weekViewLayout';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
 
 const { width: SCREEN_W } = Dimensions.get('window');
+
+const KO_DAYS_FULL = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 
 export default function WeekViewScreen() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { ttsEnabled } = useTheme();
 
   // weekOffset: 0 = this week (starts today), +1 = next week, -1 = last week
   const [weekOffset, setWeekOffset] = useState(0);
@@ -53,6 +61,8 @@ export default function WeekViewScreen() {
 
   const days = useMemo(() => getWeekDays(anchorDate), [anchorDate]);
   const { eventsByDate, loading, reload } = useWeekEvents(days);
+  const { applyClassifiedIntent, undoSave } = useSchedules(days[0] ?? todayDateStr(), 0);
+  const voice = useVoiceInput(ttsEnabled);
 
   // ── NOW tick (minute-level) ─────────────────────────────────────────
   const [tick, setTick] = useState(0);
@@ -140,6 +150,30 @@ export default function WeekViewScreen() {
     opacity:   opacity.value,
   }));
 
+  // ── Grid long-press → voice with date+time prefill ──────────────────
+  function handleGridLongPress(x: number, y: number) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const colIndex  = Math.max(0, Math.min(6, Math.floor((x - TIME_LABEL_W) / COL_W)));
+    const dateStr   = days[colIndex] ?? todayDateStr();
+
+    const { hours, minutes: rawMin } = yToTime(y);
+    const snappedMin = Math.round(rawMin / 30) * 30;
+    const finalHour  = snappedMin === 60 ? (hours + 1) % 24 : hours;
+    const finalMin   = snappedMin === 60 ? 0 : snappedMin;
+
+    const d = new Date(dateStr + 'T00:00:00');
+    const dayName = KO_DAYS_FULL[d.getDay()];
+    const ampm    = finalHour < 12 ? '오전' : '오후';
+    const h12     = finalHour % 12 || 12;
+    const ttsLabel = `${dayName} ${ampm} ${h12}시${finalMin > 0 ? ` ${finalMin}분` : ''}`;
+
+    voice.startWithPrefill(
+      { dateStr, hour: finalHour, minute: finalMin, ttsLabel },
+      intent => applyClassifiedIntent(intent),
+      async eventId => undoSave(eventId),
+    );
+  }
+
   // ── Go to today ─────────────────────────────────────────────────────
   function goToToday() {
     setWeekOffset(0);
@@ -181,9 +215,7 @@ export default function WeekViewScreen() {
             contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
           >
             <Pressable
-              onLongPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              }}
+              onLongPress={e => handleGridLongPress(e.nativeEvent.locationX, e.nativeEvent.locationY)}
               delayLongPress={500}
             >
               <View style={{ height: GRID_TOTAL_H }}>
@@ -235,6 +267,24 @@ export default function WeekViewScreen() {
         event={detailEvent}
         onClose={() => setDetailVisible(false)}
       />
+
+      {/* ── Long-press voice overlay ──────────────────────────────── */}
+      <VoiceInputOverlay
+        visible={voice.overlayVisible}
+        onCancel={() => voice.cancelVoiceInput()}
+      />
+
+      {/* ── Inline confirm card ───────────────────────────────────── */}
+      {voice.phase === 'confirming' && voice.classifiedIntent && (
+        <InlineConfirmCard
+          intent={voice.classifiedIntent}
+          transcript={voice.transcript}
+          onConfirm={async () => {
+            await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
+          }}
+          onCancel={() => voice.cancelVoiceInput()}
+        />
+      )}
     </View>
   );
 }
