@@ -26,7 +26,6 @@ import ReAnimated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmCard from '../components/ConfirmCard';
 import InlineConfirmCard from '../components/InlineConfirmCard';
-import MiniCalendar from '../components/MiniCalendar';
 import TodayEventList from '../components/TodayEventList';
 import VoiceHintCarousel from '../components/VoiceHintCarousel';
 import HybridInputModal from '../components/HybridInputModal';
@@ -78,13 +77,29 @@ export default function HomeScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const voice = useVoiceFlow();
 
-  // ── Selected date (mini calendar) ────────────────────────────
-  const [selectedDate, setSelectedDate] = useState(TODAY);
-  const [anchorMonth, setAnchorMonth]   = useState(() => toYearMonth(new Date()));
+  // ── Selected date ─────────────────────────────────────────────
+  const [selectedDate] = useState(TODAY);
+  const anchorMonth = useMemo(() => toYearMonth(new Date(selectedDate + 'T00:00:00')), [selectedDate]);
 
-  // Events for the selected date + calendar dot counts for the anchor month
+  // ── Clock ──────────────────────────────────────────────────────
+  const DAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+  const formatTime = (d: Date) => `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const formatDate = (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}`;
+  const [currentTime, setCurrentTime] = useState(() => formatTime(new Date()));
+  const [dateLabel,   setDateLabel]   = useState(() => formatDate(new Date()));
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = new Date();
+      setCurrentTime(formatTime(now));
+      setDateLabel(formatDate(now));
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Events for the selected date
   const {
-    events, loading, monthCounts, reload: reloadForDate,
+    events, loading, reload: reloadForDate,
   } = useEventsForDate(selectedDate, anchorMonth);
 
   // CRUD-only: voice commands, undo, lastCreatedId
@@ -295,14 +310,13 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* ── 미니 캘린더 ──────────────────────────────────────────── */}
-        <MiniCalendar
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-          onMonthChange={setAnchorMonth}
-          monthCounts={monthCounts}
-          paddingTop={insets.top + 8}
-        />
+        {/* ── 헤더: 날짜(탭) + 시각 ───────────────────────────────────── */}
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+          <Pressable onPress={() => router.push('/calendar')} hitSlop={12}>
+            <Text style={styles.dateLink}>{dateLabel}</Text>
+          </Pressable>
+          <Text style={styles.bigTime}>{currentTime}</Text>
+        </View>
 
         <UsageWarningBanner feature="voice_create" />
         <VoiceHintCarousel isVoiceActive={isVoiceActive} />
@@ -483,6 +497,23 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       justifyContent: 'center',
       borderWidth: 1,
       borderColor: c.border,
+    },
+    header: {
+      paddingHorizontal: 20,
+      paddingBottom: 16,
+      alignItems: 'flex-start',
+    },
+    dateLink: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: c.textMuted,
+    },
+    bigTime: {
+      fontSize: 56,
+      fontWeight: '700',
+      color: c.textPrimary,
+      letterSpacing: -2,
+      marginTop: 8,
     },
     divider: {
       height: 0.5,
