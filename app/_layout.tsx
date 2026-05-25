@@ -25,10 +25,19 @@ const STEP_ROUTES: Record<string, string> = {
 };
 
 export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <AppRoot />
+    </ThemeProvider>
+  );
+}
+
+// ThemeProvider 안에서 렌더링 — useColors() 사용 가능
+function AppRoot() {
   const colorScheme = useColorScheme();
+  const colors = useColors();
 
   useEffect(() => {
-    // 마이크 권한 + 오디오 세션 사전 초기화 → FAB 탭 시 딜레이 최소화
     audioSessionService.preinit().catch(() => {});
   }, []);
 
@@ -80,17 +89,14 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        <AppStack />
-      </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <AppStack />
     </GestureHandlerRootView>
   );
 }
 
-// ThemeProvider 안에서 useColors() 접근 — Stack 배경을 테마 색으로 덮어
-// 슬라이드 애니메이션 중 흰 배경 노출(깜박임) 방지.
+// Stack 배경도 테마 색으로 — 슬라이드 애니메이션 중 흰 배경 노출 방지
 function AppStack() {
   const colors = useColors();
   return (
