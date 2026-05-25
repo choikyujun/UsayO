@@ -1,4 +1,4 @@
-import { Check, X } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated, KeyboardAvoidingView, Modal, Platform,
@@ -28,33 +28,35 @@ export default function EditTitleModal({ visible, event, onClose, onSaved }: Pro
   console.log('[EditTitleModal] render, visible:', visible, 'event:', event?.id ?? null);
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const slideY = useRef(new Animated.Value(320)).current;
-  const bgOp   = useRef(new Animated.Value(0)).current;
 
-  const [title, setTitle] = useState('');
-  const [saving, setSaving] = useState(false);
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+
+  const [title,           setTitle]           = useState('');
+  const [focused,         setFocused]         = useState(false);
+  const [saving,          setSaving]          = useState(false);
   const [showScopePicker, setShowScopePicker] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   const isRecurring = event ? (event.is_recurring || isVirtualInstance(event.id)) : false;
+  const ev = event;
 
   useEffect(() => {
     if (visible && event) {
       setTitle(event.title);
       setShowScopePicker(false);
+      setFocused(false);
       Animated.parallel([
-        Animated.spring(slideY, { toValue: 0, useNativeDriver: true, tension: 70, friction: 12 }),
-        Animated.timing(bgOp,   { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(fadeAnim,  { toValue: 1,    duration: 200, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true, tension: 200, friction: 20 }),
       ]).start(() => setTimeout(() => inputRef.current?.focus(), 60));
     } else {
       Animated.parallel([
-        Animated.timing(slideY, { toValue: 320, duration: 220, useNativeDriver: true }),
-        Animated.timing(bgOp,   { toValue: 0,   duration: 180, useNativeDriver: true }),
+        Animated.timing(fadeAnim,  { toValue: 0,    duration: 150, useNativeDriver: true }),
+        Animated.timing(scaleAnim, { toValue: 0.95, duration: 150, useNativeDriver: true }),
       ]).start();
     }
   }, [visible]);
-
-  const ev = event;
 
   async function save(scope: Scope) {
     if (!ev || !title.trim() || saving) return;
@@ -67,10 +69,7 @@ export default function EditTitleModal({ visible, event, onClose, onSaved }: Pro
         const realId = isVirtualInstance(ev.id)
           ? (parseInstanceId(ev.id)?.parentId ?? ev.id)
           : ev.id;
-        await supabase
-          .from('events')
-          .update({ title: newTitle, updated_at: now })
-          .eq('id', realId);
+        await supabase.from('events').update({ title: newTitle, updated_at: now }).eq('id', realId);
 
       } else if (scope === 'this') {
         const parsed       = parseInstanceId(ev.id);
@@ -82,12 +81,10 @@ export default function EditTitleModal({ visible, event, onClose, onSaved }: Pro
         );
 
       } else {
-        // 'future': end original + create new recurring event with new title
         const parsed       = parseInstanceId(ev.id);
         const parentId     = parsed?.parentId ?? ev.id;
         const instanceDate = parsed?.instanceDate ?? ev.start_at.split('T')[0];
-
-        const prevDay = new Date(instanceDate + 'T00:00:00');
+        const prevDay      = new Date(instanceDate + 'T00:00:00');
         prevDay.setDate(prevDay.getDate() - 1);
 
         await supabase.from('events')
@@ -97,16 +94,11 @@ export default function EditTitleModal({ visible, event, onClose, onSaved }: Pro
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           await supabase.from('events').insert({
-            user_id:             user.id,
-            title:               newTitle,
-            start_at:            ev.start_at,
-            end_at:              ev.end_at,
-            is_recurring:        ev.is_recurring,
-            recurrence_rule:     ev.recurrence_rule,
+            user_id: user.id, title: newTitle,
+            start_at: ev.start_at, end_at: ev.end_at,
+            is_recurring: ev.is_recurring, recurrence_rule: ev.recurrence_rule,
             recurrence_end_date: ev.recurrence_end_date,
-            color:               ev.color,
-            category:            ev.category,
-            created_via:         'manual' as const,
+            color: ev.color, category: ev.category, created_via: 'manual' as const,
           });
         }
       }
@@ -120,92 +112,100 @@ export default function EditTitleModal({ visible, event, onClose, onSaved }: Pro
 
   function handleSavePress() {
     if (!ev || !title.trim()) return;
-    if (isRecurring) {
-      setShowScopePicker(true);
-    } else {
-      save('all');
-    }
+    if (isRecurring) setShowScopePicker(true);
+    else             save('all');
   }
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <Animated.View style={[styles.backdrop, { opacity: bgOp }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      </Animated.View>
-
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.kav}
-        pointerEvents="box-none"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideY }] }]}>
-          <View style={styles.handle} />
+        {/* ── Dim backdrop ── */}
+        <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} pointerEvents="none" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-          {!showScopePicker ? (
-            <>
-              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>제목 수정</Text>
+        {/* ── Modal card ── */}
+        <View style={styles.centerWrap} pointerEvents="box-none">
+          <Animated.View style={[styles.modal, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
 
-              <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card2 }]}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={[styles.heading, { color: colors.textPrimary }]}>
+                {showScopePicker ? '반복 일정 수정 범위' : '제목 수정'}
+              </Text>
+              <Pressable onPress={onClose} hitSlop={10}>
+                <X size={20} color={colors.textMuted} strokeWidth={1.5} />
+              </Pressable>
+            </View>
+
+            {!showScopePicker ? (
+              <>
+                {/* Input */}
                 <TextInput
                   ref={inputRef}
-                  style={[styles.input, { color: colors.textPrimary }]}
+                  style={[
+                    styles.input,
+                    { color: colors.textPrimary, backgroundColor: colors.card2 },
+                    { borderColor: focused ? colors.primary : colors.border,
+                      borderWidth: focused ? 1.5 : 1 },
+                  ]}
                   value={title}
                   onChangeText={setTitle}
+                  onFocus={() => setFocused(true)}
+                  onBlur={() => setFocused(false)}
                   returnKeyType="done"
                   onSubmitEditing={handleSavePress}
                   selectionColor={colors.primary}
                   placeholder="일정 제목"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={colors.textTertiary}
                 />
-              </View>
 
-              <View style={styles.btnRow}>
-                <Pressable
-                  style={[styles.btn, styles.cancelBtn, { borderColor: colors.border }]}
-                  onPress={onClose}
-                >
-                  <X size={18} color={colors.textMuted} strokeWidth={1.5} />
-                  <Text style={[styles.btnText, { color: colors.textMuted }]}>취소</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.btn, styles.saveBtn, { backgroundColor: title.trim() ? colors.primary : colors.border }]}
-                  onPress={handleSavePress}
-                  disabled={!title.trim() || saving}
-                >
-                  <Check size={18} color="#fff" strokeWidth={2} />
-                  <Text style={[styles.btnText, { color: '#fff' }]}>저장</Text>
-                </Pressable>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>반복 일정 수정 범위</Text>
+                {/* Buttons */}
+                <View style={styles.btnRow}>
+                  <Pressable style={styles.cancelBtn} onPress={onClose}>
+                    <Text style={[styles.cancelText, { color: colors.textSecondary }]}>취소</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.saveBtn, { backgroundColor: title.trim() ? colors.primary : colors.border }]}
+                    onPress={handleSavePress}
+                    disabled={!title.trim() || saving}
+                  >
+                    <Text style={styles.saveBtnText}>저장</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                {/* Scope picker */}
+                <View style={[styles.scopeList, { borderColor: colors.border }]}>
+                  {(['this', 'future', 'all'] as Scope[]).map((scope, i, arr) => (
+                    <Pressable
+                      key={scope}
+                      style={({ pressed }) => [
+                        styles.scopeItem,
+                        i < arr.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+                        { opacity: pressed ? 0.6 : 1 },
+                      ]}
+                      onPress={() => save(scope)}
+                    >
+                      <Text style={[styles.scopeText,
+                        { color: scope === 'this' ? colors.textPrimary : colors.error },
+                      ]}>
+                        {SCOPE_LABELS[scope]}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
 
-              {(['this', 'future', 'all'] as Scope[]).map((scope, i, arr) => (
-                <Pressable
-                  key={scope}
-                  style={({ pressed }) => [
-                    styles.scopeItem,
-                    { borderBottomColor: colors.border, borderBottomWidth: i < arr.length - 1 ? StyleSheet.hairlineWidth : 0 },
-                    { opacity: pressed ? 0.6 : 1 },
-                  ]}
-                  onPress={() => save(scope)}
-                >
-                  <Text style={[styles.scopeText, { color: scope === 'this' ? colors.textPrimary : colors.error }]}>
-                    {SCOPE_LABELS[scope]}
-                  </Text>
+                <Pressable style={styles.cancelBtn} onPress={() => setShowScopePicker(false)}>
+                  <Text style={[styles.cancelText, { color: colors.textSecondary }]}>뒤로</Text>
                 </Pressable>
-              ))}
-
-              <Pressable
-                style={[styles.backBtn, { backgroundColor: colors.card2 }]}
-                onPress={() => setShowScopePicker(false)}
-              >
-                <Text style={[styles.btnText, { color: colors.textMuted }]}>뒤로</Text>
-              </Pressable>
-            </>
-          )}
-        </Animated.View>
+              </>
+            )}
+          </Animated.View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -213,33 +213,50 @@ export default function EditTitleModal({ visible, event, onClose, onSaved }: Pro
 
 function makeStyles(c: AppTheme) {
   return StyleSheet.create({
+    kav:       { flex: 1 },
     backdrop:  { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
-    kav:       { flex: 1, justifyContent: 'flex-end' },
-    sheet: {
-      backgroundColor:     c.card,
-      borderTopLeftRadius: 20, borderTopRightRadius: 20,
-      paddingBottom:       36, paddingHorizontal:    20,
+    centerWrap: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
-    handle: {
-      width: 36, height: 4, borderRadius: 2, backgroundColor: c.border,
-      alignSelf: 'center', marginTop: 12, marginBottom: 16,
+    modal: {
+      width: '85%',
+      backgroundColor: c.card,
+      borderRadius: 20,
+      padding: 24,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.18,
+      shadowRadius: 12,
+      elevation: 8,
     },
-    sectionLabel: { fontSize: 12, fontWeight: '600', marginBottom: 10, letterSpacing: 0.4 },
-    inputWrap:    { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, marginBottom: 16 },
-    input:        { fontSize: 17, paddingVertical: 14 },
-    btnRow:       { flexDirection: 'row', gap: 10 },
-    btn: {
-      flex: 1, flexDirection: 'row', alignItems: 'center',
-      justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12,
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20,
     },
-    cancelBtn: { borderWidth: 1 },
-    saveBtn:   {},
-    btnText:   { fontSize: 16, fontWeight: '600' },
-    scopeItem: { paddingVertical: 17 },
-    scopeText: { fontSize: 16 },
-    backBtn: {
-      marginTop: 12, paddingVertical: 14,
-      borderRadius: 12, alignItems: 'center',
+    heading: { fontSize: 18, fontWeight: '600' },
+    input: {
+      height: 52,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      fontSize: 16,
+      marginBottom: 20,
     },
+    btnRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: 12,
+    },
+    cancelBtn:    { height: 48, paddingHorizontal: 8, justifyContent: 'center' },
+    cancelText:   { fontSize: 16, fontWeight: '500' },
+    saveBtn:      { height: 48, paddingHorizontal: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    saveBtnText:  { fontSize: 16, fontWeight: '600', color: '#fff' },
+    scopeList:    { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, marginBottom: 16, overflow: 'hidden' },
+    scopeItem:    { paddingVertical: 15, paddingHorizontal: 16 },
+    scopeText:    { fontSize: 16 },
   });
 }
