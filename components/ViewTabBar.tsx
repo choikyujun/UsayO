@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { useColors } from '../constants/colors';
 
@@ -26,8 +27,14 @@ export default function ViewTabBar({ currentView, onSelect }: Props) {
   function handlePress(view: CalendarView) {
     if (view === currentView) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (Platform.OS === 'android') {
-      ToastAndroid.show(`${LABEL_MAP[view]} 뷰 준비 중`, ToastAndroid.SHORT);
+    if (view === 'week') {
+      router.push('/week');
+      return;
+    }
+    if (view === 'month' || view === 'year') {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`${LABEL_MAP[view]} 뷰 준비 중`, ToastAndroid.SHORT);
+      }
     }
     onSelect(view);
   }

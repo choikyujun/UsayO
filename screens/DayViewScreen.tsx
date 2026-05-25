@@ -231,7 +231,7 @@ export default function DayViewScreen() {
       </View>
 
       {/* ── View tab bar ─────────────────────────────────────────── */}
-      <ViewTabBar currentView="day" onSelect={() => {}} />
+      <ViewTabBar currentView="day" onSelect={view => { if (view === 'week') router.push('/week'); }} />
 
       {/* ── Grid (swipeable) ─────────────────────────────────────── */}
       <GestureDetector gesture={panGesture}>
