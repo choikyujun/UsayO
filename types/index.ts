@@ -2,11 +2,12 @@
 export type VoiceIntent = 'CREATE' | 'UPDATE' | 'DELETE' | 'QUERY';
 
 export interface ParsedDateTime {
-  date: string;           // ISO8601
+  date: string;             // ISO8601
   isRecurring: boolean;
-  recurrenceRule?: string;
-  confidence: number;     // 0~1
-  originalText?: string;  // "내일 오후 3시"
+  recurrenceRule?: string;  // RRULE 형식
+  recurrenceUntil?: string; // 종료일 ISO8601 (없으면 무한)
+  confidence: number;       // 0~1
+  originalText?: string;    // "내일 오후 3시"
 }
 
 export interface VoiceCommand {

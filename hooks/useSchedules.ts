@@ -148,6 +148,9 @@ export function useSchedules(date: string, daysAhead = 0) {
         category: intent.category ?? 'work',
         is_recurring: intent.startDateTime.isRecurring,
         recurrence_rule: intent.startDateTime.recurrenceRule ?? null,
+        recurrence_end_date: intent.startDateTime.recurrenceUntil
+          ? intent.startDateTime.recurrenceUntil.split('T')[0]
+          : null,
         created_via: 'voice' as const,
         voice_transcript: intent.rawTranscript ?? null,
       };

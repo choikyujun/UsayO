@@ -40,7 +40,19 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
   * 예: 10:30에 "3시 미팅" → 오후로 해석 → 오늘 15:00 (아직 안 지남)
 - 시간 미지정 → 해당 날 09:00, confidence 0.6
 - 날짜 미지정 → 오늘, confidence 0.5
-- 반복: "매주", "매일", "매월" → isRecurring: true, recurrenceRule: RRULE 형식
+- 반복 일정 인식 (isRecurring: true, recurrenceRule에 RRULE 형식 반환):
+  * "매일" → FREQ=DAILY
+  * "매주 월요일" → FREQ=WEEKLY;BYDAY=MO
+  * "매주 화요일, 목요일" → FREQ=WEEKLY;BYDAY=TU,TH
+  * "평일 매일" → FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR
+  * "주말마다" → FREQ=WEEKLY;BYDAY=SA,SU
+  * "매월 15일" → FREQ=MONTHLY;BYMONTHDAY=15
+  * "매월 첫째 월요일" → FREQ=MONTHLY;BYDAY=1MO
+  * "매월 마지막 금요일" → FREQ=MONTHLY;BYDAY=-1FR
+  * "매년" → FREQ=YEARLY
+  * BYDAY 코드: MO=월, TU=화, WE=수, TH=목, FR=금, SA=토, SU=일
+  * recurrenceRule이 있으면 반드시 isRecurring: true 설정
+  * startDateTime.date = 해당 반복 패턴의 첫 번째 발생일 (가장 가까운 미래)
 
 ## 장소·메모·참석자 추출 규칙
 - location: 발화에 명확한 장소("에서", "~에서", "~에서 만나", 특정 건물/카페/역 이름)가 있을 때만 추출. 없으면 반드시 null.
@@ -54,6 +66,18 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 
 발화: "오늘 7시 친구랑 저녁, 카드 챙기기"
 → {"intent":"CREATE","title":"저녁","startDateTime":{"date":"2026-05-25T19:00:00+09:00","isRecurring":false,"confidence":0.9,"originalText":"오늘 7시"},"location":null,"notes":"카드 챙기기","attendees":["친구"],"category":"personal","confidence":0.9}
+
+발화: "매주 월요일 10시 팀 스탠드업"
+→ {"intent":"CREATE","title":"팀 스탠드업","startDateTime":{"date":"2026-05-27T10:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=WEEKLY;BYDAY=MO","confidence":0.98,"originalText":"매주 월요일 10시"},"location":null,"notes":null,"attendees":null,"category":"work","confidence":0.98}
+
+발화: "매일 아침 7시 운동"
+→ {"intent":"CREATE","title":"운동","startDateTime":{"date":"2026-05-26T07:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=DAILY","confidence":0.97,"originalText":"매일 아침 7시"},"location":null,"notes":null,"attendees":null,"category":"personal","confidence":0.97}
+
+발화: "평일 매일 9시 출근"
+→ {"intent":"CREATE","title":"출근","startDateTime":{"date":"2026-05-26T09:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR","confidence":0.97,"originalText":"평일 매일 9시"},"location":null,"notes":null,"attendees":null,"category":"work","confidence":0.97}
+
+발화: "매월 15일 임대료 자동이체"
+→ {"intent":"CREATE","title":"임대료 자동이체","startDateTime":{"date":"2026-06-15T09:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=MONTHLY;BYMONTHDAY=15","confidence":0.96,"originalText":"매월 15일"},"location":null,"notes":null,"attendees":null,"category":"personal","confidence":0.96}
 
 ## 반환 JSON 형식
 {
