@@ -44,7 +44,7 @@ export default function AppHeader({ currentTab }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     if (tab === 'home') {
-      router.dismissAll();
+      router.back();
       return;
     }
     if (tab === 'day') {
