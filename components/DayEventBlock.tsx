@@ -18,6 +18,12 @@ interface Props {
   onComplete:  (event: Event) => void;
 }
 
+function timeRange(startAt: string, endAt: string | null | undefined): string {
+  const s = formatTimeRow(new Date(startAt));
+  if (!endAt) return s;
+  return `${s} — ${formatTimeRow(new Date(endAt))}`;
+}
+
 export default function DayEventBlock({ event, colors, onLongPress, onDelete, onComplete }: Props) {
   const swipeRef = useRef<Swipeable>(null);
   const styles   = useMemo(() => makeStyles(colors), [colors]);
@@ -25,7 +31,7 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
 
   const top    = getEventTop(event.start_at);
   const height = getEventHeight(event.start_at, event.end_at);
-  const isShort = height < 36; // compact display for <36dp events
+  const isShort = height < 30; // < 30dp = under ~30min: single-line compact
 
   function handleSwipeComplete() {
     swipeRef.current?.close();
@@ -43,6 +49,7 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
     <View style={[styles.absoluteWrap, { top, height }]}>
       <Swipeable
         ref={swipeRef}
+        containerStyle={{ flex: 1 }}
         friction={2}
         leftThreshold={60}
         rightThreshold={60}
@@ -72,15 +79,16 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
           delayLongPress={500}
         >
           {isShort ? (
-            // Compact: title + time on one line
             <Text style={styles.compactTitle} numberOfLines={1}>
-              {formatTimeRow(new Date(event.start_at))} {event.title}
+              {event.title} · {timeRange(event.start_at, event.end_at)}
             </Text>
           ) : (
             <>
-              <Text style={styles.blockTime}>{formatTimeRow(new Date(event.start_at))}</Text>
               <Text style={styles.blockTitle} numberOfLines={expanded ? undefined : 2}>
                 {event.title}
+              </Text>
+              <Text style={styles.blockTime}>
+                {timeRange(event.start_at, event.end_at)}
               </Text>
 
               {expanded && (
@@ -120,25 +128,26 @@ function makeStyles(c: AppTheme) {
       flex:             1,
       backgroundColor:  EVENT_COLOR,
       borderRadius:     6,
-      padding:          6,
+      paddingHorizontal: 8,
+      paddingVertical:   6,
       overflow:         'hidden',
-    },
-    blockTime: {
-      fontSize:   10,
-      color:      'rgba(255,255,255,0.75)',
-      fontWeight: '500',
-      marginBottom: 1,
     },
     blockTitle: {
       fontSize:   13,
       color:      '#fff',
-      fontWeight: '600',
-      lineHeight: 17,
+      fontWeight: '500',
+      lineHeight: 18,
+    },
+    blockTime: {
+      fontSize:   11,
+      color:      '#DFDCFE',
+      fontWeight: '400',
+      marginTop:  2,
     },
     compactTitle: {
       fontSize:   11,
       color:      '#fff',
-      fontWeight: '600',
+      fontWeight: '500',
     },
     expandedArea: {
       marginTop: 4,

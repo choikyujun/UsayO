@@ -12,8 +12,9 @@ export function getEventTop(startAt: string): number {
   return timeToY(d.getHours(), d.getMinutes());
 }
 
-export function getEventHeight(startAt: string, endAt: string): number {
-  const durationMin = (new Date(endAt).getTime() - new Date(startAt).getTime()) / 60_000;
+export function getEventHeight(startAt: string, endAt: string | null | undefined): number {
+  const end = endAt ? new Date(endAt).getTime() : new Date(startAt).getTime() + 3_600_000;
+  const durationMin = (end - new Date(startAt).getTime()) / 60_000;
   return Math.max((durationMin / 60) * HOUR_HEIGHT, 20); // minimum 20dp so short events are tappable
 }
 
