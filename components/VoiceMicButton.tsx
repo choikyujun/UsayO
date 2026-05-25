@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Mic } from 'lucide-react-native';
 import { Colors } from '../constants/colors';
 
 type Props = {
@@ -62,19 +63,9 @@ export default function VoiceMicButton({ status, onPress }: Props) {
         {isRecording ? (
           <View style={styles.stopIcon} />
         ) : (
-          <MicIcon />
+          <Mic size={28} color="#fff" strokeWidth={1.75} />
         )}
       </Pressable>
-    </View>
-  );
-}
-
-function MicIcon() {
-  return (
-    <View style={styles.micContainer}>
-      <View style={styles.micBody} />
-      <View style={styles.micBase} />
-      <View style={styles.micStand} />
     </View>
   );
 }
@@ -124,30 +115,5 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 4,
     backgroundColor: '#fff',
-  },
-  micContainer: {
-    alignItems: 'center',
-  },
-  micBody: {
-    width: 18,
-    height: 26,
-    borderRadius: 9,
-    backgroundColor: '#fff',
-  },
-  micBase: {
-    width: 28,
-    height: 14,
-    borderBottomLeftRadius: 14,
-    borderBottomRightRadius: 14,
-    borderTopWidth: 0,
-    borderWidth: 3,
-    borderColor: '#fff',
-    marginTop: 2,
-  },
-  micStand: {
-    width: 3,
-    height: 6,
-    backgroundColor: '#fff',
-    marginTop: 1,
   },
 });

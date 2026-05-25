@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Settings2 } from 'lucide-react-native';
+import { Mic, Settings2 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -441,9 +441,11 @@ export default function HomeScreen() {
             disabled={isVoiceActive}
             hitSlop={isVoiceActive ? undefined : 8}
           >
-            <Text style={[styles.micIcon, voice.phase === 'listening' && styles.micIconLarge]}>
-              🎙
-            </Text>
+            <Mic
+              size={voice.phase === 'listening' ? 34 : 28}
+              color="#fff"
+              strokeWidth={1.75}
+            />
           </Pressable>
         </ReAnimated.View>
 
@@ -502,7 +504,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       alignItems: 'flex-start',
     },
     dateChrome: {
-      marginBottom: 16,
+      marginBottom: 24,
     },
     dateChromeText: {
       fontSize: 12,
@@ -687,8 +689,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       backgroundColor: '#C0392B',
       shadowColor: '#C0392B',
     },
-    micIcon: { fontSize: 26 },
-    micIconLarge: { fontSize: 36 },
     fabLabel: {
       fontSize: 12,
       color: c.accent,
