@@ -41,7 +41,7 @@ import { useVoiceFlow } from '../hooks/useVoiceFlow';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
 import { ttsService } from '../services/voice/TTSService';
 import { ClassifiedIntent, HybridInputState } from '../types';
-import { toYearMonth } from '../utils/dateHelpers';
+import { addDays, toYearMonth } from '../utils/dateHelpers';
 import { todayDateStr } from '../utils/timeHelpers';
 
 const TODAY = todayDateStr();
@@ -95,9 +95,6 @@ export default function HomeScreen() {
     events, loading, reload: reloadForDate, patchEvent,
   } = useEventsForDate(selectedDate, anchorMonth);
 
-  // Conversational header message (재계산: 이벤트 or 매 분)
-  const message = useConversationalMessage(events, currentTime);
-
   // CRUD-only: voice commands, undo, lastCreatedId; events includes D+0~D+7 for upcoming section
   const {
     events: allEvents,
@@ -105,6 +102,20 @@ export default function HomeScreen() {
     rescheduleEvent, undoRescheduleEvent,
     reload: reloadSchedules,
   } = useSchedules(TODAY, 7);
+
+  // First upcoming event for conversational header (오늘이 빈 날 케이스)
+  const firstUpcoming = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const d1 = addDays(todayStart, 1);
+    const d6 = addDays(todayStart, 6);
+    return allEvents
+      .filter(ev => { const s = new Date(ev.start_at); return s >= d1 && s < d6; })
+      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0];
+  }, [allEvents]);
+
+  // Conversational header message (재계산: 이벤트 or 매 분)
+  const message = useConversationalMessage(events, currentTime, firstUpcoming);
 
   // ── Reschedule undo state ─────────────────────────────────────
   interface RescheduledItem {

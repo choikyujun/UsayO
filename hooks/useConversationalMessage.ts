@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Event } from '../types/database';
+import { formatRelativeDay } from '../utils/dateHelpers';
 
 export interface ConversationalMessage {
   primary:   string;
@@ -18,13 +19,20 @@ function formatTimeUntil(isoStr: string, now: Date): string {
   return rem === 0 ? `${hours}시간 후` : `${hours}시간 ${rem}분 후`;
 }
 
+function formatHHMM(isoStr: string): string {
+  const d = new Date(isoStr);
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 /**
  * 오늘 일정 목록과 현재 시각(tick)을 받아 자연어 메시지를 반환.
  * tick 이 매 분 바뀌면 재계산됨.
+ * firstUpcoming: 오늘이 비었을 때 D+1~D+5 중 가장 빠른 일정 (optional)
  */
 export function useConversationalMessage(
-  events: Event[],
-  tick:   string,
+  events:        Event[],
+  tick:          string,
+  firstUpcoming?: Event,
 ): ConversationalMessage {
   return useMemo(() => {
     const now   = new Date();
@@ -44,6 +52,14 @@ export function useConversationalMessage(
 
     // 1. 빈 날
     if (events.length === 0) {
+      if (firstUpcoming) {
+        const dayLabel = formatRelativeDay(new Date(firstUpcoming.start_at));
+        const time     = formatHHMM(firstUpcoming.start_at);
+        return {
+          primary:   '오늘은 비어있어요.',
+          secondary: `${dayLabel} 첫 일정은 ${time}, ${firstUpcoming.title}이에요.`,
+        };
+      }
       return {
         primary:   '오늘은 비어있어요.',
         secondary: '마이크로 새 일정을 더해보세요.',
@@ -89,5 +105,5 @@ export function useConversationalMessage(
       primary:   `오늘 일정 ${events.length}개 있어요.`,
       secondary: `다음은 ${formatTimeUntil(next.start_at, now)}, ${next.title}이에요.`,
     };
-  }, [events, tick]);
+  }, [events, tick, firstUpcoming]);
 }
