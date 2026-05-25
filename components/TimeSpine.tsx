@@ -144,8 +144,8 @@ export default function TimeSpine({
       if (isCompleted || endMs < nowMs) {
         state = 'past';
       } else if (startMs <= nowMs && endMs > nowMs) {
-        state    = 'current';
-        nowInserted = true;
+        // Current event: do NOT set nowInserted — NOW marker must appear after this event
+        state = 'current';
       } else if (nowInserted && !nextAssigned) {
         state        = 'next';
         nextAssigned = true;
