@@ -25,9 +25,10 @@ function timeRange(startAt: string, endAt: string | null | undefined): string {
 }
 
 export default function DayEventBlock({ event, colors, onLongPress, onDelete, onComplete }: Props) {
-  const swipeRef = useRef<Swipeable>(null);
-  const styles   = useMemo(() => makeStyles(colors), [colors]);
-  const [expanded, setExpanded] = useState(false);
+  const swipeRef  = useRef<Swipeable>(null);
+  const styles    = useMemo(() => makeStyles(colors), [colors]);
+  const [expanded,  setExpanded]  = useState(false);
+  const [completed, setCompleted] = useState(false);
 
   const top    = getEventTop(event.start_at);
   const height = getEventHeight(event.start_at, event.end_at);
@@ -36,7 +37,8 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
   function handleSwipeComplete() {
     swipeRef.current?.close();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onComplete(event);
+    setCompleted(true);
+    onComplete(event); // parent is currently a no-op; wired for future completed_at column
   }
 
   function handleSwipeDelete() {
@@ -46,7 +48,7 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
   }
 
   return (
-    <View style={[styles.absoluteWrap, { top, height }]}>
+    <View style={[styles.absoluteWrap, { top, height, opacity: completed ? 0.45 : 1 }]}>
       <Swipeable
         ref={swipeRef}
         containerStyle={{ flex: 1 }}
@@ -79,12 +81,12 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
           delayLongPress={500}
         >
           {isShort ? (
-            <Text style={styles.compactTitle} numberOfLines={1}>
+            <Text style={[styles.compactTitle, completed && styles.strikethrough]} numberOfLines={1}>
               {event.title} · {timeRange(event.start_at, event.end_at)}
             </Text>
           ) : (
             <>
-              <Text style={styles.blockTitle} numberOfLines={expanded ? undefined : 2}>
+              <Text style={[styles.blockTitle, completed && styles.strikethrough]} numberOfLines={expanded ? undefined : 2}>
                 {event.title}
               </Text>
               <Text style={styles.blockTime}>
@@ -142,6 +144,10 @@ function makeStyles(c: AppTheme) {
       color:      '#DFDCFE',
       fontWeight: '400',
       marginTop:  2,
+    },
+    strikethrough: {
+      textDecorationLine: 'line-through',
+      textDecorationColor: 'rgba(255,255,255,0.6)',
     },
     compactTitle: {
       fontSize:   11,

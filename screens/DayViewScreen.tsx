@@ -110,13 +110,9 @@ export default function DayViewScreen() {
     reload();
   }
 
-  function handleCompleteEvent(event: Event) {
-    // Mark as completed — soft-delete for now (no completed_at column yet)
-    const realId = isVirtualInstance(event.id)
-      ? (parseInstanceId(event.id)?.parentId ?? event.id)
-      : event.id;
-    supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', realId).then(() => {});
-    reload();
+  function handleCompleteEvent(_event: Event) {
+    // Visual completion state is handled locally inside DayEventBlock.
+    // DB write deferred until completed_at column is added.
   }
 
   // ── Voice flow ──────────────────────────────────────────────────────
