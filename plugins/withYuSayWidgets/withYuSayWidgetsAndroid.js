@@ -69,7 +69,7 @@ function withYuSayWidgetsAndroid(config) {
       }
 
       fs.copyFileSync(
-        path.join(MODULE_SRC, 'YuSayWidgetBridgeModule.kt'),
+        path.join(MODULE_SRC, 'src', 'main', 'java', 'com', 'yusay', 'app', 'widget', 'YuSayWidgetBridgeModule.kt'),
         path.join(javaDir, 'YuSayWidgetBridgeModule.kt'),
       );
 
