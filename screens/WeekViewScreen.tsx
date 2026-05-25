@@ -39,6 +39,7 @@ import { GRID_TOTAL_H, getNowY, scrollTargetForHour, yToTime, TIME_LABEL_W } fro
 import { localDateStr, todayDateStr } from '../utils/timeHelpers';
 import { formatWeekRange, getWeekDays, COL_W } from '../utils/weekViewLayout';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { useCurrentDate } from '../hooks/useCurrentDate';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -50,14 +51,16 @@ export default function WeekViewScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { ttsEnabled } = useTheme();
 
+  const { today } = useCurrentDate();
+
   // weekOffset: 0 = this week (starts today), +1 = next week, -1 = last week
   const [weekOffset, setWeekOffset] = useState(0);
 
   const anchorDate = useMemo(() => {
-    const d = new Date();
+    const d = new Date(today);
     d.setDate(d.getDate() + weekOffset * 7);
     return d;
-  }, [weekOffset]);
+  }, [today, weekOffset]);
 
   const days = useMemo(() => getWeekDays(anchorDate), [anchorDate]);
   const { eventsByDate, loading, reload } = useWeekEvents(days);

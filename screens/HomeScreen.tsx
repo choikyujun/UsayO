@@ -45,9 +45,7 @@ import { quotaTracker } from '../services/subscription/QuotaTracker';
 import { ttsService } from '../services/voice/TTSService';
 import { ClassifiedIntent, HybridInputState } from '../types';
 import { addDays, toYearMonth } from '../utils/dateHelpers';
-import { todayDateStr } from '../utils/timeHelpers';
-
-const TODAY = todayDateStr();
+import { useCurrentDate } from '../hooks/useCurrentDate';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const FAB_SMALL = 64;
 const FAB_LARGE = 160;
@@ -73,7 +71,7 @@ export default function HomeScreen() {
   const voice = useVoiceFlow();
 
   // ── Selected date ─────────────────────────────────────────────
-  const [selectedDate] = useState(TODAY);
+  const { todayStr: selectedDate } = useCurrentDate();
   const anchorMonth = useMemo(() => toYearMonth(new Date(selectedDate + 'T00:00:00')), [selectedDate]);
 
   // ── Clock ──────────────────────────────────────────────────────
@@ -97,7 +95,7 @@ export default function HomeScreen() {
     lastCreatedId, applyClassifiedIntent, undoSave,
     rescheduleEvent, undoRescheduleEvent,
     reload: reloadSchedules,
-  } = useSchedules(TODAY, 7);
+  } = useSchedules(selectedDate, 7);
 
   const recurringEvents = useRecurringEvents(recurringParents);
 

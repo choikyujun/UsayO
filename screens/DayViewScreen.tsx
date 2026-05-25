@@ -46,6 +46,7 @@ import {
 } from '../utils/dayViewLayout';
 import { localDateStr } from '../utils/timeHelpers';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { useCurrentDate } from '../hooks/useCurrentDate';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -62,8 +63,8 @@ export default function DayViewScreen() {
   const { ttsEnabled } = useTheme();
 
   // ── Date state ──────────────────────────────────────────────────────
-  const todayStr = localDateStr(new Date());
-  const [dateStr, setDateStr] = useState(todayStr);
+  const { todayStr } = useCurrentDate();
+  const [dateStr, setDateStr] = useState(() => localDateStr(new Date()));
   const isToday = dateStr === todayStr;
 
   // ── Data ────────────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ import { useSchedules } from '../hooks/useSchedules';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { localDateStr } from '../utils/timeHelpers';
 import { formatMonthLabel, getMonthGrid } from '../utils/monthViewLayout';
+import { useCurrentDate } from '../hooks/useCurrentDate';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -31,9 +32,9 @@ export default function MonthViewScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { ttsEnabled } = useTheme();
 
-  const today = new Date();
-  const [year,  setYear]  = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1);
+  const { today } = useCurrentDate();
+  const [year,  setYear]  = useState(() => new Date().getFullYear());
+  const [month, setMonth] = useState(() => new Date().getMonth() + 1);
 
   const cells        = useMemo(() => getMonthGrid(year, month), [year, month]);
   const { eventsByDate, reload } = useMonthEvents(year, month);

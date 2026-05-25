@@ -23,6 +23,7 @@ import {
 } from '../components/calendar/calendarUtils';
 import { AppTheme, useColors } from '../constants/colors';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
+import { useCurrentDate } from '../hooks/useCurrentDate';
 import { Event } from '../types/database';
 
 type Tab = 'week' | 'month' | 'ai';
@@ -78,6 +79,7 @@ function dDayFrom(event: Event): number {
 export default function UpcomingScreen() {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  useCurrentDate(); // triggers re-render at midnight to refresh "today/tomorrow" labels
 
   const [tab, setTab] = useState<Tab>('week');
   const fadeAnim = useRef(new Animated.Value(1)).current;

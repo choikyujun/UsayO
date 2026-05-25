@@ -13,6 +13,7 @@ import {
 } from '../components/calendar/calendarUtils';
 import { AppTheme, useColors } from '../constants/colors';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
+import { useCurrentDate } from '../hooks/useCurrentDate';
 
 type ViewType = 'day' | 'week' | 'month' | 'year';
 
@@ -26,14 +27,14 @@ export default function CalendarScreen() {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const today     = new Date();
-  const todayStr  = toDateStr(today);
+  const { today }  = useCurrentDate();
+  const todayStr   = toDateStr(today);
 
   const [view, setView]           = useState<ViewType>('month');
-  const [year, setYear]           = useState(today.getFullYear());
-  const [month, setMonth]         = useState(today.getMonth());
-  const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [weekStart, setWeekStart] = useState<Date>(getWeekStart(today));
+  const [year, setYear]           = useState(() => new Date().getFullYear());
+  const [month, setMonth]         = useState(() => new Date().getMonth());
+  const [selectedDate, setSelectedDate] = useState(() => toDateStr(new Date()));
+  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
 
   const fadeAnim  = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
