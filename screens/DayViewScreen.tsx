@@ -27,6 +27,7 @@ import EventActionSheet, { RecurringDeleteScope } from '../components/EventActio
 import HourGrid from '../components/HourGrid';
 import InlineConfirmCard from '../components/InlineConfirmCard';
 import LunchHint from '../components/LunchHint';
+import ViewTabBar from '../components/ViewTabBar';
 import { useColors } from '../constants/colors';
 import { useDayEvents } from '../hooks/useDayEvents';
 import { useSchedules } from '../hooks/useSchedules';
@@ -227,6 +228,9 @@ export default function DayViewScreen() {
           <View style={styles.todayBtn} />
         )}
       </View>
+
+      {/* ── View tab bar ─────────────────────────────────────────── */}
+      <ViewTabBar currentView="day" onSelect={() => {}} />
 
       {/* ── Grid (swipeable) ─────────────────────────────────────── */}
       <GestureDetector gesture={panGesture}>
