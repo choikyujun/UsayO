@@ -1,4 +1,4 @@
-import { Calendar, Check, MapPin, RefreshCw } from 'lucide-react-native';
+import { Calendar, Check, FileText, MapPin, RefreshCw, Users } from 'lucide-react-native';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useEffect, useRef } from 'react';
 import { Colors } from '../constants/colors';
@@ -51,7 +51,7 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry }: 
       <View style={styles.details}>
         {!!title && (
           <View style={styles.detailRow}>
-            <MapPin size={16} color={Colors.textMuted} />
+            <FileText size={16} color={Colors.textMuted} />
             <Text style={styles.detailText}>{title}</Text>
           </View>
         )}
@@ -71,6 +71,20 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry }: 
           <View style={styles.detailRow}>
             <MapPin size={16} color={Colors.accent} />
             <Text style={styles.detailText}>{intent.location}</Text>
+          </View>
+        )}
+        {!!intent.notes && (
+          <View style={styles.detailRow}>
+            <FileText size={16} color={Colors.textMuted} />
+            <Text style={[styles.detailText, styles.detailMuted]}>{intent.notes}</Text>
+          </View>
+        )}
+        {!!intent.attendees?.length && (
+          <View style={styles.detailRow}>
+            <Users size={16} color={Colors.textMuted} />
+            <Text style={[styles.detailText, styles.detailMuted]}>
+              {intent.attendees.join(', ')}
+            </Text>
           </View>
         )}
       </View>
@@ -146,6 +160,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.text,
     flex: 1,
+  },
+  detailMuted: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: Colors.textMuted,
   },
   actions: {
     flexDirection: 'row',

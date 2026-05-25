@@ -1,4 +1,4 @@
-import { Calendar, MapPin, RefreshCw } from 'lucide-react-native';
+import { Calendar, FileText, MapPin, RefreshCw, Users } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
@@ -201,7 +201,7 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
           <View style={styles.details}>
             {!!title && (
               <View style={styles.detailRow}>
-                <MapPin size={16} color={colors.textMuted} />
+                <FileText size={16} color={colors.textMuted} />
                 <Text style={styles.detailText}>{title}</Text>
               </View>
             )}
@@ -215,6 +215,26 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
               <View style={styles.detailRow}>
                 <RefreshCw size={16} color={colors.textMuted} />
                 <Text style={styles.detailText}>반복 일정</Text>
+              </View>
+            )}
+            {!!intent.location && (
+              <View style={styles.detailRow}>
+                <MapPin size={16} color={colors.accent} />
+                <Text style={styles.detailText}>{intent.location}</Text>
+              </View>
+            )}
+            {!!intent.notes && (
+              <View style={styles.detailRow}>
+                <FileText size={16} color={colors.textMuted} />
+                <Text style={[styles.detailText, styles.detailMuted]}>{intent.notes}</Text>
+              </View>
+            )}
+            {!!intent.attendees?.length && (
+              <View style={styles.detailRow}>
+                <Users size={16} color={colors.textMuted} />
+                <Text style={[styles.detailText, styles.detailMuted]}>
+                  {intent.attendees.join(', ')}
+                </Text>
               </View>
             )}
           </View>
@@ -292,6 +312,11 @@ function makeStyles(c: AppTheme) {
       fontWeight: '600',
       color: c.textPrimary,
       flex: 1,
+    },
+    detailMuted: {
+      fontSize: 14,
+      fontWeight: '400',
+      color: c.textMuted,
     },
     footer: {
       alignItems: 'center',
