@@ -15,6 +15,8 @@ import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { todayDateStr } from '../utils/timeHelpers';
 import EmptyTodayState from './EmptyTodayState';
+import EditTimeModal from './EditTimeModal';
+import EditTitleModal from './EditTitleModal';
 import EventActionSheet from './EventActionSheet';
 import EventGroupHeader from './EventGroupHeader';
 import EventRow from './EventRow';
@@ -44,7 +46,10 @@ export default function TodayEventList({
   const [hiddenIds,    setHiddenIds]    = useState<Set<string>>(new Set());
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [deletedItem,  setDeletedItem]  = useState<DeletedItem | null>(null);
-  const [sheetEvent,   setSheetEvent]   = useState<Event | null>(null);
+  const [sheetEvent,       setSheetEvent]       = useState<Event | null>(null);
+  const [editEvent,        setEditEvent]        = useState<Event | null>(null);
+  const [editTitleVisible, setEditTitleVisible] = useState(false);
+  const [editTimeVisible,  setEditTimeVisible]  = useState(false);
   const toastOpacity = useRef(new Animated.Value(0)).current;
 
   // Filter hidden events (soft-deleted but undoable)
@@ -192,6 +197,20 @@ export default function TodayEventList({
         event={sheetEvent}
         onClose={() => setSheetEvent(null)}
         onDelete={handleDelete}
+        onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
+        onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
+      />
+      <EditTitleModal
+        visible={editTitleVisible}
+        event={editEvent}
+        onClose={() => setEditTitleVisible(false)}
+        onSaved={() => { setEditTitleVisible(false); onRefresh?.(); }}
+      />
+      <EditTimeModal
+        visible={editTimeVisible}
+        event={editEvent}
+        onClose={() => setEditTimeVisible(false)}
+        onSaved={() => { setEditTimeVisible(false); onRefresh?.(); }}
       />
     </View>
   );

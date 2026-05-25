@@ -25,6 +25,8 @@ import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
 import SpineEvent from './SpineEvent';
 import type { EventState } from './SpineEvent';
 import EmptyTodayState from './EmptyTodayState';
+import EditTimeModal from './EditTimeModal';
+import EditTitleModal from './EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from './EventActionSheet';
 
 export type { EventState };
@@ -76,7 +78,10 @@ export default function TimeSpine({
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [expandedIds,  setExpandedIds]  = useState<Set<string>>(new Set());
   const [deletedItem,  setDeletedItem]  = useState<DeletedItem | null>(null);
-  const [sheetEvent,   setSheetEvent]   = useState<Event | null>(null);
+  const [sheetEvent,       setSheetEvent]       = useState<Event | null>(null);
+  const [editEvent,        setEditEvent]        = useState<Event | null>(null);
+  const [editTitleVisible, setEditTitleVisible] = useState(false);
+  const [editTimeVisible,  setEditTimeVisible]  = useState(false);
   const toastOpacity = useRef(new Animated.Value(0)).current;
 
   // Clock tick — spineItems recalculate every minute
@@ -355,6 +360,20 @@ export default function TimeSpine({
         onClose={() => setSheetEvent(null)}
         onDelete={handleDelete}
         onDeleteRecurring={handleDeleteRecurring}
+        onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
+        onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
+      />
+      <EditTitleModal
+        visible={editTitleVisible}
+        event={editEvent}
+        onClose={() => setEditTitleVisible(false)}
+        onSaved={() => { setEditTitleVisible(false); onRefresh?.(); }}
+      />
+      <EditTimeModal
+        visible={editTimeVisible}
+        event={editEvent}
+        onClose={() => setEditTimeVisible(false)}
+        onSaved={() => { setEditTimeVisible(false); onRefresh?.(); }}
       />
     </View>
   );

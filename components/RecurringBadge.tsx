@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { todayDateStr } from '../utils/timeHelpers';
 import RecurringEventRow from './RecurringEventRow';
+import EditTimeModal from './EditTimeModal';
+import EditTitleModal from './EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from './EventActionSheet';
 
 if (Platform.OS === 'android') {
@@ -22,7 +24,10 @@ export default function RecurringBadge({ events }: Props) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [expanded, setExpanded] = useState(false);
-  const [sheetEvent, setSheetEvent] = useState<Event | null>(null);
+  const [sheetEvent,       setSheetEvent]       = useState<Event | null>(null);
+  const [editEvent,        setEditEvent]        = useState<Event | null>(null);
+  const [editTitleVisible, setEditTitleVisible] = useState(false);
+  const [editTimeVisible,  setEditTimeVisible]  = useState(false);
 
   if (events.length === 0) return null;
 
@@ -64,6 +69,8 @@ export default function RecurringBadge({ events }: Props) {
       <EventActionSheet
         event={sheetEvent}
         onClose={() => setSheetEvent(null)}
+        onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
+        onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
         onDelete={ev => {
           supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', ev.id).then(() => {});
         }}
@@ -77,6 +84,18 @@ export default function RecurringBadge({ events }: Props) {
             supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', ev.id).then(() => {});
           }
         }}
+      />
+      <EditTitleModal
+        visible={editTitleVisible}
+        event={editEvent}
+        onClose={() => setEditTitleVisible(false)}
+        onSaved={() => setEditTitleVisible(false)}
+      />
+      <EditTimeModal
+        visible={editTimeVisible}
+        event={editEvent}
+        onClose={() => setEditTimeVisible(false)}
+        onSaved={() => setEditTimeVisible(false)}
       />
     </View>
   );
