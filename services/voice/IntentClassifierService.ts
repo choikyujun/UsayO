@@ -115,6 +115,7 @@ export class IntentClassifierService {
     transcript: string,
     language = 'ko',
     userTimezone = 'Asia/Seoul',
+    prefillContext?: string,
   ): Promise<ClassifiedIntent> {
     if (!this.apiKey) {
       console.warn('[Intent] API 키 없음 — regex fallback 사용');
@@ -146,7 +147,9 @@ export class IntentClassifierService {
           messages: [
             {
               role: 'user',
-              content: `발화 (언어: ${language}): "${transcript}"`,
+              content: prefillContext
+                ? `발화 (언어: ${language}): "${transcript}" [기본 날짜/시간: ${prefillContext}, 발화에서 날짜·시간이 명시되지 않으면 이 값을 사용]`
+                : `발화 (언어: ${language}): "${transcript}"`,
             },
           ],
         }),

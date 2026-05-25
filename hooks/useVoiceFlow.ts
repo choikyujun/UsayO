@@ -16,9 +16,10 @@ type OnUndo     = (eventId: string) => Promise<void>;
 export function useVoiceFlow() {
   const store = useVoiceStore();
 
-  // onAutoSave / onUndo refs — startVoice 호출 시 저장, onAutoStop에서 참조
-  const onAutoSaveRef = useRef<OnAutoSave | undefined>(undefined);
-  const onUndoRef     = useRef<OnUndo | undefined>(undefined);
+  // onAutoSave / onUndo / prefillContext refs — startVoice 호출 시 저장, onAutoStop에서 참조
+  const onAutoSaveRef     = useRef<OnAutoSave | undefined>(undefined);
+  const onUndoRef         = useRef<OnUndo | undefined>(undefined);
+  const prefillContextRef = useRef<string | undefined>(undefined);
 
   const processUriRef = useRef<
     ((uri: string | null, onAutoSave?: OnAutoSave, onUndo?: OnUndo) => Promise<void>) | null
@@ -36,9 +37,11 @@ export function useVoiceFlow() {
   const startVoice = useCallback(async (
     onAutoSave?: OnAutoSave,
     onUndo?: OnUndo,
+    prefillContext?: string,
   ) => {
-    onAutoSaveRef.current = onAutoSave;
-    onUndoRef.current     = onUndo;
+    onAutoSaveRef.current     = onAutoSave;
+    onUndoRef.current         = onUndo;
+    prefillContextRef.current = prefillContext;
     store.reset();
 
     try {
@@ -80,7 +83,8 @@ export function useVoiceFlow() {
     }
 
     console.log('[VoiceFlow] STT triggered:', uri);
-    const result = await runVoiceFlow(uri);
+    const result = await runVoiceFlow(uri, { prefillContext: prefillContextRef.current });
+    prefillContextRef.current = undefined;
     console.log('[VoiceFlow] intent classified:', result.intent);
 
     if (!result.success || !result.intent) {

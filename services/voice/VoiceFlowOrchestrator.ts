@@ -24,13 +24,14 @@ export interface VoiceFlowOptions {
   language?: string;
   timezone?: string;
   skipTTS?: boolean;
+  prefillContext?: string;
 }
 
 export async function runVoiceFlow(
   audioUri: string,
   options: VoiceFlowOptions = {},
 ): Promise<VoiceFlowResult> {
-  const { language = 'ko', timezone = 'Asia/Seoul', skipTTS = false } = options;
+  const { language = 'ko', timezone = 'Asia/Seoul', skipTTS = false, prefillContext } = options;
 
   // 1. STT 변환
   let sttResult: STTResult;
@@ -59,7 +60,7 @@ export async function runVoiceFlow(
   // 3. LLM 인텐트 분류
   let intent: ClassifiedIntent;
   try {
-    intent = await intentService.classify(sttResult.transcript, language, timezone);
+    intent = await intentService.classify(sttResult.transcript, language, timezone, prefillContext);
   } catch (e) {
     const message = e instanceof Error ? e.message : '인텐트 분류 실패';
     if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('network'));

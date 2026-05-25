@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 
 const STORAGE_KEY_ACCENT = 'accent_color';
 const STORAGE_KEY_HINT  = 'hint_enabled';
+const STORAGE_KEY_TTS   = 'voice_tts_enabled';
 
 // Per-mode color variant for each theme
 interface ThemeVariant {
@@ -56,6 +57,8 @@ interface ThemeContextValue {
   setAccentId: (id: string) => void;
   hintEnabled: boolean;
   toggleHint:  () => void;
+  ttsEnabled:  boolean;
+  toggleTTS:   () => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
@@ -63,19 +66,24 @@ const ThemeContext = createContext<ThemeContextValue>({
   setAccentId: () => {},
   hintEnabled: true,
   toggleHint:  () => {},
+  ttsEnabled:  true,
+  toggleTTS:   () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [accentId, setAccentIdState]         = useState('purple');
   const [hintEnabled, setHintEnabledState]   = useState(true);
+  const [ttsEnabled,  setTTSEnabledState]    = useState(true);
 
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(STORAGE_KEY_ACCENT),
       AsyncStorage.getItem(STORAGE_KEY_HINT),
-    ]).then(([accent, hint]) => {
+      AsyncStorage.getItem(STORAGE_KEY_TTS),
+    ]).then(([accent, hint, tts]) => {
       if (accent && ACCENT_PALETTES.some(p => p.id === accent)) setAccentIdState(accent);
       if (hint !== null) setHintEnabledState(hint === 'true');
+      if (tts  !== null) setTTSEnabledState(tts === 'true');
     }).catch(() => {});
   }, []);
 
@@ -92,8 +100,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
+  function toggleTTS() {
+    setTTSEnabledState(prev => {
+      const next = !prev;
+      AsyncStorage.setItem(STORAGE_KEY_TTS, String(next)).catch(() => {});
+      return next;
+    });
+  }
+
   return (
-    <ThemeContext.Provider value={{ accentId, setAccentId, hintEnabled, toggleHint }}>
+    <ThemeContext.Provider value={{ accentId, setAccentId, hintEnabled, toggleHint, ttsEnabled, toggleTTS }}>
       {children}
     </ThemeContext.Provider>
   );
