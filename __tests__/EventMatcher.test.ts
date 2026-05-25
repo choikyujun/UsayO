@@ -32,6 +32,7 @@ function makeEvent(overrides: Partial<Event>): Event {
     created_via: 'voice',
     voice_transcript: null,
     attendees: null,
+    recurrence_end_date: null,
     deleted_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

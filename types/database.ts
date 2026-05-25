@@ -104,6 +104,7 @@ export type Database = {
           created_via: 'voice' | 'manual' | 'sync';
           voice_transcript: string | null;
           attendees: string[] | null;
+          recurrence_end_date: string | null;
           deleted_at: string | null;
           created_at: string;
           updated_at: string;
@@ -122,6 +123,7 @@ export type Database = {
           category?: 'work' | 'personal' | 'important';
           is_recurring?: boolean;
           recurrence_rule?: string | null;
+          recurrence_end_date?: string | null;
           parent_event_id?: string | null;
           google_event_id?: string | null;
           apple_event_id?: string | null;
@@ -144,6 +146,7 @@ export type Database = {
           category?: 'work' | 'personal' | 'important';
           is_recurring?: boolean;
           recurrence_rule?: string | null;
+          recurrence_end_date?: string | null;
           google_event_id?: string | null;
           apple_event_id?: string | null;
           attendees?: string[] | null;
@@ -202,6 +205,42 @@ export type Database = {
         Update: {
           role?: 'owner' | 'admin' | 'member';
           display_name?: string | null;
+        };
+        Relationships: [];
+      };
+
+      event_exceptions: {
+        Row: {
+          id: string;
+          parent_id: string;
+          instance_date: string;        // DATE "YYYY-MM-DD"
+          is_deleted: boolean;
+          override_start: string | null;
+          override_end: string | null;
+          override_title: string | null;
+          override_location: string | null;
+          override_notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          parent_id: string;
+          instance_date: string;
+          is_deleted?: boolean;
+          override_start?: string | null;
+          override_end?: string | null;
+          override_title?: string | null;
+          override_location?: string | null;
+          override_notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          is_deleted?: boolean;
+          override_start?: string | null;
+          override_end?: string | null;
+          override_title?: string | null;
+          override_location?: string | null;
+          override_notes?: string | null;
         };
         Relationships: [];
       };
