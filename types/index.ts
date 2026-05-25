@@ -50,6 +50,8 @@ export interface ClassifiedIntent {
   startDateTime?: ParsedDateTime;
   endDateTime?: ParsedDateTime;
   location?: string;
+  notes?: string;
+  attendees?: string[];
   category?: 'work' | 'personal' | 'important';
   // UPDATE
   targetEventQuery?: string;

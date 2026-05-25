@@ -31,6 +31,7 @@ function makeEvent(overrides: Partial<Event>): Event {
     apple_event_id: null,
     created_via: 'voice',
     voice_transcript: null,
+    attendees: null,
     deleted_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
