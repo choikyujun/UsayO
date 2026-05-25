@@ -73,7 +73,7 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
         }}
       >
         <Pressable
-          style={styles.block}
+          style={[styles.block, { height }]}
           onPress={() => setExpanded(e => !e)}
           onLongPress={() => onLongPress(event)}
           delayLongPress={500}
@@ -125,7 +125,6 @@ function makeStyles(c: AppTheme) {
       borderRadius: 6,
     },
     block: {
-      flex:             1,
       backgroundColor:  EVENT_COLOR,
       borderRadius:     6,
       paddingHorizontal: 8,

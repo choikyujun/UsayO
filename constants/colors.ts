@@ -85,8 +85,8 @@ export function useColors(): AppTheme {
     bg: v.bg, card: v.card, card2: v.card2, border: v.border, nav: v.nav,
     primary: v.primary, accent: v.accent,
     ...t,
-    lunchHint:  isDark ? 'rgba(251,191,36,0.10)' : 'rgba(251,191,36,0.14)',
-    dinnerHint: isDark ? 'rgba(139,92,246,0.09)' : 'rgba(139,92,246,0.13)',
+    lunchHint:  isDark ? 'rgba(251,191,36,0.12)' : 'rgba(251,191,36,0.14)',
+    dinnerHint: isDark ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.13)',
   };
 }
 
