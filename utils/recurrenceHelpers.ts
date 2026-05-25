@@ -334,3 +334,14 @@ export function humanReadableRRule(rruleStr: string | null): string {
     return rruleStr;
   }
 }
+
+// ── 반복 일정 레이블 (규칙 + 시간) ──────────────────────────────
+export function formatRecurrenceLabel(rruleStr: string | null, startAt: string): string {
+  const rule = humanReadableRRule(rruleStr);
+  if (!rule) return '';
+  const d = new Date(startAt);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const timeStr = m === 0 ? `${h}시` : `${h}시${String(m).padStart(2, '0')}분`;
+  return `${rule} ${timeStr}`;
+}

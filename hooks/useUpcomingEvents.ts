@@ -13,6 +13,7 @@ export function useUpcomingEvents(
     const d5 = addDays(todayStart, 5);
 
     const upcoming = allEvents.filter(ev => {
+      if (ev.is_recurring || ev.parent_event_id) return false;
       const start = new Date(ev.start_at);
       return start >= d1 && start <= addDays(d5, 1);
     }).sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());

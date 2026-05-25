@@ -18,6 +18,7 @@ function dateRange(fromDate: string, daysAhead: number) {
 export function useSchedules(date: string, daysAhead = 0) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [recurringParents, setRecurringParents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
 
@@ -43,7 +44,7 @@ export function useSchedules(date: string, daysAhead = 0) {
       }
 
       // 2. 범위 밖에서 시작된 반복 부모 별도 fetch
-      const { data: recurringParents } = await supabase
+      const { data: earlyParents } = await supabase
         .from('events')
         .select('*')
         .eq('is_recurring', true)
@@ -52,8 +53,9 @@ export function useSchedules(date: string, daysAhead = 0) {
 
       const allParents = [
         ...((eventData ?? []).filter(e => e.is_recurring && !e.parent_event_id)),
-        ...(recurringParents ?? []),
+        ...(earlyParents ?? []),
       ];
+      setRecurringParents(allParents);
 
       // 3. exception 목록 fetch — 마이그레이션 미적용 시 조용히 스킵
       const parentIds = allParents.map(p => p.id);
@@ -233,6 +235,7 @@ export function useSchedules(date: string, daysAhead = 0) {
   return {
     schedules,
     events,
+    recurringParents,
     loading,
     lastCreatedId,
     applyVoiceCommand,

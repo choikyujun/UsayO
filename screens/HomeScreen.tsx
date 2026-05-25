@@ -25,9 +25,11 @@ import ReAnimated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmCard from '../components/ConfirmCard';
 import InlineConfirmCard from '../components/InlineConfirmCard';
+import RecurringBadge from '../components/RecurringBadge';
 import TimeSpine from '../components/TimeSpine';
 import UpcomingSection from '../components/UpcomingSection';
 import { useConversationalMessage } from '../hooks/useConversationalMessage';
+import { useRecurringEvents } from '../hooks/useRecurringEvents';
 import VoiceHintCarousel from '../components/VoiceHintCarousel';
 import HybridInputModal from '../components/HybridInputModal';
 import UpgradeModal from '../components/UpgradeModal';
@@ -98,10 +100,13 @@ export default function HomeScreen() {
   // CRUD-only: voice commands, undo, lastCreatedId; events includes D+0~D+7 for upcoming section
   const {
     events: allEvents,
+    recurringParents,
     lastCreatedId, applyClassifiedIntent, undoSave,
     rescheduleEvent, undoRescheduleEvent,
     reload: reloadSchedules,
   } = useSchedules(TODAY, 7);
+
+  const recurringEvents = useRecurringEvents(recurringParents);
 
   // First upcoming event for conversational header (오늘이 빈 날 케이스)
   const firstUpcoming = useMemo(() => {
@@ -415,6 +420,7 @@ export default function HomeScreen() {
         </View>
 
         <UsageWarningBanner feature="voice_create" />
+        <RecurringBadge events={recurringEvents} />
         <VoiceHintCarousel isVoiceActive={isVoiceActive} />
 
         <View style={styles.divider} />
