@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { localDateStr } from '../utils/timeHelpers';
+import { expandRecurringEvent, EventException } from '../utils/recurrenceHelpers';
 
 // anchorYearMonth = "YYYY-MM"
 function monthBounds(anchorYearMonth: string) {
@@ -19,6 +20,9 @@ export function useEventsForDate(selectedDate: string, anchorYearMonth: string) 
     setLoading(true);
     try {
       const { from, to } = monthBounds(anchorYearMonth);
+      const fromDate = new Date(from);
+      const toDate   = new Date(to);
+
       const { data, error } = await supabase
         .from('events')
         .select('*')
@@ -26,7 +30,41 @@ export function useEventsForDate(selectedDate: string, anchorYearMonth: string) 
         .lte('start_at', to)
         .is('deleted_at', null)
         .order('start_at', { ascending: true });
-      if (!error) setMonthEvents(data ?? []);
+
+      if (error) return;
+
+      // 반복 부모 (월 이전 시작)
+      const { data: recurringParents } = await supabase
+        .from('events')
+        .select('*')
+        .eq('is_recurring', true)
+        .lt('start_at', from)
+        .is('deleted_at', null);
+
+      const allParents = [
+        ...((data ?? []).filter(e => e.is_recurring && !e.parent_event_id)),
+        ...(recurringParents ?? []),
+      ];
+
+      let exceptions: EventException[] = [];
+      if (allParents.length > 0) {
+        const { data: exData } = await supabase
+          .from('event_exceptions')
+          .select('*')
+          .in('parent_id', allParents.map(p => p.id));
+        exceptions = (exData ?? []) as EventException[];
+      }
+
+      const instances = allParents.flatMap(p =>
+        expandRecurringEvent(p, fromDate, toDate, exceptions),
+      );
+
+      const oneTime = (data ?? []).filter(e => !e.is_recurring);
+      const merged = [...oneTime, ...instances].sort(
+        (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
+      );
+
+      setMonthEvents(merged);
     } finally {
       setLoading(false);
     }

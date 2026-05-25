@@ -3,6 +3,7 @@ import { supabase, ensureAuth } from '../lib/supabase';
 import { Database, Event } from '../types/database';
 import { ClassifiedIntent, VoiceCommand } from '../types';
 import { widgetService } from '../services/widget/WidgetService';
+import { expandRecurringEvent, EventException } from '../utils/recurrenceHelpers';
 
 type Schedule = Database['public']['Tables']['schedules']['Row'];
 
@@ -24,8 +25,10 @@ export function useSchedules(date: string, daysAhead = 0) {
     setLoading(true);
     try {
       const { from, to } = dateRange(date, daysAhead);
-      console.log('[Events] fetching range:', from, to);
+      const fromDate = new Date(from);
+      const toDate   = new Date(to);
 
+      // 1. 비반복 일정 + 범위 내 시작하는 반복 부모
       const { data: eventData, error: fetchError } = await supabase
         .from('events')
         .select('*')
@@ -36,17 +39,47 @@ export function useSchedules(date: string, daysAhead = 0) {
 
       if (fetchError) {
         console.error('[Events] fetch error:', fetchError);
-        // events 쿼리 실패 시 기존 상태 유지 (낙관적 업데이트 보호)
         return;
       }
 
-      console.log('[Events] fetched count:', eventData?.length ?? 0);
+      // 2. 범위 밖에서 시작된 반복 부모 별도 fetch
+      const { data: recurringParents } = await supabase
+        .from('events')
+        .select('*')
+        .eq('is_recurring', true)
+        .lt('start_at', from)
+        .is('deleted_at', null);
 
-      if (eventData) {
-        setEvents(eventData);
-        setSchedules(eventData.map(evToSchedule));
-        widgetService.push(eventData, eventData).catch(() => {});
+      const allParents = [
+        ...((eventData ?? []).filter(e => e.is_recurring && !e.parent_event_id)),
+        ...(recurringParents ?? []),
+      ];
+
+      // 3. exception 목록 fetch (해당 범위)
+      const parentIds = allParents.map(p => p.id);
+      let exceptions: EventException[] = [];
+      if (parentIds.length > 0) {
+        const { data: exData } = await supabase
+          .from('event_exceptions')
+          .select('*')
+          .in('parent_id', parentIds);
+        exceptions = (exData ?? []) as EventException[];
       }
+
+      // 4. 반복 인스턴스 확장
+      const instances = allParents.flatMap(p =>
+        expandRecurringEvent(p, fromDate, toDate, exceptions),
+      );
+
+      // 5. 비반복 일정만 남기고 인스턴스와 합산
+      const oneTime = (eventData ?? []).filter(e => !e.is_recurring);
+      const merged = [...oneTime, ...instances].sort(
+        (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
+      );
+
+      setEvents(merged);
+      setSchedules(merged.map(evToSchedule));
+      widgetService.push(merged, merged).catch(() => {});
     } catch {
       // 미인증 상태에서는 빈 목록 유지
     } finally {
