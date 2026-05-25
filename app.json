@@ -7,9 +7,15 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#534AB7"
+    },
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.yusay.app",
+      "icon": "./assets/icon.png",
       "supportsTablet": true,
       "entitlements": {
         "com.apple.security.application-groups": ["group.com.yusay.app"]
@@ -22,10 +28,8 @@
     "android": {
       "package": "com.yusay.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#534AB7"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
