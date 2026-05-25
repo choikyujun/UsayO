@@ -5,13 +5,14 @@ import { MonthCell as MonthCellType } from '../utils/monthViewLayout';
 import MonthCell from './MonthCell';
 
 interface Props {
-  cells:        MonthCellType[];
-  eventsByDate: Record<string, Event[]>;
-  colors:       AppTheme;
-  onCellPress:  (dateStr: string) => void;
+  cells:            MonthCellType[];
+  eventsByDate:     Record<string, Event[]>;
+  colors:           AppTheme;
+  onCellPress:      (dateStr: string) => void;
+  onCellLongPress?: (dateStr: string) => void;
 }
 
-export default function MonthGrid({ cells, eventsByDate, colors, onCellPress }: Props) {
+export default function MonthGrid({ cells, eventsByDate, colors, onCellPress, onCellLongPress }: Props) {
   const rows: MonthCellType[][] = [];
   for (let i = 0; i < 6; i++) rows.push(cells.slice(i * 7, i * 7 + 7));
 
@@ -30,6 +31,7 @@ export default function MonthGrid({ cells, eventsByDate, colors, onCellPress }: 
               eventCount={(eventsByDate[cell.dateStr] ?? []).length}
               colors={colors}
               onPress={onCellPress}
+              onLongPress={onCellLongPress}
             />
           ))}
         </View>

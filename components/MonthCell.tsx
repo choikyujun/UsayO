@@ -5,14 +5,15 @@ import { isKoreanHoliday } from '../hooks/useHolidays';
 import { isToday } from '../utils/monthViewLayout';
 
 interface Props {
-  dateStr:      string;
-  isOtherMonth: boolean;
-  eventCount:   number;
-  colors:       AppTheme;
-  onPress:      (dateStr: string) => void;
+  dateStr:       string;
+  isOtherMonth:  boolean;
+  eventCount:    number;
+  colors:        AppTheme;
+  onPress:       (dateStr: string) => void;
+  onLongPress?:  (dateStr: string) => void;
 }
 
-export default function MonthCell({ dateStr, isOtherMonth, eventCount, colors, onPress }: Props) {
+export default function MonthCell({ dateStr, isOtherMonth, eventCount, colors, onPress, onLongPress }: Props) {
   const today      = isToday(dateStr);
   const d          = new Date(dateStr + 'T00:00:00');
   const dayOfWeek  = d.getDay();
@@ -38,6 +39,11 @@ export default function MonthCell({ dateStr, isOtherMonth, eventCount, colors, o
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress(dateStr);
       }}
+      onLongPress={onLongPress ? () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onLongPress(dateStr);
+      } : undefined}
+      delayLongPress={500}
     >
       <View style={[styles.numWrap, today && { backgroundColor: colors.primary }]}>
         <Text style={[styles.num, { color: numColor }]}>

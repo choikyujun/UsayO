@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import ReAnimated, {
   runOnJS,
@@ -11,9 +11,15 @@ import ReAnimated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import AppHeader from '../components/AppHeader';
 import DayEventsSheet from '../components/DayEventsSheet';
+import InlineConfirmCard from '../components/InlineConfirmCard';
 import MonthGrid from '../components/MonthGrid';
+import VoiceInputOverlay from '../components/VoiceInputOverlay';
 import { useColors } from '../constants/colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { useMonthEvents } from '../hooks/useMonthEvents';
+import { useSchedules } from '../hooks/useSchedules';
+import { useVoiceInput } from '../hooks/useVoiceInput';
+import { localDateStr } from '../utils/timeHelpers';
 import { formatMonthLabel, getMonthGrid } from '../utils/monthViewLayout';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -23,13 +29,16 @@ const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 export default function MonthViewScreen() {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { ttsEnabled } = useTheme();
 
   const today = new Date();
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
 
   const cells        = useMemo(() => getMonthGrid(year, month), [year, month]);
-  const { eventsByDate } = useMonthEvents(year, month);
+  const { eventsByDate, reload } = useMonthEvents(year, month);
+  const { applyClassifiedIntent, undoSave } = useSchedules(localDateStr(today), 0);
+  const voice = useVoiceInput(ttsEnabled);
 
   const isCurrentMonth = year === today.getFullYear() && month === (today.getMonth() + 1);
 
@@ -38,6 +47,21 @@ export default function MonthViewScreen() {
   function handleCellPress(dateStr: string) {
     setSelectedDate(dateStr);
   }
+
+  function handleCellLongPress(dateStr: string) {
+    const d     = new Date(dateStr + 'T00:00:00');
+    const ttsLabel = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+    voice.startWithPrefill(
+      { dateStr, ttsLabel },
+      intent => applyClassifiedIntent(intent),
+      async eventId => undoSave(eventId),
+    );
+  }
+
+  // Reload events after successful voice save
+  useEffect(() => {
+    if (voice.phase === 'success') reload();
+  }, [voice.phase]);
 
   // ── Month swipe ─────────────────────────────────────────────────────
   const translateX = useSharedValue(0);
@@ -128,6 +152,7 @@ export default function MonthViewScreen() {
             eventsByDate={eventsByDate}
             colors={colors}
             onCellPress={handleCellPress}
+            onCellLongPress={handleCellLongPress}
           />
         </ReAnimated.View>
       </GestureDetector>
@@ -137,6 +162,24 @@ export default function MonthViewScreen() {
         events={selectedDate ? (eventsByDate[selectedDate] ?? []) : []}
         onClose={() => setSelectedDate(null)}
       />
+
+      {/* ── Long-press voice overlay ──────────────────────────────── */}
+      <VoiceInputOverlay
+        visible={voice.overlayVisible}
+        onCancel={() => voice.cancelVoiceInput()}
+      />
+
+      {/* ── Inline confirm card ───────────────────────────────────── */}
+      {voice.phase === 'confirming' && voice.classifiedIntent && (
+        <InlineConfirmCard
+          intent={voice.classifiedIntent}
+          transcript={voice.transcript}
+          onConfirm={async () => {
+            await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
+          }}
+          onCancel={() => voice.cancelVoiceInput()}
+        />
+      )}
     </View>
   );
 }

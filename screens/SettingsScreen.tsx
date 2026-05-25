@@ -41,7 +41,7 @@ const MENU_ITEMS: MenuItem[] = [
 export default function SettingsScreen() {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { accentId, setAccentId, hintEnabled, toggleHint } = useTheme();
+  const { accentId, setAccentId, hintEnabled, toggleHint, ttsEnabled, toggleTTS } = useTheme();
   const { plan } = useSubscriptionStore();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
 
@@ -130,7 +130,7 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* Voice hint toggle */}
+      {/* Voice toggles */}
       <View style={styles.section}>
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>음성 명령 힌트 표시</Text>
@@ -139,6 +139,15 @@ export default function SettingsScreen() {
             onValueChange={toggleHint}
             trackColor={{ false: colors.border, true: colors.primary + '80' }}
             thumbColor={hintEnabled ? colors.primary : colors.textMuted}
+          />
+        </View>
+        <View style={[styles.toggleRow, styles.toggleRowBorder]}>
+          <Text style={styles.toggleLabel}>음성 확인 (TTS)</Text>
+          <Switch
+            value={ttsEnabled}
+            onValueChange={toggleTTS}
+            trackColor={{ false: colors.border, true: colors.primary + '80' }}
+            thumbColor={ttsEnabled ? colors.primary : colors.textMuted}
           />
         </View>
       </View>
@@ -276,6 +285,7 @@ function makeStyles(c: AppTheme) {
       paddingHorizontal: 16,
       paddingVertical: 14,
     },
+    toggleRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
     toggleLabel: { fontSize: 15, color: c.textPrimary, fontWeight: '500' },
     menuRow: {
       flexDirection: 'row',
