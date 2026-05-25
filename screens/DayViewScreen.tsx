@@ -85,10 +85,11 @@ export default function DayViewScreen() {
     return () => clearTimeout(t);
   }, [dateStr]);
 
-  // ── Action sheet ────────────────────────────────────────────────────
-  const [sheetEvent,      setSheetEvent]      = useState<Event | null>(null);
-  const [editTitleEvent,  setEditTitleEvent]  = useState<Event | null>(null);
-  const [editTimeEvent,   setEditTimeEvent]   = useState<Event | null>(null);
+  // ── Action sheet + edit modals ──────────────────────────────────────
+  const [sheetEvent,       setSheetEvent]       = useState<Event | null>(null);
+  const [editEvent,        setEditEvent]        = useState<Event | null>(null);
+  const [editTitleVisible, setEditTitleVisible] = useState(false);
+  const [editTimeVisible,  setEditTimeVisible]  = useState(false);
 
   function handleDeleteEvent(event: Event) {
     const realId = isVirtualInstance(event.id)
@@ -315,18 +316,20 @@ export default function DayViewScreen() {
         onClose={() => setSheetEvent(null)}
         onDelete={handleDeleteEvent}
         onDeleteRecurring={handleDeleteRecurring}
-        onEditTitle={ev => setEditTitleEvent(ev)}
-        onEditTime={ev  => setEditTimeEvent(ev)}
+        onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
+        onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
       />
       <EditTitleModal
-        event={editTitleEvent}
-        onClose={() => setEditTitleEvent(null)}
-        onSaved={() => { setEditTitleEvent(null); reload(); }}
+        visible={editTitleVisible}
+        event={editEvent}
+        onClose={() => setEditTitleVisible(false)}
+        onSaved={() => { setEditTitleVisible(false); reload(); }}
       />
       <EditTimeModal
-        event={editTimeEvent}
-        onClose={() => setEditTimeEvent(null)}
-        onSaved={() => { setEditTimeEvent(null); reload(); }}
+        visible={editTimeVisible}
+        event={editEvent}
+        onClose={() => setEditTimeVisible(false)}
+        onSaved={() => { setEditTimeVisible(false); reload(); }}
       />
     </View>
   );

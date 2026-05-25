@@ -98,8 +98,8 @@ export default function EventActionSheet({ event, onClose, onDelete, onDeleteRec
         {!showRecurringPicker ? (
           <>
             <View style={styles.actions}>
-              <ActionBtn label="시간 변경" Icon={Clock}   onPress={() => { onClose(); onEditTime?.(ev);  }} colors={colors} />
-              <ActionBtn label="제목 수정" Icon={Pencil}  onPress={() => { onClose(); onEditTitle?.(ev); }} colors={colors} />
+              <ActionBtn label="시간 변경" Icon={Clock}   onPress={() => onEditTime?.(ev)}  colors={colors} />
+              <ActionBtn label="제목 수정" Icon={Pencil}  onPress={() => onEditTitle?.(ev)} colors={colors} />
               <ActionBtn label="알림 설정" Icon={Bell}    onPress={onClose}          colors={colors} />
               <ActionBtn label="카카오로 공유" Icon={Share2} onPress={handleShare}   colors={colors} />
               <ActionBtn label="삭제"      Icon={Trash2}  onPress={handleDeletePress} colors={colors} danger />

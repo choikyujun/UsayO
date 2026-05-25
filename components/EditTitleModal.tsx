@@ -18,12 +18,13 @@ const SCOPE_LABELS: Record<Scope, string> = {
 };
 
 interface Props {
+  visible: boolean;
   event: Event | null;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function EditTitleModal({ event, onClose, onSaved }: Props) {
+export default function EditTitleModal({ visible, event, onClose, onSaved }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const slideY = useRef(new Animated.Value(320)).current;
@@ -34,7 +35,6 @@ export default function EditTitleModal({ event, onClose, onSaved }: Props) {
   const [showScopePicker, setShowScopePicker] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
-  const visible    = !!event;
   const isRecurring = event ? (event.is_recurring || isVirtualInstance(event.id)) : false;
 
   useEffect(() => {
@@ -53,11 +53,10 @@ export default function EditTitleModal({ event, onClose, onSaved }: Props) {
     }
   }, [visible]);
 
-  if (!event) return null;
   const ev = event;
 
   async function save(scope: Scope) {
-    if (!title.trim() || saving) return;
+    if (!ev || !title.trim() || saving) return;
     setSaving(true);
     try {
       const newTitle = title.trim();
@@ -119,7 +118,7 @@ export default function EditTitleModal({ event, onClose, onSaved }: Props) {
   }
 
   function handleSavePress() {
-    if (!title.trim()) return;
+    if (!ev || !title.trim()) return;
     if (isRecurring) {
       setShowScopePicker(true);
     } else {
@@ -128,7 +127,7 @@ export default function EditTitleModal({ event, onClose, onSaved }: Props) {
   }
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <Animated.View style={[styles.backdrop, { opacity: bgOp }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>

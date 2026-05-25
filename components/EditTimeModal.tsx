@@ -27,12 +27,13 @@ function pad2(n: number): string {
 }
 
 interface Props {
+  visible: boolean;
   event: Event | null;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function EditTimeModal({ event, onClose, onSaved }: Props) {
+export default function EditTimeModal({ visible, event, onClose, onSaved }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const slideY = useRef(new Animated.Value(400)).current;
@@ -44,7 +45,6 @@ export default function EditTimeModal({ event, onClose, onSaved }: Props) {
   const [saving,  setSaving]  = useState(false);
   const [showScopePicker, setShowScopePicker] = useState(false);
 
-  const visible     = !!event;
   const isRecurring = event ? (event.is_recurring || isVirtualInstance(event.id)) : false;
 
   useEffect(() => {
@@ -67,11 +67,8 @@ export default function EditTimeModal({ event, onClose, onSaved }: Props) {
     }
   }, [visible]);
 
-  if (!event) return null;
   const ev = event;
-
-  // Duration = end - start (preserved when changing time)
-  const durationMs = new Date(ev.end_at).getTime() - new Date(ev.start_at).getTime();
+  const durationMs = ev ? new Date(ev.end_at).getTime() - new Date(ev.start_at).getTime() : 3_600_000;
 
   function prevDay() {
     setDate(d => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; });
@@ -92,7 +89,7 @@ export default function EditTimeModal({ event, onClose, onSaved }: Props) {
   }
 
   async function save(scope: Scope) {
-    if (saving) return;
+    if (!ev || saving) return;
     setSaving(true);
     try {
       const { newStart, newEnd } = buildTimes();
@@ -167,7 +164,7 @@ export default function EditTimeModal({ event, onClose, onSaved }: Props) {
   }
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <Animated.View style={[styles.backdrop, { opacity: bgOp }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
