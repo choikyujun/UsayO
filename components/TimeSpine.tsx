@@ -21,10 +21,11 @@ import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
 import { calculateNewTime, EventPosition } from '../utils/rescheduleHelpers';
+import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
 import SpineEvent from './SpineEvent';
 import type { EventState } from './SpineEvent';
 import EmptyTodayState from './EmptyTodayState';
-import EventActionSheet from './EventActionSheet';
+import EventActionSheet, { RecurringDeleteScope } from './EventActionSheet';
 
 export type { EventState };
 
@@ -198,11 +199,47 @@ export default function TimeSpine({
   }
 
   function commitDelete(event: Event) {
+    // 가상 인스턴스는 부모 ID로 soft-delete
+    const realId = isVirtualInstance(event.id)
+      ? (parseInstanceId(event.id)?.parentId ?? event.id)
+      : event.id;
     supabase
       .from('events')
       .update({ deleted_at: new Date().toISOString() })
-      .eq('id', event.id)
+      .eq('id', realId)
       .then(() => {});
+  }
+
+  function handleDeleteRecurring(event: Event, scope: RecurringDeleteScope) {
+    setHiddenIds(prev => new Set([...prev, event.id]));
+
+    const parsed = isVirtualInstance(event.id) ? parseInstanceId(event.id) : null;
+    const parentId = parsed?.parentId ?? event.id;
+    const instanceDate = parsed?.instanceDate ?? new Date(event.start_at).toISOString().split('T')[0];
+
+    if (scope === 'this') {
+      supabase
+        .from('event_exceptions')
+        .insert({ parent_id: parentId, instance_date: instanceDate, is_deleted: true })
+        .then(() => {});
+    } else if (scope === 'future') {
+      // recurrence_end_date = instanceDate - 1 day
+      const d = new Date(instanceDate);
+      d.setDate(d.getDate() - 1);
+      const endDate = d.toISOString().split('T')[0];
+      supabase
+        .from('events')
+        .update({ recurrence_end_date: endDate })
+        .eq('id', parentId)
+        .then(() => {});
+    } else {
+      // 전체: 부모 soft-delete
+      supabase
+        .from('events')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', parentId)
+        .then(() => {});
+    }
   }
 
   function handleComplete(event: Event) {
@@ -317,6 +354,7 @@ export default function TimeSpine({
         event={sheetEvent}
         onClose={() => setSheetEvent(null)}
         onDelete={handleDelete}
+        onDeleteRecurring={handleDeleteRecurring}
       />
     </View>
   );
