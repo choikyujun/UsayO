@@ -15,6 +15,7 @@ import {
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { AppTheme, useColors } from '../constants/colors';
 import { isKoreanHoliday } from '../hooks/useHolidays';
+import { isLunchHour } from '../utils/timeHelpers';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
@@ -244,6 +245,7 @@ export default function TimeSpine({
                 state={item.state}
                 expanded={expandedIds.has(item.event.id)}
                 isHoliday={isKoreanHoliday(new Date(item.event.start_at))}
+                isLunch={isLunchHour(new Date(item.event.start_at))}
                 onTap={() => toggleExpand(item.event.id)}
                 onLongPress={setSheetEvent}
                 onDelete={handleDelete}
@@ -281,6 +283,7 @@ interface SpineEventRowProps {
   state:       EventState;
   expanded:    boolean;
   isHoliday:   boolean;
+  isLunch:     boolean;
   onTap:       () => void;
   onLongPress: (e: Event) => void;
   onDelete:    (e: Event) => void;
@@ -289,7 +292,7 @@ interface SpineEventRowProps {
 }
 
 function SpineEventRow({
-  event, state, expanded, isHoliday,
+  event, state, expanded, isHoliday, isLunch,
   onTap, onLongPress, onDelete, onComplete, colors,
 }: SpineEventRowProps) {
   const swipeRef = useRef<Swipeable>(null);
@@ -340,7 +343,11 @@ function SpineEventRow({
       overshootRight={false}
     >
       <Pressable
-        style={[styles.row, expanded && { backgroundColor: colors.card2 + '80' }]}
+        style={[
+          styles.row,
+          isLunch   && { backgroundColor: colors.primary + '08' },
+          expanded  && { backgroundColor: colors.card2 + '80' },
+        ]}
         onPress={onTap}
         onLongPress={handleLongPress}
         delayLongPress={500}
