@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { supabase } from '../lib/supabase';
+import { signInWithDevice } from '../services/auth/deviceAuth';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 
@@ -37,14 +38,19 @@ export default function RootLayout() {
       console.log('[Auth] getSession:', session?.user?.id ?? 'null', sessionErr?.message ?? '');
 
       if (!session) {
-        console.log('[Auth] no session → signInAnonymously...');
-        const { data, error } = await supabase.auth.signInAnonymously();
-        if (error) {
-          // 이 메시지가 "Anonymous sign-ins are disabled" 이면
-          // Supabase 대시보드 → Authentication → Providers → Anonymous 활성화 필요
-          console.warn('[Auth] signInAnonymously FAILED:', error.message, '| status:', error.status);
-        } else {
-          console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
+        // Try device-based persistent auth first.
+        // Falls back to anonymous sign-in if Edge Function is unavailable.
+        try {
+          const uid = await signInWithDevice();
+          console.log('[Auth] device auth OK:', uid);
+        } catch (deviceErr) {
+          console.warn('[Auth] device auth failed, falling back to anonymous:', (deviceErr as Error).message);
+          const { data, error } = await supabase.auth.signInAnonymously();
+          if (error) {
+            console.warn('[Auth] signInAnonymously FAILED:', error.message);
+          } else {
+            console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
+          }
         }
       }
 
