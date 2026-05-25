@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { Platform, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
+import { useColors } from '../constants/colors';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { signInWithDevice } from '../services/auth/deviceAuth';
@@ -82,15 +83,24 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
-          <Stack.Screen name="voice"    options={{ presentation: 'modal' }} />
-          <Stack.Screen name="settings" options={{ headerShown: false }} />
-          <Stack.Screen name="day"      options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="week"     options={{ animation: 'slide_from_right' }} />
-        </Stack>
+        <AppStack />
       </ThemeProvider>
     </GestureHandlerRootView>
+  );
+}
+
+// ThemeProvider 안에서 useColors() 접근 — Stack 배경을 테마 색으로 덮어
+// 슬라이드 애니메이션 중 흰 배경 노출(깜박임) 방지.
+function AppStack() {
+  const colors = useColors();
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+      <Stack.Screen name="voice"    options={{ presentation: 'modal' }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
+      <Stack.Screen name="day"      options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="week"     options={{ animation: 'slide_from_right' }} />
+    </Stack>
   );
 }
