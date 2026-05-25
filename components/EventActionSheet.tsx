@@ -1,3 +1,5 @@
+import { Bell, Bookmark, ChevronsRight, Clock, Pencil, Share2, Trash2 } from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated, Modal, Pressable, Share, StyleSheet, Text, View,
@@ -94,11 +96,11 @@ export default function EventActionSheet({ event, onClose, onDelete, onDeleteRec
         {!showRecurringPicker ? (
           <>
             <View style={styles.actions}>
-              <ActionBtn label="시간 변경" icon="🕐" onPress={onClose} colors={colors} />
-              <ActionBtn label="제목 수정" icon="✏️" onPress={onClose} colors={colors} />
-              <ActionBtn label="알림 설정" icon="🔔" onPress={onClose} colors={colors} />
-              <ActionBtn label="카카오로 공유" icon="💬" onPress={handleShare} colors={colors} />
-              <ActionBtn label="삭제" icon="🗑️" onPress={handleDeletePress} colors={colors} danger />
+              <ActionBtn label="시간 변경" Icon={Clock}   onPress={onClose}          colors={colors} />
+              <ActionBtn label="제목 수정" Icon={Pencil}  onPress={onClose}          colors={colors} />
+              <ActionBtn label="알림 설정" Icon={Bell}    onPress={onClose}          colors={colors} />
+              <ActionBtn label="카카오로 공유" Icon={Share2} onPress={handleShare}   colors={colors} />
+              <ActionBtn label="삭제"      Icon={Trash2}  onPress={handleDeletePress} colors={colors} danger />
             </View>
 
             <Pressable style={styles.cancelBtn} onPress={onClose}>
@@ -119,20 +121,20 @@ export default function EventActionSheet({ event, onClose, onDelete, onDeleteRec
             <View style={styles.actions}>
               <ActionBtn
                 label="이번 일정만"
-                icon="📌"
+                Icon={Bookmark}
                 onPress={() => handleRecurringScope('this')}
                 colors={colors}
               />
               <ActionBtn
                 label="이번 + 앞으로 모두"
-                icon="⏩"
+                Icon={ChevronsRight}
                 onPress={() => handleRecurringScope('future')}
                 colors={colors}
                 danger
               />
               <ActionBtn
                 label="전체 반복 삭제"
-                icon="🗑️"
+                Icon={Trash2}
                 onPress={() => handleRecurringScope('all')}
                 colors={colors}
                 danger
@@ -150,19 +152,20 @@ export default function EventActionSheet({ event, onClose, onDelete, onDeleteRec
 }
 
 function ActionBtn({
-  label, icon, onPress, colors, danger,
-}: { label: string; icon: string; onPress: () => void; colors: AppTheme; danger?: boolean }) {
+  label, Icon, onPress, colors, danger,
+}: { label: string; Icon: LucideIcon; onPress: () => void; colors: AppTheme; danger?: boolean }) {
+  const iconColor = danger ? colors.error : colors.textPrimary;
   return (
     <Pressable
       style={({ pressed }) => [{
-        flexDirection: 'row', alignItems: 'center', gap: 14,
+        flexDirection: 'row', alignItems: 'center', gap: 12,
         paddingHorizontal: 20, paddingVertical: 14,
         opacity: pressed ? 0.6 : 1,
       }]}
       onPress={onPress}
     >
-      <Text style={{ fontSize: 18 }}>{icon}</Text>
-      <Text style={{ fontSize: 16, color: danger ? colors.error : colors.textPrimary, fontWeight: danger ? '600' : '400' }}>
+      <Icon size={20} color={iconColor} strokeWidth={1.5} />
+      <Text style={{ fontSize: 16, color: iconColor, fontWeight: danger ? '600' : '400' }}>
         {label}
       </Text>
     </Pressable>
