@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect x="0" y="0" width="1024" height="1024" fill="#534AB7"/>
+
+  <!-- Voice spectrum 5 bars -->
+  <rect x="404.48" y="358.4" width="30.72" height="102.4" rx="15.36" fill="white"/>
+  <rect x="450.56" y="307.2" width="30.72" height="204.8" rx="15.36" fill="white"/>
+  <rect x="496.64" y="256" width="30.72" height="307.2" rx="15.36" fill="white"/>
+  <rect x="542.72" y="307.2" width="30.72" height="204.8" rx="15.36" fill="white"/>
+  <rect x="588.8" y="358.4" width="30.72" height="102.4" rx="15.36" fill="white"/>
+
+  <!-- Y arms (raised to embrace spectrum) -->
+  <path d="M 307.2 450.56 Q 307.2 665.6 512 665.6 Q 716.8 665.6 716.8 450.56"
+        fill="none" stroke="white" stroke-width="40.96" stroke-linecap="round"/>
+
+  <!-- Y stand -->
+  <rect x="476.16" y="665.6" width="71.68" height="179.2" fill="white"/>
+
+  <!-- Y base -->
+  <rect x="399.36" y="819.2" width="225.28" height="40.96" rx="20.48" fill="white"/>
+
+  <!-- "say" at Y stand's bottom-right -->
+  <text x="563.2" y="793.6" text-anchor="start" fill="white"
+        font-family="-apple-system, system-ui, sans-serif"
+        font-size="66.56" font-weight="500" letter-spacing="-1.54">say</text>
+</svg>
