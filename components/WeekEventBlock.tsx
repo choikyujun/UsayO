@@ -15,13 +15,14 @@ const EVENT_COLORS: Record<string, string> = {
 };
 
 interface Props {
-  event:      Event;
-  colIndex:   number;
-  colors:     AppTheme;
+  event:       Event;
+  colIndex:    number;
+  colors:      AppTheme;
+  onPress:     (event: Event) => void;
   onLongPress: (event: Event) => void;
 }
 
-export default function WeekEventBlock({ event, colIndex, colors, onLongPress }: Props) {
+export default function WeekEventBlock({ event, colIndex, colors, onPress, onLongPress }: Props) {
   const top    = getEventTop(event.start_at);
   const height = getEventHeight(event.start_at, event.end_at);
   const isShort = height < 28;
@@ -42,6 +43,7 @@ export default function WeekEventBlock({ event, colIndex, colors, onLongPress }:
     <View style={[styles.wrap, { top, height, left, width }]}>
       <Pressable
         style={[styles.block, { backgroundColor: accentColor + '22', borderLeftColor: accentColor }]}
+        onPress={() => onPress(event)}
         onLongPress={handleLongPress}
         delayLongPress={400}
       >

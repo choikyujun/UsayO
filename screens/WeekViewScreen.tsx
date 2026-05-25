@@ -22,6 +22,7 @@ import AppHeader from '../components/AppHeader';
 import EditTimeModal from '../components/EditTimeModal';
 import EditTitleModal from '../components/EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from '../components/EventActionSheet';
+import EventDetailSheet from '../components/EventDetailSheet';
 import WeekEventBlock from '../components/WeekEventBlock';
 import WeekGrid from '../components/WeekGrid';
 import WeekHeader from '../components/WeekHeader';
@@ -71,11 +72,13 @@ export default function WeekViewScreen() {
     return () => clearTimeout(t);
   }, [weekOffset]);
 
-  // ── Action sheet + edit modals ──────────────────────────────────────
-  const [sheetEvent,       setSheetEvent]       = useState<Event | null>(null);
-  const [editEvent,        setEditEvent]        = useState<Event | null>(null);
-  const [editTitleVisible, setEditTitleVisible] = useState(false);
-  const [editTimeVisible,  setEditTimeVisible]  = useState(false);
+  // ── Action sheet + edit modals + detail sheet ──────────────────────
+  const [sheetEvent,        setSheetEvent]        = useState<Event | null>(null);
+  const [editEvent,         setEditEvent]         = useState<Event | null>(null);
+  const [editTitleVisible,  setEditTitleVisible]  = useState(false);
+  const [editTimeVisible,   setEditTimeVisible]   = useState(false);
+  const [detailEvent,       setDetailEvent]       = useState<Event | null>(null);
+  const [detailVisible,     setDetailVisible]     = useState(false);
 
   function handleDeleteEvent(event: Event) {
     const realId = isVirtualInstance(event.id)
@@ -195,6 +198,7 @@ export default function WeekViewScreen() {
                       event={ev}
                       colIndex={colIndex}
                       colors={colors}
+                      onPress={ev => { setDetailEvent(ev); setDetailVisible(true); }}
                       onLongPress={setSheetEvent}
                     />
                   ));
@@ -225,6 +229,11 @@ export default function WeekViewScreen() {
         event={editEvent}
         onClose={() => setEditTimeVisible(false)}
         onSaved={() => { setEditTimeVisible(false); reload(); }}
+      />
+      <EventDetailSheet
+        visible={detailVisible}
+        event={detailEvent}
+        onClose={() => setDetailVisible(false)}
       />
     </View>
   );
