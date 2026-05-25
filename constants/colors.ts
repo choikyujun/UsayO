@@ -45,6 +45,9 @@ export interface AppTheme {
   warning:       string;
   error:         string;
   statusBar:     'light' | 'dark';
+  // Day-view time-zone hints
+  lunchHint:     string;
+  dinnerHint:    string;
 }
 
 // ── 모드별 텍스트 + 상태색 (테마 독립) ──────────────────────────────
@@ -82,6 +85,8 @@ export function useColors(): AppTheme {
     bg: v.bg, card: v.card, card2: v.card2, border: v.border, nav: v.nav,
     primary: v.primary, accent: v.accent,
     ...t,
+    lunchHint:  isDark ? 'rgba(251,191,36,0.07)' : 'rgba(251,191,36,0.10)',
+    dinnerHint: isDark ? 'rgba(139,92,246,0.06)' : 'rgba(139,92,246,0.08)',
   };
 }
 
