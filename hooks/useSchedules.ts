@@ -110,6 +110,8 @@ export function useSchedules(date: string, daysAhead = 0) {
         start_at: intent.startDateTime.date,
         end_at: endAt,
         location: intent.location ?? null,
+        description: intent.notes ?? null,
+        attendees: intent.attendees ?? null,
         category: intent.category ?? 'work',
         is_recurring: intent.startDateTime.isRecurring,
         recurrence_rule: intent.startDateTime.recurrenceRule ?? null,
