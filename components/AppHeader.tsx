@@ -55,7 +55,11 @@ export default function AppHeader({ currentTab }: Props) {
       router.push('/week');
       return;
     }
-    // month / year — 준비 중
+    if (tab === 'month') {
+      router.push('/month');
+      return;
+    }
+    // year — 준비 중
     if (Platform.OS === 'android') {
       ToastAndroid.show('준비 중', ToastAndroid.SHORT);
     }
