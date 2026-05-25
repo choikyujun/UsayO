@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -26,7 +25,8 @@ import ReAnimated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmCard from '../components/ConfirmCard';
 import InlineConfirmCard from '../components/InlineConfirmCard';
-import TodayEventList from '../components/TodayEventList';
+import TimeSpine from '../components/TimeSpine';
+import { useConversationalMessage } from '../hooks/useConversationalMessage';
 import VoiceHintCarousel from '../components/VoiceHintCarousel';
 import HybridInputModal from '../components/HybridInputModal';
 import UpgradeModal from '../components/UpgradeModal';
@@ -40,8 +40,8 @@ import { useVoiceFlow } from '../hooks/useVoiceFlow';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
 import { ttsService } from '../services/voice/TTSService';
 import { ClassifiedIntent, HybridInputState } from '../types';
-import { addDays, toYearMonth } from '../utils/dateHelpers';
-import { localDateStr, todayDateStr } from '../utils/timeHelpers';
+import { toYearMonth } from '../utils/dateHelpers';
+import { todayDateStr } from '../utils/timeHelpers';
 
 const TODAY = todayDateStr();
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -54,15 +54,6 @@ const FALLBACK_HYBRID: HybridInputState = {
   isVoiceMode: false,
   fallbackReason: 'noise',
 };
-
-function selectedDateLabel(date: string): string {
-  const today = todayDateStr();
-  const tomorrow = localDateStr(addDays(new Date(), 1));
-  if (date === today)    return '오늘 일정';
-  if (date === tomorrow) return '내일 일정';
-  const d = new Date(date + 'T00:00:00');
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 일정`;
-}
 
 function errorMessage(error: unknown): string {
   if (!error) return '처리에 실패했어요';
@@ -83,16 +74,17 @@ export default function HomeScreen() {
 
   // ── Clock ──────────────────────────────────────────────────────
   const DAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
-  const formatTime = (d: Date) => `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
-  const formatDate = (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}`;
-  const [currentTime, setCurrentTime] = useState(() => formatTime(new Date()));
-  const [dateLabel,   setDateLabel]   = useState(() => formatDate(new Date()));
+  const fmtTime = (d: Date) => `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const fmtDate = (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}`;
+  const [currentTime, setCurrentTime] = useState(() => fmtTime(new Date()));
+  const [dateLabel,   setDateLabel]   = useState(() => fmtDate(new Date()));
+  const dateTimeChrome = `${dateLabel} · ${currentTime}`;
 
   useEffect(() => {
     const id = setInterval(() => {
       const now = new Date();
-      setCurrentTime(formatTime(now));
-      setDateLabel(formatDate(now));
+      setCurrentTime(fmtTime(now));
+      setDateLabel(fmtDate(now));
     }, 60_000);
     return () => clearInterval(id);
   }, []);
@@ -101,6 +93,9 @@ export default function HomeScreen() {
   const {
     events, loading, reload: reloadForDate,
   } = useEventsForDate(selectedDate, anchorMonth);
+
+  // Conversational header message (재계산: 이벤트 or 매 분)
+  const message = useConversationalMessage(events, currentTime);
 
   // CRUD-only: voice commands, undo, lastCreatedId
   const {
@@ -310,12 +305,20 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* ── 헤더: 날짜(탭) + 시각 ───────────────────────────────────── */}
+        {/* ── 헤더: 날짜 chrome(탭) + 컨버세이셔널 메시지 ───────────── */}
         <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <Pressable onPress={() => router.push('/calendar')} hitSlop={12}>
-            <Text style={styles.dateLink}>{dateLabel}</Text>
+          <Pressable
+            onPress={() => router.push('/calendar')}
+            hitSlop={12}
+            style={styles.dateChrome}
+          >
+            <Text style={styles.dateChromeText}>{dateTimeChrome}</Text>
           </Pressable>
-          <Text style={styles.bigTime}>{currentTime}</Text>
+          <Text style={styles.conversational}>
+            <Text>{message.primary}</Text>
+            {'\n'}
+            <Text style={styles.conversationalSecondary}>{message.secondary}</Text>
+          </Text>
         </View>
 
         <UsageWarningBanner feature="voice_create" />
@@ -323,17 +326,12 @@ export default function HomeScreen() {
 
         <View style={styles.divider} />
 
-        {/* 선택 날짜 라벨 */}
-        <Text style={styles.dateSectionLabel}>{selectedDateLabel(selectedDate)}</Text>
-
-        <TodayEventList
+        <TimeSpine
           events={events}
           loading={loading}
-          newEventId={lastCreatedId}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
           listPaddingBottom={insets.bottom + 120}
-          selectedDate={selectedDate}
         />
       </ReAnimated.View>
 
@@ -500,20 +498,26 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     },
     header: {
       paddingHorizontal: 20,
-      paddingBottom: 16,
+      paddingBottom: 8,
       alignItems: 'flex-start',
     },
-    dateLink: {
-      fontSize: 16,
-      fontWeight: '500',
-      color: c.textMuted,
+    dateChrome: {
+      marginBottom: 16,
     },
-    bigTime: {
-      fontSize: 56,
-      fontWeight: '700',
+    dateChromeText: {
+      fontSize: 12,
+      color: c.textMuted,
+      letterSpacing: 0.2,
+    },
+    conversational: {
+      fontSize: 18,
+      lineHeight: 28,
       color: c.textPrimary,
-      letterSpacing: -2,
-      marginTop: 8,
+      fontWeight: '400',
+    },
+    conversationalSecondary: {
+      color: c.accent,
+      fontWeight: '500',
     },
     divider: {
       height: 0.5,
@@ -521,16 +525,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       marginHorizontal: 16,
       marginTop: 4,
       marginBottom: 2,
-    },
-    dateSectionLabel: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: c.textMuted,
-      letterSpacing: 0.5,
-      paddingHorizontal: 20,
-      paddingTop: 8,
-      paddingBottom: 2,
-      textTransform: 'uppercase',
     },
     // ── Listening UI ─────────────────────────────────────────────
     listeningInfo: {
