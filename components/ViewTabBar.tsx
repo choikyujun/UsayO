@@ -39,11 +39,11 @@ export default function ViewTabBar({ currentView, onSelect }: Props) {
         return (
           <Pressable
             key={tab.key}
-            style={[styles.tab, active && styles.tabActive]}
+            style={[styles.tab, active && { backgroundColor: colors.primary }]}
             onPress={() => handlePress(tab.key)}
             hitSlop={4}
           >
-            <Text style={[styles.label, { color: active ? '#fff' : '#AFA9EC' }, active && styles.labelActive]}>
+            <Text style={[styles.label, { color: active ? '#fff' : colors.accent }, active && styles.labelActive]}>
               {tab.label}
             </Text>
           </Pressable>
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabActive: {
-    backgroundColor: '#534AB7',
+    // backgroundColor injected inline from colors.primary
   },
   label: {
     fontSize:   13,

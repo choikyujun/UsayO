@@ -8,8 +8,6 @@ import { formatTimeRow } from '../utils/timeHelpers';
 import { getEventTop, getEventHeight, TIME_LABEL_W } from '../utils/dayViewLayout';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
 
-const EVENT_COLOR = '#534AB7'; // Voice Purple — unified for all categories
-
 interface Props {
   event:       Event;
   colors:      AppTheme;
@@ -127,7 +125,7 @@ function makeStyles(c: AppTheme) {
       borderRadius: 6,
     },
     block: {
-      backgroundColor:  EVENT_COLOR,
+      backgroundColor:  c.primary,
       borderRadius:     6,
       paddingHorizontal: 8,
       paddingVertical:   6,
@@ -141,7 +139,7 @@ function makeStyles(c: AppTheme) {
     },
     blockTime: {
       fontSize:   11,
-      color:      '#DFDCFE',
+      color:      'rgba(255,255,255,0.75)',
       fontWeight: '400',
       marginTop:  2,
     },

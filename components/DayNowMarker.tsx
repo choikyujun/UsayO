@@ -1,27 +1,28 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useColors } from '../constants/colors';
 import { TIME_LABEL_W, getNowY } from '../utils/dayViewLayout';
-
-const NOW_RED = '#E63946';
 
 interface Props {
   tick: number; // changes every minute to trigger re-render
 }
 
 export default function DayNowMarker({ tick: _ }: Props) {
-  const y = getNowY();
+  const colors = useColors();
+  const y      = getNowY();
+  const red    = colors.error;
 
   return (
     <View style={[styles.row, { top: y }]} pointerEvents="none">
       {/* "NOW" pill */}
-      <View style={styles.pill}>
+      <View style={[styles.pill, { backgroundColor: red }]}>
         <Text style={styles.pillText}>NOW</Text>
       </View>
 
       {/* Start dot */}
-      <View style={styles.dot} />
+      <View style={[styles.dot, { backgroundColor: red }]} />
 
       {/* Horizontal line */}
-      <View style={styles.line} />
+      <View style={[styles.line, { backgroundColor: red }]} />
     </View>
   );
 }
@@ -36,7 +37,6 @@ const styles = StyleSheet.create({
     zIndex:        10,
   },
   pill: {
-    backgroundColor: NOW_RED,
     borderRadius:    4,
     paddingHorizontal: 4,
     paddingVertical:   1,
@@ -51,16 +51,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   dot: {
-    width:           7,
-    height:          7,
-    borderRadius:    3.5,
-    backgroundColor: NOW_RED,
-    marginLeft:      2,
+    width:        7,
+    height:       7,
+    borderRadius: 3.5,
+    marginLeft:   2,
   },
   line: {
-    flex:            1,
-    height:          1.5,
-    backgroundColor: NOW_RED,
-    opacity:         0.7,
+    flex:    1,
+    height:  1.5,
+    opacity: 0.7,
   },
 });
