@@ -34,10 +34,19 @@ export default function UpcomingEventRow({ event, colors, expanded, onTap }: Pro
         <Text style={styles.title} numberOfLines={expanded ? undefined : 1}>
           {event.title}
         </Text>
-        {expanded && event.end_at && (
-          <Text style={styles.duration}>
-            {formatTimeRow(new Date(event.start_at))} – {formatTimeRow(new Date(event.end_at))}
-          </Text>
+        {expanded && (
+          <View style={styles.expandedArea}>
+            {event.end_at && (
+              <Text style={styles.meta}>
+                {formatTimeRow(new Date(event.start_at))} – {formatTimeRow(new Date(event.end_at))}
+              </Text>
+            )}
+            {event.location ? <Text style={styles.meta}>📍 {event.location}</Text> : null}
+            {event.description ? <Text style={styles.meta}>💭 {event.description}</Text> : null}
+            {event.attendees?.length ? (
+              <Text style={styles.meta}>👥 {event.attendees.join(', ')}</Text>
+            ) : null}
+          </View>
         )}
       </View>
     </Pressable>
@@ -79,10 +88,13 @@ function makeStyles(c: AppTheme) {
       color:      c.textSecondary,
       fontWeight: '400',
     },
-    duration: {
+    expandedArea: {
+      marginTop: 4,
+      gap: 2,
+    },
+    meta: {
       fontSize:   12,
       color:      c.textMuted,
-      marginTop:  2,
       fontFamily: MONO,
     },
   });

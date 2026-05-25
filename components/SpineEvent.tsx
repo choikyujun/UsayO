@@ -206,7 +206,10 @@ export default function SpineEvent({
                   {event.description ? (
                     <Text style={styles.expandedLine}>💭 {event.description}</Text>
                   ) : null}
-                  {!event.location && !event.description && (
+                  {event.attendees?.length ? (
+                    <Text style={styles.expandedLine}>👥 {event.attendees.join(', ')}</Text>
+                  ) : null}
+                  {!event.location && !event.description && !event.attendees?.length && (
                     <Text style={styles.expandedEmpty}>메모나 장소가 없어요</Text>
                   )}
                 </View>
