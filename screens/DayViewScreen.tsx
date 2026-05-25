@@ -1,6 +1,5 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,6 +19,7 @@ import ReAnimated, {
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AppHeader from '../components/AppHeader';
 import DayEventBlock from '../components/DayEventBlock';
 import DayNowMarker from '../components/DayNowMarker';
 import DinnerHint from '../components/DinnerHint';
@@ -29,7 +29,6 @@ import EventActionSheet, { RecurringDeleteScope } from '../components/EventActio
 import HourGrid from '../components/HourGrid';
 import InlineConfirmCard from '../components/InlineConfirmCard';
 import LunchHint from '../components/LunchHint';
-import ViewTabBar from '../components/ViewTabBar';
 import { useColors } from '../constants/colors';
 import { useDayEvents } from '../hooks/useDayEvents';
 import { useSchedules } from '../hooks/useSchedules';
@@ -46,8 +45,8 @@ import { localDateStr } from '../utils/timeHelpers';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
+const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 function formatDayLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   return `${d.getMonth() + 1}월 ${d.getDate()}일 ${KO_DAYS[d.getDay()]}요일`;
@@ -211,27 +210,20 @@ export default function DayViewScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      {/* ── Header ───────────────────────────────────────────────── */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-          <ChevronLeft size={22} color={colors.textPrimary} />
-        </Pressable>
+      {/* ── 통합 헤더 ────────────────────────────────────────────── */}
+      <AppHeader currentTab="day" />
 
+      {/* ── 날짜 + 오늘로 행 ─────────────────────────────────────── */}
+      <View style={styles.subHeader}>
         <Text style={[styles.dateLabel, { color: colors.textPrimary }]}>
           {formatDayLabel(dateStr)}
         </Text>
-
-        {!isToday ? (
+        {!isToday && (
           <Pressable onPress={goToToday} hitSlop={12} style={styles.todayBtn}>
             <Text style={[styles.todayText, { color: colors.accent }]}>오늘로</Text>
           </Pressable>
-        ) : (
-          <View style={styles.todayBtn} />
         )}
       </View>
-
-      {/* ── View tab bar ─────────────────────────────────────────── */}
-      <ViewTabBar currentView="day" onSelect={view => { if (view === 'week') router.push('/week'); }} />
 
       {/* ── Grid (swipeable) ─────────────────────────────────────── */}
       <GestureDetector gesture={panGesture}>
@@ -349,18 +341,18 @@ export default function DayViewScreen() {
 
 function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    root:   { flex: 1 },
-    header: {
+    root: { flex: 1 },
+    subHeader: {
       flexDirection:     'row',
       alignItems:        'center',
-      paddingHorizontal: 8,
-      paddingBottom:     10,
+      justifyContent:    'space-between',
+      paddingHorizontal: 16,
+      paddingVertical:   8,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
-    backBtn:   { padding: 6, width: 40, alignItems: 'center' },
-    dateLabel: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '600' },
-    todayBtn:  { padding: 6, width: 48, alignItems: 'center' },
+    dateLabel: { fontSize: 15, fontWeight: '600' },
+    todayBtn:  { paddingHorizontal: 8, paddingVertical: 4 },
     todayText: { fontSize: 13, fontWeight: '600' },
 
     // Voice overlays
