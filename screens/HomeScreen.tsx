@@ -91,7 +91,7 @@ export default function HomeScreen() {
 
   // Events for the selected date
   const {
-    events, loading, reload: reloadForDate,
+    events, loading, reload: reloadForDate, patchEvent,
   } = useEventsForDate(selectedDate, anchorMonth);
 
   // Conversational header message (재계산: 이벤트 or 매 분)
@@ -99,8 +99,21 @@ export default function HomeScreen() {
 
   // CRUD-only: voice commands, undo, lastCreatedId
   const {
-    lastCreatedId, applyClassifiedIntent, undoSave, reload: reloadSchedules,
+    lastCreatedId, applyClassifiedIntent, undoSave,
+    rescheduleEvent, undoRescheduleEvent,
+    reload: reloadSchedules,
   } = useSchedules(TODAY, 7);
+
+  // ── Reschedule undo state ─────────────────────────────────────
+  interface RescheduledItem {
+    eventId:       string;
+    title:         string;
+    originalStart: string;
+    originalEnd:   string;
+    timeoutId:     ReturnType<typeof setTimeout>;
+  }
+  const [lastRescheduled, setLastRescheduled] = useState<RescheduledItem | null>(null);
+  const rescheduleToastOpacity = useRef(new Animated.Value(0)).current;
 
   const { isFirstLaunch, markOnboarded } = useOnboarding();
   const gate = useFeatureGate('voice_create');
@@ -209,6 +222,25 @@ export default function HomeScreen() {
     prevPhase.current = voice.phase;
   }, [voice.phase, voice.confirmMessage]);
 
+  // ── RESCHEDULE_UNDO intent: execute immediately ───────────────
+  useEffect(() => {
+    if (voice.phase !== 'confirming') return;
+    const intent = voice.classifiedIntent;
+    if (intent?.intent !== 'RESCHEDULE_UNDO') return;
+    voice.cancelVoice();
+    setLastRescheduled(current => {
+      if (current) {
+        clearTimeout(current.timeoutId);
+        patchEvent(current.eventId, { start_at: current.originalStart, end_at: current.originalEnd });
+        undoRescheduleEvent(current.eventId, current.originalStart, current.originalEnd).catch(() => {});
+        Animated.timing(rescheduleToastOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+        return null;
+      }
+      ttsService.speak('최근 1분 이내에 이동한 일정이 없어요.').catch(() => {});
+      return current;
+    });
+  }, [voice.phase, voice.classifiedIntent]);
+
   // ── NAVIGATION intent: skip confirm, go directly ─────────────
   useEffect(() => {
     if (voice.phase !== 'confirming') return;
@@ -273,6 +305,54 @@ export default function HomeScreen() {
     });
   }, [voice, applyClassifiedIntent]);
 
+  const handleReschedule = useCallback((eventId: string, newTime: Date) => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+
+    const durationMs    = new Date(event.end_at).getTime() - new Date(event.start_at).getTime();
+    const newEnd        = new Date(newTime.getTime() + durationMs);
+    const originalStart = event.start_at;
+    const originalEnd   = event.end_at;
+    const title         = event.title;
+
+    // Optimistic UI update (prevents snap-back flicker)
+    patchEvent(eventId, {
+      start_at: newTime.toISOString(),
+      end_at:   newEnd.toISOString(),
+    });
+    // Persist to DB
+    rescheduleEvent(eventId, newTime, newEnd).catch(() => {});
+
+    setLastRescheduled(prev => {
+      if (prev) clearTimeout(prev.timeoutId);
+      return null;
+    });
+
+    Animated.timing(rescheduleToastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+
+    const timeoutId = setTimeout(() => {
+      Animated.timing(rescheduleToastOpacity, { toValue: 0, duration: 250, useNativeDriver: true })
+        .start(() => setLastRescheduled(null));
+    }, 10_000);
+
+    setLastRescheduled({ eventId, title, originalStart, originalEnd, timeoutId });
+  }, [events, patchEvent, rescheduleEvent, rescheduleToastOpacity]);
+
+  const handleUndoReschedule = useCallback(() => {
+    setLastRescheduled(prev => {
+      if (!prev) return null;
+      clearTimeout(prev.timeoutId);
+      // Optimistic UI revert
+      patchEvent(prev.eventId, {
+        start_at: prev.originalStart,
+        end_at:   prev.originalEnd,
+      });
+      undoRescheduleEvent(prev.eventId, prev.originalStart, prev.originalEnd).catch(() => {});
+      Animated.timing(rescheduleToastOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+      return null;
+    });
+  }, [patchEvent, undoRescheduleEvent, rescheduleToastOpacity]);
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try { await reloadForDate(); } finally { setIsRefreshing(false); }
@@ -332,6 +412,7 @@ export default function HomeScreen() {
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
           listPaddingBottom={insets.bottom + 120}
+          onReschedule={handleReschedule}
         />
       </ReAnimated.View>
 
@@ -415,6 +496,19 @@ export default function HomeScreen() {
           </View>
         </View>
       )}
+
+      {/* ── 재스케줄 취소 토스트 (10초) ─────────────────────────── */}
+      <Animated.View
+        style={[styles.rescheduleToast, { opacity: rescheduleToastOpacity }]}
+        pointerEvents={lastRescheduled ? 'box-none' : 'none'}
+      >
+        <Text style={styles.toastText} numberOfLines={1}>
+          {lastRescheduled ? `"${lastRescheduled.title}" 이동했어요` : ''}
+        </Text>
+        <Pressable onPress={handleUndoReschedule} hitSlop={12}>
+          <Text style={styles.toastUndo}>되돌리기</Text>
+        </Pressable>
+      </Animated.View>
 
       {/* ── FAB (absolute 하단 중앙, transform으로 중앙 이동) ─────── */}
       <View
@@ -693,6 +787,39 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       fontSize: 12,
       color: c.accent,
       letterSpacing: 0.3,
+    },
+
+    // ── Reschedule undo toast ─────────────────────────────────────
+    rescheduleToast: {
+      position:          'absolute',
+      bottom:            96,
+      left:              20,
+      right:             20,
+      backgroundColor:   c.card,
+      borderRadius:      12,
+      borderWidth:       0.5,
+      borderColor:       c.border,
+      flexDirection:     'row',
+      alignItems:        'center',
+      justifyContent:    'space-between',
+      paddingHorizontal: 16,
+      paddingVertical:   12,
+      shadowColor:       '#000',
+      shadowOffset:      { width: 0, height: 2 },
+      shadowOpacity:     0.12,
+      shadowRadius:      8,
+      elevation:         6,
+    },
+    toastText: {
+      fontSize: 14,
+      color:    c.textPrimary,
+      flex:     1,
+    },
+    toastUndo: {
+      fontSize:   14,
+      color:      c.accent,
+      fontWeight: '700',
+      marginLeft: 12,
     },
   });
 }

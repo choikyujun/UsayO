@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   LayoutAnimation,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   Pressable,
   RefreshControl,
@@ -12,15 +14,19 @@ import {
   UIManager,
   View,
 } from 'react-native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { AppTheme, useColors } from '../constants/colors';
 import { isKoreanHoliday } from '../hooks/useHolidays';
 import { isLunchHour } from '../utils/timeHelpers';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
+import { calculateNewTime, EventPosition } from '../utils/rescheduleHelpers';
+import SpineEvent from './SpineEvent';
+import type { EventState } from './SpineEvent';
 import EmptyTodayState from './EmptyTodayState';
 import EventActionSheet from './EventActionSheet';
+
+export type { EventState };
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -28,14 +34,9 @@ if (Platform.OS === 'android') {
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const PADDING_H = 20;
-const TIME_W    = 38;
-const DOT_GAP   = 14;
-// Spine line at the boundary between time col and gap (will be visually between them)
-const SPINE_X   = PADDING_H + TIME_W + DOT_GAP / 2; // ≈ 64
+const SPINE_X   = PADDING_H + 38 + 14 / 2; // ≈ 64
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-export type EventState = 'past' | 'current' | 'next' | 'future';
-
 interface SpineEventItem { type: 'event'; id: string; event: Event; state: EventState }
 interface SpineNowItem   { type: 'now';   id: string; nowDate: Date }
 type SpineItem = SpineEventItem | SpineNowItem;
@@ -52,6 +53,7 @@ interface Props {
   listPaddingBottom?: number;
   onRefresh?:         () => void;
   isRefreshing?:      boolean;
+  onReschedule?:      (eventId: string, newTime: Date) => void;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -61,6 +63,7 @@ export default function TimeSpine({
   listPaddingBottom,
   onRefresh,
   isRefreshing,
+  onReschedule,
 }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeContainerStyles(colors), [colors]);
@@ -80,6 +83,34 @@ export default function TimeSpine({
     const id = setInterval(() => { nowRef.current = new Date(); setTick(t => t + 1); }, 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // ── Coordinate tracking (for drag-to-reschedule) ──────────────────────────
+  const contentWrapperRef = useRef<View>(null);
+  const scrollOffsetY     = useRef(0);
+  const eventLayoutMap    = useRef<Map<string, { top: number; bottom: number }>>(new Map());
+
+  function handleEventLayout(id: string, top: number, bottom: number) {
+    eventLayoutMap.current.set(id, { top, bottom });
+  }
+
+  function makeGetDropTime(excludeId: string, durationMs: number) {
+    return (absoluteY: number): Promise<Date> =>
+      new Promise(resolve => {
+        contentWrapperRef.current?.measure((_, __, ___, ____, _____, pageY) => {
+          const contentY = absoluteY - pageY + scrollOffsetY.current;
+          const positions: EventPosition[] = [];
+          eventLayoutMap.current.forEach(({ top, bottom }, id) => {
+            const ev = events.find(e => e.id === id);
+            if (ev) positions.push({ id, top, bottom, endAt: ev.end_at });
+          });
+          resolve(calculateNewTime(contentY, positions, events, excludeId, durationMs));
+        });
+      });
+  }
+
+  function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    scrollOffsetY.current = e.nativeEvent.contentOffset.y;
+  }
 
   // ── Filtered + sorted events ───────────────────────────────────────────────
   const visibleEvents = useMemo(
@@ -102,7 +133,6 @@ export default function TimeSpine({
       const startMs = new Date(event.start_at).getTime();
       const endMs   = new Date(event.end_at).getTime();
 
-      // Insert NOW marker before first future event
       if (!nowInserted && startMs > nowMs) {
         items.push({ type: 'now', id: 'now-marker', nowDate: now });
         nowInserted = true;
@@ -126,7 +156,6 @@ export default function TimeSpine({
       items.push({ type: 'event', id: event.id, event, state });
     }
 
-    // All events are past → NOW at the very end
     if (!nowInserted) {
       items.push({ type: 'now', id: 'now-marker', nowDate: now });
     }
@@ -193,7 +222,6 @@ export default function TimeSpine({
     });
   }
 
-  // Cleanup pending delete on unmount
   useEffect(() => {
     return () => {
       if (deletedItem) {
@@ -221,6 +249,8 @@ export default function TimeSpine({
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: listPaddingBottom ?? 120 }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           onRefresh ? (
             <RefreshControl
@@ -231,7 +261,7 @@ export default function TimeSpine({
           ) : undefined
         }
       >
-        <View style={styles.contentWrapper}>
+        <View ref={contentWrapperRef} style={styles.contentWrapper}>
           {/* Vertical spine line */}
           <View style={[styles.spineLine, { backgroundColor: colors.border }]} />
 
@@ -239,7 +269,7 @@ export default function TimeSpine({
             item.type === 'now' ? (
               <NowMarkerRow key={item.id} nowDate={item.nowDate} colors={colors} />
             ) : (
-              <SpineEventRow
+              <SpineEvent
                 key={item.id}
                 event={item.event}
                 state={item.state}
@@ -251,6 +281,17 @@ export default function TimeSpine({
                 onDelete={handleDelete}
                 onComplete={handleComplete}
                 colors={colors}
+                onLayout={handleEventLayout}
+                getDropTime={
+                  item.state === 'past'
+                    ? makeGetDropTime(
+                        item.event.id,
+                        new Date(item.event.end_at).getTime() -
+                          new Date(item.event.start_at).getTime(),
+                      )
+                    : undefined
+                }
+                onReschedule={onReschedule}
               />
             ),
           )}
@@ -277,120 +318,6 @@ export default function TimeSpine({
   );
 }
 
-// ── SpineEventRow ─────────────────────────────────────────────────────────────
-interface SpineEventRowProps {
-  event:       Event;
-  state:       EventState;
-  expanded:    boolean;
-  isHoliday:   boolean;
-  isLunch:     boolean;
-  onTap:       () => void;
-  onLongPress: (e: Event) => void;
-  onDelete:    (e: Event) => void;
-  onComplete:  (e: Event) => void;
-  colors:      AppTheme;
-}
-
-function SpineEventRow({
-  event, state, expanded, isHoliday, isLunch,
-  onTap, onLongPress, onDelete, onComplete, colors,
-}: SpineEventRowProps) {
-  const swipeRef = useRef<Swipeable>(null);
-  const styles   = useMemo(() => makeSpineEventStyles(colors, state), [colors, state]);
-
-  const isPast    = state === 'past';
-  const isNext    = state === 'next';
-  const isCurrent = state === 'current';
-
-  async function handleLongPress() {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onLongPress(event);
-  }
-
-  function handleComplete() {
-    swipeRef.current?.close();
-    onComplete(event);
-  }
-
-  function handleSwipeDelete() {
-    swipeRef.current?.close();
-    onDelete(event);
-  }
-
-  return (
-    <Swipeable
-      ref={swipeRef}
-      renderLeftActions={() => (
-        <View style={styles.actionLeft}>
-          <Text style={styles.actionIcon}>✓</Text>
-          <Text style={styles.actionLabel}>완료</Text>
-        </View>
-      )}
-      renderRightActions={() => (
-        <View style={styles.actionRight}>
-          <Text style={styles.actionIcon}>🗑️</Text>
-          <Text style={styles.actionLabel}>삭제</Text>
-        </View>
-      )}
-      onSwipeableOpen={dir => {
-        if (dir === 'left') handleComplete();
-        else handleSwipeDelete();
-      }}
-      friction={2}
-      leftThreshold={60}
-      rightThreshold={60}
-      overshootLeft={false}
-      overshootRight={false}
-    >
-      <Pressable
-        style={[
-          styles.row,
-          isLunch   && { backgroundColor: colors.primary + '08' },
-          expanded  && { backgroundColor: colors.card2 + '80' },
-        ]}
-        onPress={onTap}
-        onLongPress={handleLongPress}
-        delayLongPress={500}
-      >
-        {/* Time column */}
-        <Text style={[styles.time, isHoliday && styles.timeHoliday]}>
-          {formatTimeRow(new Date(event.start_at))}
-        </Text>
-
-        {/* Spine dot */}
-        <View style={styles.dot} />
-
-        {/* Title + meta */}
-        <View style={styles.titleArea}>
-          <Text
-            style={[styles.title, isPast && styles.titleStrike]}
-            numberOfLines={expanded ? undefined : 1}
-          >
-            {event.title}
-          </Text>
-
-          {isNext    && <Text style={styles.badge}>다음 일정</Text>}
-          {isCurrent && <Text style={[styles.badge, { color: colors.primary }]}>진행 중</Text>}
-
-          {expanded && (
-            <View style={styles.expandedArea}>
-              {event.location ? (
-                <Text style={styles.expandedLine}>📍 {event.location}</Text>
-              ) : null}
-              {event.description ? (
-                <Text style={styles.expandedLine}>💭 {event.description}</Text>
-              ) : null}
-              {!event.location && !event.description && (
-                <Text style={styles.expandedEmpty}>메모나 장소가 없어요</Text>
-              )}
-            </View>
-          )}
-        </View>
-      </Pressable>
-    </Swipeable>
-  );
-}
-
 // ── NowMarkerRow ──────────────────────────────────────────────────────────────
 function NowMarkerRow({ nowDate, colors }: { nowDate: Date; colors: AppTheme }) {
   const h = nowDate.getHours();
@@ -409,13 +336,16 @@ function NowMarkerRow({ nowDate, colors }: { nowDate: Date; colors: AppTheme }) 
   );
 }
 
+const TIME_W  = 38;
+const DOT_GAP = 14;
+
 const nowRowStyles = StyleSheet.create({
   row: {
-    flexDirection:  'row',
-    alignItems:     'center',
+    flexDirection:     'row',
+    alignItems:        'center',
     paddingHorizontal: PADDING_H,
-    marginVertical: 16,
-    gap: DOT_GAP,
+    marginVertical:    16,
+    gap:               DOT_GAP,
   },
   time: {
     width:      TIME_W,
@@ -424,9 +354,9 @@ const nowRowStyles = StyleSheet.create({
     textAlign:  'right',
   },
   lineWrap: {
-    flex:           1,
-    flexDirection:  'row',
-    alignItems:     'center',
+    flex:          1,
+    flexDirection: 'row',
+    alignItems:    'center',
   },
   dot: {
     width:        7,
@@ -439,10 +369,10 @@ const nowRowStyles = StyleSheet.create({
     height: 1,
   },
   label: {
-    fontSize:    9,
-    fontWeight:  '600',
+    fontSize:      9,
+    fontWeight:    '600',
     letterSpacing: 0.8,
-    marginLeft:  6,
+    marginLeft:    6,
   },
 });
 
@@ -454,121 +384,33 @@ function makeContainerStyles(c: AppTheme) {
     center:         { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
     loadingText:    { fontSize: 14, color: c.textMuted },
     spineLine: {
-      position:         'absolute',
-      left:             SPINE_X,
-      top:              4,
-      bottom:           4,
-      width:            0.5,
+      position: 'absolute',
+      left:     SPINE_X,
+      top:      4,
+      bottom:   4,
+      width:    0.5,
     },
     toast: {
-      position:         'absolute',
-      bottom:           20,
-      left:             20,
-      right:            20,
-      backgroundColor:  c.card,
-      borderRadius:     12,
-      borderWidth:      0.5,
-      borderColor:      c.border,
-      flexDirection:    'row',
-      alignItems:       'center',
-      justifyContent:   'space-between',
+      position:          'absolute',
+      bottom:            20,
+      left:              20,
+      right:             20,
+      backgroundColor:   c.card,
+      borderRadius:      12,
+      borderWidth:       0.5,
+      borderColor:       c.border,
+      flexDirection:     'row',
+      alignItems:        'center',
+      justifyContent:    'space-between',
       paddingHorizontal: 16,
       paddingVertical:   12,
-      shadowColor:      '#000',
-      shadowOffset:     { width: 0, height: 2 },
-      shadowOpacity:    0.12,
-      shadowRadius:     8,
-      elevation:        6,
+      shadowColor:       '#000',
+      shadowOffset:      { width: 0, height: 2 },
+      shadowOpacity:     0.12,
+      shadowRadius:      8,
+      elevation:         6,
     },
     toastText: { fontSize: 14, color: c.textPrimary, flex: 1 },
     toastUndo: { fontSize: 14, color: c.accent, fontWeight: '700', marginLeft: 12 },
-  });
-}
-
-// ── Per-event styles (state-dependent) ───────────────────────────────────────
-function makeSpineEventStyles(c: AppTheme, state: EventState) {
-  const isPast    = state === 'past';
-  const isNext    = state === 'next';
-  const isCurrent = state === 'current';
-
-  const dotSize  = isNext || isCurrent ? 12 : 7;
-  const dotColor = isPast    ? c.textMuted
-                 : isCurrent ? c.primary
-                 : isNext    ? c.accent
-                 :             c.textSecondary;
-  const dotBorderWidth = isNext ? 3 : 0;
-  const dotBorderColor = isNext ? c.accent + '40' : 'transparent';
-
-  return StyleSheet.create({
-    row: {
-      flexDirection:     'row',
-      alignItems:        'flex-start',
-      paddingHorizontal: PADDING_H,
-      paddingVertical:   10,
-      gap:               DOT_GAP,
-      opacity:           isPast ? 0.42 : 1,
-      backgroundColor:   'transparent',
-    },
-    time: {
-      width:      TIME_W,
-      fontSize:   11,
-      color:      c.textMuted,
-      textAlign:  'right',
-      paddingTop: 3,
-      fontFamily: MONO,
-    },
-    timeHoliday: {
-      color: '#DC2626',
-    },
-    dot: {
-      width:           dotSize + dotBorderWidth * 2,
-      height:          dotSize + dotBorderWidth * 2,
-      borderRadius:    (dotSize + dotBorderWidth * 2) / 2,
-      backgroundColor: dotColor,
-      borderWidth:     dotBorderWidth,
-      borderColor:     dotBorderColor,
-      marginTop:       isNext ? 1 : 4,
-    },
-    titleArea: {
-      flex: 1,
-      gap:  2,
-    },
-    title: {
-      fontSize:   isNext ? 15 : 13,
-      fontWeight: isNext ? '600' : '400',
-      color:      c.textPrimary,
-      lineHeight: 19,
-    },
-    titleStrike: {
-      textDecorationLine: 'line-through',
-      color:              c.textMuted,
-    },
-    badge: {
-      fontSize:   10,
-      color:      c.accent,
-      fontWeight: '500',
-    },
-    expandedArea: {
-      paddingTop: 6,
-      gap:        3,
-    },
-    expandedLine:  { fontSize: 12, color: c.textSecondary, lineHeight: 17 },
-    expandedEmpty: { fontSize: 12, color: c.textMuted, fontStyle: 'italic' },
-    actionLeft: {
-      backgroundColor:  c.success,
-      alignItems:       'center',
-      justifyContent:   'center',
-      paddingHorizontal: 24,
-      gap:              2,
-    },
-    actionRight: {
-      backgroundColor:  c.error,
-      alignItems:       'center',
-      justifyContent:   'center',
-      paddingHorizontal: 24,
-      gap:              2,
-    },
-    actionIcon:  { fontSize: 16, color: '#fff' },
-    actionLabel: { fontSize: 10, color: '#fff', fontWeight: '700' },
   });
 }

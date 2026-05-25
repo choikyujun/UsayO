@@ -50,5 +50,9 @@ export function useEventsForDate(selectedDate: string, anchorYearMonth: string) 
     return counts;
   }, [monthEvents]);
 
-  return { events, loading, monthCounts, reload: load };
+  function patchEvent(eventId: string, updates: Partial<Event>) {
+    setMonthEvents(prev => prev.map(e => e.id === eventId ? { ...e, ...updates } : e));
+  }
+
+  return { events, loading, monthCounts, reload: load, patchEvent };
 }

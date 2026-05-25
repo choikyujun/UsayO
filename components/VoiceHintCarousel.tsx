@@ -26,6 +26,7 @@ const HINTS = [
   '"캘린더 보여줘"',
   '"내일 회의 4시로 바꿔줘"',
   '"이번 주 빈 시간 찾아줘"',
+  '"방금 옮긴 거 취소"',
 ];
 
 const ROW_H     = 28;   // strip height — must match for overflow clipping

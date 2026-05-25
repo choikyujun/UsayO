@@ -13,6 +13,7 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 - DELETE: 기존 일정 삭제 ("취소해줘", "삭제해줘", "지워줘", "없애줘")
 - QUERY:  일정 조회 ("알려줘", "보여줘", "뭐 있어", "확인해줘") — 단, 화면 이동이 명확하면 NAVIGATION 우선
 - NAVIGATION: 화면 이동 ("보여줘" + 화면명, "이동해줘", "열어줘")
+- RESCHEDULE_UNDO: 드래그 이동 취소 ("방금 옮긴 거 취소", "방금 이동한 거 되돌려", "되돌려줘", "원래대로")
 - UNKNOWN: 위에 해당하지 않음
 
 ## NAVIGATION 화면 매핑
@@ -43,7 +44,7 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 
 ## 반환 JSON 형식
 {
-  "intent": "CREATE|UPDATE|DELETE|QUERY|UNKNOWN",
+  "intent": "CREATE|UPDATE|DELETE|QUERY|NAVIGATION|RESCHEDULE_UNDO|UNKNOWN",
   "confidence": 0~1,
   "title": "일정 제목 (CREATE/UPDATE)",
   "startDateTime": {
@@ -145,7 +146,9 @@ export class IntentClassifierService {
     let intent: ClassifiedIntent['intent'] = 'CREATE';
     let navigationTarget: ClassifiedIntent['navigationTarget'];
 
-    if (/캘린더|달력|이번 달|월별/.test(lower)) {
+    if (/방금.*취소|방금.*되돌|방금.*원래|되돌려줘|원래대로/.test(lower)) {
+      intent = 'RESCHEDULE_UNDO';
+    } else if (/캘린더|달력|이번 달|월별/.test(lower)) {
       intent = 'NAVIGATION'; navigationTarget = 'calendar';
     } else if (/다가올|이번 주|이후 일정|앞으로/.test(lower)) {
       intent = 'NAVIGATION'; navigationTarget = 'upcoming';

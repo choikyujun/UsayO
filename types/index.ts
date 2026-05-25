@@ -39,7 +39,7 @@ export interface STTResult {
   alternatives?: Array<{ transcript: string; confidence: number }>;
 }
 
-export type IntentType = 'CREATE' | 'UPDATE' | 'DELETE' | 'QUERY' | 'NAVIGATION' | 'UNKNOWN';
+export type IntentType = 'CREATE' | 'UPDATE' | 'DELETE' | 'QUERY' | 'NAVIGATION' | 'RESCHEDULE_UNDO' | 'UNKNOWN';
 export type NavigationTarget = 'today' | 'calendar' | 'upcoming' | 'settings';
 
 export interface ClassifiedIntent {

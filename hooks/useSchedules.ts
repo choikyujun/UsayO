@@ -153,6 +153,38 @@ export function useSchedules(date: string, daysAhead = 0) {
     setLastCreatedId(null);
   }
 
+  async function rescheduleEvent(eventId: string, newStart: Date, newEnd: Date): Promise<void> {
+    const newStartIso = newStart.toISOString();
+    const newEndIso   = newEnd.toISOString();
+    const updatedAt   = new Date().toISOString();
+    setEvents(prev => prev.map(e =>
+      e.id === eventId
+        ? { ...e, start_at: newStartIso, end_at: newEndIso, updated_at: updatedAt }
+        : e,
+    ));
+    await supabase
+      .from('events')
+      .update({ start_at: newStartIso, end_at: newEndIso, updated_at: updatedAt })
+      .eq('id', eventId);
+  }
+
+  async function undoRescheduleEvent(
+    eventId: string,
+    originalStart: string,
+    originalEnd: string,
+  ): Promise<void> {
+    const updatedAt = new Date().toISOString();
+    setEvents(prev => prev.map(e =>
+      e.id === eventId
+        ? { ...e, start_at: originalStart, end_at: originalEnd, updated_at: updatedAt }
+        : e,
+    ));
+    await supabase
+      .from('events')
+      .update({ start_at: originalStart, end_at: originalEnd, updated_at: updatedAt })
+      .eq('id', eventId);
+  }
+
   return {
     schedules,
     events,
@@ -161,6 +193,8 @@ export function useSchedules(date: string, daysAhead = 0) {
     applyVoiceCommand,
     applyClassifiedIntent,
     undoSave,
+    rescheduleEvent,
+    undoRescheduleEvent,
     reload: load,
   };
 }
