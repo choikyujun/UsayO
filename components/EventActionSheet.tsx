@@ -98,8 +98,16 @@ export default function EventActionSheet({ event, onClose, onDelete, onDeleteRec
         {!showRecurringPicker ? (
           <>
             <View style={styles.actions}>
-              <ActionBtn label="시간 변경" Icon={Clock}   onPress={() => onEditTime?.(ev)}  colors={colors} />
-              <ActionBtn label="제목 수정" Icon={Pencil}  onPress={() => onEditTitle?.(ev)} colors={colors} />
+              <ActionBtn label="시간 변경" Icon={Clock}   onPress={() => {
+                console.log('[ActionSheet] 시간변경 탭됨');
+                if (onEditTime) { console.log('[ActionSheet] onEditTime 존재, 호출'); onEditTime(ev); }
+                else            { console.log('[ActionSheet] onEditTime prop 누락'); }
+              }} colors={colors} />
+              <ActionBtn label="제목 수정" Icon={Pencil}  onPress={() => {
+                console.log('[ActionSheet] 제목수정 탭됨');
+                if (onEditTitle) { console.log('[ActionSheet] onEditTitle 존재, 호출'); onEditTitle(ev); }
+                else             { console.log('[ActionSheet] onEditTitle prop 누락'); }
+              }} colors={colors} />
               <ActionBtn label="알림 설정" Icon={Bell}    onPress={onClose}          colors={colors} />
               <ActionBtn label="카카오로 공유" Icon={Share2} onPress={handleShare}   colors={colors} />
               <ActionBtn label="삭제"      Icon={Trash2}  onPress={handleDeletePress} colors={colors} danger />

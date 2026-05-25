@@ -25,6 +25,7 @@ interface Props {
 }
 
 export default function EditTitleModal({ visible, event, onClose, onSaved }: Props) {
+  console.log('[EditTitleModal] render, visible:', visible, 'event:', event?.id ?? null);
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const slideY = useRef(new Animated.Value(320)).current;

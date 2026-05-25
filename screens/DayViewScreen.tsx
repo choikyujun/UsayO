@@ -316,8 +316,20 @@ export default function DayViewScreen() {
         onClose={() => setSheetEvent(null)}
         onDelete={handleDeleteEvent}
         onDeleteRecurring={handleDeleteRecurring}
-        onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
-        onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
+        onEditTitle={ev => {
+          console.log('[DayView] onEditTitle 호출, eventId:', ev?.id);
+          setEditEvent(ev);
+          setSheetEvent(null);
+          setEditTitleVisible(true);
+          console.log('[DayView] setEditTitleVisible(true) 완료');
+        }}
+        onEditTime={ev => {
+          console.log('[DayView] onEditTime 호출, eventId:', ev?.id);
+          setEditEvent(ev);
+          setSheetEvent(null);
+          setEditTimeVisible(true);
+          console.log('[DayView] setEditTimeVisible(true) 완료');
+        }}
       />
       <EditTitleModal
         visible={editTitleVisible}

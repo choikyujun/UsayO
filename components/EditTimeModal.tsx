@@ -34,6 +34,7 @@ interface Props {
 }
 
 export default function EditTimeModal({ visible, event, onClose, onSaved }: Props) {
+  console.log('[EditTimeModal] render, visible:', visible, 'event:', event?.id ?? null);
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const slideY = useRef(new Animated.Value(400)).current;
