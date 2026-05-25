@@ -2,7 +2,7 @@ import { ClassifiedIntent, ParsedDateTime } from '../../types';
 import { KoreanDateParser } from '../nlp/KoreanDateParser';
 
 const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-haiku-4-5';  // 실시간 처리 → 속도 우선
+const MODEL = 'claude-haiku-4-5-20251001';  // Haiku 4.5 (실시간 처리 → 속도 우선)
 
 const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리 엔진입니다.
 사용자의 한국어 발화를 분석하여 반드시 유효한 JSON만 반환하세요. 다른 텍스트는 절대 포함하지 마세요.
@@ -156,8 +156,14 @@ export class IntentClassifierService {
       });
 
       if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`Claude API 오류: ${response.status} — ${err}`);
+        const errBody = await response.text();
+        console.error('[Intent] Claude API 오류:', response.status, errBody);
+        if (response.status >= 500) {
+          throw new Error(`Claude API 서버 오류: ${response.status}`);
+        }
+        // 4xx (모델 ID 오류, 키 오류 등) → regex fallback으로 음성 입력 유지
+        console.warn('[Intent] Claude API 4xx — regex fallback 사용');
+        return this.regexFallback(transcript, prefillContext);
       }
 
       const data = await response.json();
