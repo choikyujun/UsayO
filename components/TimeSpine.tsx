@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   LayoutAnimation,
@@ -54,6 +54,7 @@ interface Props {
   onRefresh?:         () => void;
   isRefreshing?:      boolean;
   onReschedule?:      (eventId: string, newTime: Date) => void;
+  footerContent?:     React.ReactNode;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ export default function TimeSpine({
   onRefresh,
   isRefreshing,
   onReschedule,
+  footerContent,
 }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeContainerStyles(colors), [colors]);
@@ -296,6 +298,8 @@ export default function TimeSpine({
             ),
           )}
         </View>
+
+        {footerContent}
       </ScrollView>
 
       {/* ── Delete undo toast ──────────────────────────────────────────── */}

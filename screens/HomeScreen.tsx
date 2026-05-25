@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmCard from '../components/ConfirmCard';
 import InlineConfirmCard from '../components/InlineConfirmCard';
 import TimeSpine from '../components/TimeSpine';
+import UpcomingSection from '../components/UpcomingSection';
 import { useConversationalMessage } from '../hooks/useConversationalMessage';
 import VoiceHintCarousel from '../components/VoiceHintCarousel';
 import HybridInputModal from '../components/HybridInputModal';
@@ -97,8 +98,9 @@ export default function HomeScreen() {
   // Conversational header message (재계산: 이벤트 or 매 분)
   const message = useConversationalMessage(events, currentTime);
 
-  // CRUD-only: voice commands, undo, lastCreatedId
+  // CRUD-only: voice commands, undo, lastCreatedId; events includes D+0~D+7 for upcoming section
   const {
+    events: allEvents,
     lastCreatedId, applyClassifiedIntent, undoSave,
     rescheduleEvent, undoRescheduleEvent,
     reload: reloadSchedules,
@@ -413,6 +415,7 @@ export default function HomeScreen() {
           isRefreshing={isRefreshing}
           listPaddingBottom={insets.bottom + 120}
           onReschedule={handleReschedule}
+          footerContent={<UpcomingSection allEvents={allEvents} />}
         />
       </ReAnimated.View>
 
