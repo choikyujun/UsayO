@@ -44,8 +44,11 @@ export function useVoiceInput(ttsEnabled: boolean) {
       try {
         await speakPrefillLabel(prefill.ttsLabel);
       } catch { /* TTS 실패해도 계속 */ } finally {
+        stopPrefillTTS(); // 오디오 포커스 명시적 해제
         isTTSRef.current = false;
       }
+      // Android 오디오 세션 핸드오프 대기 (TTS→마이크 전환 시 파일 손상 방지)
+      await new Promise<void>(resolve => setTimeout(resolve, 300));
     }
 
     setOverlayVisible(true);
