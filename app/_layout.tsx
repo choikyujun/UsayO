@@ -33,9 +33,14 @@ export default function RootLayout() {
 
   useEffect(() => {
     (async () => {
+      // 0. Log device ID unconditionally (needed to build device_user_mapping)
+      import('../services/auth/deviceAuth').then(m => m.getDeviceId())
+        .then(id  => console.log('[Auth] deviceId:', id))
+        .catch(e  => console.warn('[Auth] deviceId unavailable:', e));
+
       // 1. 항상 먼저 세션 확보 (온보딩 여부 무관)
       const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
-      console.log('[Auth] getSession:', session?.user?.id ?? 'null', sessionErr?.message ?? '');
+      console.log('[Auth] getSession userId:', session?.user?.id ?? 'null', sessionErr?.message ?? '');
 
       if (!session) {
         // Try device-based persistent auth first.
