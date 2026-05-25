@@ -2,7 +2,8 @@ import * as Application from 'expo-application';
 import { Platform } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
-const EDGE_FN_URL = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/device-auth`;
+const EDGE_FN_URL  = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/device-auth`;
+const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
 // Returns a stable device identifier.
 // Android: androidId (survives reinstall on same device, resets only on factory reset)
@@ -25,8 +26,12 @@ export async function signInWithDevice(): Promise<string> {
 
   const res = await fetch(EDGE_FN_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ device_id: deviceId }),
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON}`,
+      'apikey':        SUPABASE_ANON,
+    },
+    body: JSON.stringify({ device_id: deviceId }),
   });
 
   if (!res.ok) {

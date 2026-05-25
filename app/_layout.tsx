@@ -38,24 +38,20 @@ export default function RootLayout() {
         .then(id  => console.log('[Auth] deviceId:', id))
         .catch(e  => console.warn('[Auth] deviceId unavailable:', e));
 
-      // 1. 항상 먼저 세션 확보 (온보딩 여부 무관)
-      const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
-      console.log('[Auth] getSession userId:', session?.user?.id ?? 'null', sessionErr?.message ?? '');
-
-      if (!session) {
-        // Try device-based persistent auth first.
-        // Falls back to anonymous sign-in if Edge Function is unavailable.
-        try {
-          const uid = await signInWithDevice();
-          console.log('[Auth] device auth OK:', uid);
-        } catch (deviceErr) {
-          console.warn('[Auth] device auth failed, falling back to anonymous:', (deviceErr as Error).message);
+      // 1. Device auth — always runs to ensure the session maps to the correct user.
+      //    If the Edge Function is down, fall back to existing session or anonymous.
+      try {
+        const uid = await signInWithDevice();
+        console.log('[Auth] device auth OK:', uid);
+      } catch (deviceErr) {
+        console.warn('[Auth] device auth failed, using fallback:', (deviceErr as Error).message);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
           const { data, error } = await supabase.auth.signInAnonymously();
-          if (error) {
-            console.warn('[Auth] signInAnonymously FAILED:', error.message);
-          } else {
-            console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
-          }
+          if (error) console.warn('[Auth] signInAnonymously FAILED:', error.message);
+          else console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
+        } else {
+          console.log('[Auth] kept existing session:', session.user.id);
         }
       }
 
