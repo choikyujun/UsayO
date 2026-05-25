@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Mic, Settings2 } from 'lucide-react-native';
+import AppHeader from '../components/AppHeader';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -76,19 +77,11 @@ export default function HomeScreen() {
   const anchorMonth = useMemo(() => toYearMonth(new Date(selectedDate + 'T00:00:00')), [selectedDate]);
 
   // ── Clock ──────────────────────────────────────────────────────
-  const DAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
   const fmtTime = (d: Date) => `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
-  const fmtDate = (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}`;
   const [currentTime, setCurrentTime] = useState(() => fmtTime(new Date()));
-  const [dateLabel,   setDateLabel]   = useState(() => fmtDate(new Date()));
-  const dateTimeChrome = `${dateLabel} · ${currentTime}`;
 
   useEffect(() => {
-    const id = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(fmtTime(now));
-      setDateLabel(fmtDate(now));
-    }, 60_000);
+    const id = setInterval(() => setCurrentTime(fmtTime(new Date())), 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -392,7 +385,10 @@ export default function HomeScreen() {
       {/* ── 컨텐츠 레이어 (음성 활성 시 페이드) ─────────────────── */}
       <ReAnimated.View style={[{ flex: 1 }, contentAnimStyle]}>
 
-        {/* ── 설정 아바타 (캘린더 우측 상단 절대 위치) ───────────── */}
+        {/* ── 통합 헤더 (5탭 + 날짜/시간) ──────────────────────────── */}
+        <AppHeader currentTab="home" />
+
+        {/* ── 설정 아이콘 (우상단 절대 위치) ──────────────────────── */}
         <View style={[styles.avatarRow, { top: insets.top + 6 }]}>
           <Pressable
             onPress={() => router.push('/settings')}
@@ -403,15 +399,8 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* ── 헤더: 날짜 chrome(탭) + 컨버세이셔널 메시지 ───────────── */}
-        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-          <Pressable
-            onPress={() => router.push('/day')}
-            hitSlop={12}
-            style={styles.dateChrome}
-          >
-            <Text style={styles.dateChromeText}>{dateTimeChrome}</Text>
-          </Pressable>
+        {/* ── 컨버세이셔널 메시지 ────────────────────────────────── */}
+        <View style={styles.header}>
           <Text style={styles.conversational}>
             <Text>{message.primary}</Text>
             {'\n'}
@@ -614,16 +603,9 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     },
     header: {
       paddingHorizontal: 20,
-      paddingBottom: 8,
-      alignItems: 'flex-start',
-    },
-    dateChrome: {
-      marginBottom: 24,
-    },
-    dateChromeText: {
-      fontSize: 12,
-      color: c.textMuted,
-      letterSpacing: 0.2,
+      paddingTop:        16,
+      paddingBottom:     8,
+      alignItems:        'flex-start',
     },
     conversational: {
       fontSize: 18,
