@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system';
 import { STTResult } from '../../types';
 
 const WHISPER_URL = 'https://api.openai.com/v1/audio/transcriptions';
@@ -13,6 +14,16 @@ export class SpeechRecognitionService {
 
   async transcribeWithWhisper(audioUri: string, language: string): Promise<STTResult> {
     if (!this.apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY가 설정되지 않았습니다.');
+
+    // 빈 파일 업로드 방지 (오디오 세션 충돌 시 0바이트 파일 생성됨)
+    try {
+      const info = await FileSystem.getInfoAsync(audioUri);
+      const size = (info as { size?: number }).size ?? 0;
+      if (!info.exists || size < 1024) {
+        console.warn('[STT] 녹음 파일 너무 작음 (size:', size, ') → noSpeech 처리');
+        return { transcript: '', confidence: 0, language };
+      }
+    } catch { /* FileSystem 접근 실패 시 계속 진행 */ }
 
     const lang = SUPPORTED_LANGUAGES.includes(language as SupportedLanguage) ? language : 'ko';
 

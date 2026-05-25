@@ -39,10 +39,10 @@ export async function runVoiceFlow(
     sttResult = await speechService.transcribe(audioUri, language);
   } catch (e) {
     const message = e instanceof Error ? e.message : '음성 인식 실패';
-    const type = message.includes('연결') ? 'network' : 'unknown';
-    if (!skipTTS) {
-      ttsService.speak(ttsService.generateErrorMessage(type === 'network' ? 'network' : 'unknown'));
-    }
+    console.error('[VoiceFlow] STT 오류:', message);
+    const isNetworkError = message.includes('Network request failed') || message.includes('연결');
+    const type: VoiceFlowError['type'] = isNetworkError ? 'network' : 'unknown';
+    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage(type));
     return { success: false, error: { type, message } };
   }
 
@@ -63,8 +63,11 @@ export async function runVoiceFlow(
     intent = await intentService.classify(sttResult.transcript, language, timezone, prefillContext);
   } catch (e) {
     const message = e instanceof Error ? e.message : '인텐트 분류 실패';
-    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('network'));
-    return { success: false, sttResult, error: { type: 'network', message } };
+    console.error('[VoiceFlow] 인텐트 분류 오류:', message);
+    const isNetworkError = message.includes('Network request failed') || message.includes('연결');
+    const errorType: VoiceFlowError['type'] = isNetworkError ? 'network' : 'unknown';
+    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage(errorType));
+    return { success: false, sttResult, error: { type: errorType, message } };
   }
 
   if (intent.intent === 'UNKNOWN' || intent.confidence < CONFIDENCE_THRESHOLD) {

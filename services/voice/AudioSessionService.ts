@@ -56,6 +56,14 @@ class AudioSessionService {
     await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(() => {});
   }
 
+  // TTS 재생 후 녹음 진입 전에 호출: 재생 세션을 완전히 해제
+  async releasePlaybackSession(): Promise<void> {
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: false,
+    }).catch(() => {});
+  }
+
   get permissionGranted(): boolean { return this._permissionGranted; }
   get initialized(): boolean { return this._preinitDone; }
 

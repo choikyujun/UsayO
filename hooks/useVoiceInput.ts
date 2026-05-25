@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ClassifiedIntent } from '../types';
 import { speakPrefillLabel, stopPrefillTTS } from '../services/voice/tts';
+import { audioSessionService } from '../services/voice/AudioSessionService';
 import { useVoiceFlow } from './useVoiceFlow';
 
 export interface VoiceInputPrefill {
@@ -44,11 +45,13 @@ export function useVoiceInput(ttsEnabled: boolean) {
       try {
         await speakPrefillLabel(prefill.ttsLabel);
       } catch { /* TTS 실패해도 계속 */ } finally {
-        stopPrefillTTS(); // 오디오 포커스 명시적 해제
+        stopPrefillTTS();
         isTTSRef.current = false;
+        // TTS 재생 오디오 세션 명시적 해제 (Android 오디오 포커스 반환)
+        await audioSessionService.releasePlaybackSession();
       }
-      // Android 오디오 세션 핸드오프 대기 (TTS→마이크 전환 시 파일 손상 방지)
-      await new Promise<void>(resolve => setTimeout(resolve, 300));
+      // 오디오 세션 핸드오프 대기 (TTS→마이크 전환, 300ms → 500ms로 증가)
+      await new Promise<void>(resolve => setTimeout(resolve, 500));
     }
 
     setOverlayVisible(true);
