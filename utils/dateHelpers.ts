@@ -63,3 +63,51 @@ export function getMonthWeeks(year: number, month: number): Date[][] {
 export function toYearMonth(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
+
+const KO_WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+// "내일 5월 26일 화요일" / "모레 5월 27일 수요일" / "5월 28일 목요일"
+export function formatUpcomingDate(date: Date, today = new Date()): string {
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dateStart  = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays   = Math.round((dateStart.getTime() - todayStart.getTime()) / 86_400_000);
+  const month      = date.getMonth() + 1;
+  const day        = date.getDate();
+  const weekday    = KO_WEEKDAYS[date.getDay()];
+  const suffix     = `${month}월 ${day}일 ${weekday}요일`;
+  if (diffDays === 1) return `내일 ${suffix}`;
+  if (diffDays === 2) return `모레 ${suffix}`;
+  return suffix;
+}
+
+// "내일" / "모레" / "5월 28일" — short form for conversational header
+export function formatRelativeDay(date: Date, today = new Date()): string {
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dateStart  = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays   = Math.round((dateStart.getTime() - todayStart.getTime()) / 86_400_000);
+  if (diffDays === 1) return '내일';
+  if (diffDays === 2) return '모레';
+  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
+
+export interface DateGroup<T> {
+  date: Date;
+  events: T[];
+  isHoliday: boolean;
+}
+
+import { isKoreanHoliday } from '../hooks/useHolidays';
+
+// Groups events by calendar date (local time). Events must have a `start_at: string` field.
+export function groupByDate<T extends { start_at: string }>(events: T[]): DateGroup<T>[] {
+  const map = new Map<string, DateGroup<T>>();
+  for (const ev of events) {
+    const d    = new Date(ev.start_at);
+    const key  = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if (!map.has(key)) {
+      map.set(key, { date: d, events: [], isHoliday: isKoreanHoliday(d) });
+    }
+    map.get(key)!.events.push(ev);
+  }
+  return Array.from(map.values());
+}
