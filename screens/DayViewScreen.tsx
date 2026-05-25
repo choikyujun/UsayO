@@ -37,7 +37,6 @@ import { ttsService } from '../services/voice/TTSService';
 import {
   GRID_TOTAL_H,
   getNowY,
-  isVirtualInstance as _iv,
   scrollTargetForHour,
 } from '../utils/dayViewLayout';
 import { localDateStr } from '../utils/timeHelpers';
@@ -143,14 +142,14 @@ export default function DayViewScreen() {
   function handleGridLongPress() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     voice.startVoice(
-      async intent => applyClassifiedIntent(intent),
+      intent => applyClassifiedIntent(intent),
       async eventId => undoSave(eventId),
     );
   }
 
   const handleVoiceConfirm = useCallback(async () => {
     ttsService.stop();
-    await voice.confirmAction(async intent => applyClassifiedIntent(intent));
+    await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
   }, [voice, applyClassifiedIntent]);
 
   const handleVoiceCancel = useCallback(() => {

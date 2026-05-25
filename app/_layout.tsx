@@ -80,6 +80,7 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
           <Stack.Screen name="voice"    options={{ presentation: 'modal' }} />
           <Stack.Screen name="settings" options={{ headerShown: false }} />
+          <Stack.Screen name="day"      options={{ animation: 'slide_from_right' }} />
         </Stack>
       </ThemeProvider>
     </GestureHandlerRootView>

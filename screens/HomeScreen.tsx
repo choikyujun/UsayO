@@ -406,7 +406,7 @@ export default function HomeScreen() {
         {/* ── 헤더: 날짜 chrome(탭) + 컨버세이셔널 메시지 ───────────── */}
         <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <Pressable
-            onPress={() => router.push('/calendar')}
+            onPress={() => router.push('/day')}
             hitSlop={12}
             style={styles.dateChrome}
           >
