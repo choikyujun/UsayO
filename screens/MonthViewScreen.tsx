@@ -169,6 +169,8 @@ export default function MonthViewScreen() {
       {/* ── Long-press voice overlay ──────────────────────────────── */}
       <VoiceInputOverlay
         visible={voice.overlayVisible}
+        micStatus={voice.micStatus}
+        isProcessing={voice.phase === 'processing'}
         onCancel={() => voice.cancelVoiceInput()}
         onComplete={() => voice.stopAndProcessStored()}
       />

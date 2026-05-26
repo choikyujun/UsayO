@@ -35,6 +35,7 @@ import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useWeekEvents } from '../hooks/useWeekEvents';
 import { useSchedules } from '../hooks/useSchedules';
 import { supabase } from '../lib/supabase';
+import { cancelEventNotification, rescheduleEventNotification } from '../services/notifications';
 import { Event } from '../types/database';
 import { GRID_TOTAL_H, getNowY, scrollTargetForHour, yToTime, TIME_LABEL_W } from '../utils/dayViewLayout';
 import { localDateStr, todayDateStr } from '../utils/timeHelpers';
@@ -68,6 +69,15 @@ export default function WeekViewScreen() {
   const { applyClassifiedIntent } = useSchedules(days[0] ?? todayDateStr(), 0);
   const voice = useVoiceInput(ttsEnabled);
 
+  // ── Voice success → reload week grid ────────────────────────────────
+  useEffect(() => {
+    if (voice.phase === 'success') {
+      reload();
+      const t = setTimeout(() => voice.retryVoice(), 1800);
+      return () => clearTimeout(t);
+    }
+  }, [voice.phase]);
+
   // ── NOW tick (minute-level) ─────────────────────────────────────────
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -98,6 +108,7 @@ export default function WeekViewScreen() {
     const realId = isVirtualInstance(event.id)
       ? (parseInstanceId(event.id)?.parentId ?? event.id)
       : event.id;
+    cancelEventNotification(realId).catch(e => console.log('[Notifications] cancel 실패:', e));
     supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', realId)
       .then(({ error }) => { if (error) console.error('[WeekView] delete failed:', error.message); });
     reload();
@@ -116,6 +127,7 @@ export default function WeekViewScreen() {
       supabase.from('events').update({ recurrence_end_date: d.toISOString().split('T')[0] }).eq('id', parentId)
         .then(({ error }) => { if (error) console.error('[WeekView] recurrence_end_date update failed:', error.message); });
     } else {
+      cancelEventNotification(parentId).catch(e => console.log('[Notifications] cancel 실패:', e));
       supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', parentId)
         .then(({ error }) => { if (error) console.error('[WeekView] delete recurring failed:', error.message); });
     }
@@ -177,7 +189,11 @@ export default function WeekViewScreen() {
 
     voice.startWithPrefill(
       { dateStr, hour: finalHour, minute: finalMin, ttsLabel },
-      intent => applyClassifiedIntent(intent),
+      async intent => {
+        const id = await applyClassifiedIntent(intent);
+        reload();
+        return id;
+      },
     );
   }
 
@@ -252,8 +268,6 @@ export default function WeekViewScreen() {
       <EventActionSheet
         event={sheetEvent}
         onClose={() => setSheetEvent(null)}
-        onDelete={handleDeleteEvent}
-        onDeleteRecurring={handleDeleteRecurring}
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
       />
@@ -267,7 +281,17 @@ export default function WeekViewScreen() {
         visible={editTimeVisible}
         event={editEvent}
         onClose={() => setEditTimeVisible(false)}
-        onSaved={() => { setEditTimeVisible(false); reload(); }}
+        onSaved={() => {
+          setEditTimeVisible(false);
+          if (editEvent) {
+            supabase.from('events').select('*').eq('id', editEvent.id).single()
+              .then(({ data }) => {
+                if (data) rescheduleEventNotification(data as Event).catch(e =>
+                  console.log('[Notifications] reschedule 실패:', e));
+              });
+          }
+          reload();
+        }}
       />
       <EventDetailSheet
         visible={detailVisible}
@@ -278,6 +302,8 @@ export default function WeekViewScreen() {
       {/* ── Long-press voice overlay ──────────────────────────────── */}
       <VoiceInputOverlay
         visible={voice.overlayVisible}
+        micStatus={voice.micStatus}
+        isProcessing={voice.phase === 'processing'}
         onCancel={() => voice.cancelVoiceInput()}
         onComplete={() => voice.stopAndProcessStored()}
       />

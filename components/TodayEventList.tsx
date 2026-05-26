@@ -12,6 +12,7 @@ import {
 import { AppTheme, useColors } from '../constants/colors';
 import { FlatItem, useEventGrouping } from '../hooks/useEventGrouping';
 import { supabase } from '../lib/supabase';
+import { cancelEventNotification, rescheduleEventNotification } from '../services/notifications';
 import { Event } from '../types/database';
 import { todayDateStr } from '../utils/timeHelpers';
 import EmptyTodayState from './EmptyTodayState';
@@ -99,6 +100,7 @@ export default function TodayEventList({
   }
 
   function commitDelete(event: Event) {
+    cancelEventNotification(event.id).catch(e => console.log('[Notifications] cancel 실패:', e));
     supabase
       .from('events')
       .update({ deleted_at: new Date().toISOString() })
@@ -196,7 +198,6 @@ export default function TodayEventList({
       <EventActionSheet
         event={sheetEvent}
         onClose={() => setSheetEvent(null)}
-        onDelete={handleDelete}
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
       />
@@ -210,7 +211,17 @@ export default function TodayEventList({
         visible={editTimeVisible}
         event={editEvent}
         onClose={() => setEditTimeVisible(false)}
-        onSaved={() => { setEditTimeVisible(false); onRefresh?.(); }}
+        onSaved={() => {
+          setEditTimeVisible(false);
+          if (editEvent) {
+            supabase.from('events').select('*').eq('id', editEvent.id).single()
+              .then(({ data }) => {
+                if (data) rescheduleEventNotification(data as Event).catch(e =>
+                  console.log('[Notifications] reschedule 실패:', e));
+              });
+          }
+          onRefresh?.();
+        }}
       />
     </View>
   );

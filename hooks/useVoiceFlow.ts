@@ -17,6 +17,7 @@ export function useVoiceFlow() {
   const onAutoSaveRef     = useRef<OnAutoSave | undefined>(undefined);
   const prefillContextRef = useRef<string | undefined>(undefined);
   const isRetryRef        = useRef(false); // lowConfidence/noSpeech 자동 1회 재시도 추적
+  const isCancelledRef    = useRef(false); // cancelVoice 호출 시 zombie 재녹음 방지
 
   const processUriRef = useRef<
     ((uri: string | null, onAutoSave?: OnAutoSave) => Promise<void>) | null
@@ -38,6 +39,7 @@ export function useVoiceFlow() {
     onAutoSaveRef.current     = onAutoSave;
     prefillContextRef.current = prefillContext;
     isRetryRef.current        = false;
+    isCancelledRef.current    = false;
     store.reset();
 
     try {
@@ -86,14 +88,16 @@ export function useVoiceFlow() {
       const errType = result.error?.type;
       // lowConfidence/noSpeech: TTS는 orchestrator에서 이미 완료 → 마이크 자동 재시작 (1회)
       if (errType === 'lowConfidence' || errType === 'noSpeech') {
-        if (!isRetryRef.current) {
+        if (!isRetryRef.current && !isCancelledRef.current) {
           isRetryRef.current = true;
           store.setPhase('listening');
           await recorder.startRecording();
         } else {
           isRetryRef.current = false;
-          store.setPhase('fail');
-          store.setError(result.error ?? { type: 'unknown', message: '처리 실패' });
+          if (!isCancelledRef.current) {
+            store.setPhase('fail');
+            store.setError(result.error ?? { type: 'unknown', message: '처리 실패' });
+          }
         }
         return;
       }
@@ -104,9 +108,12 @@ export function useVoiceFlow() {
 
     const confidence = result.intent.confidence;
 
-    // DELETE/UPDATE는 CLAUDE.md 정책상 항상 확인 필요 (자동 저장 금지)
+    // DELETE/UPDATE/COMPLETE는 항상 확인 필요, 멀티 일정도 항상 카드 표시 (outer intent에 startDateTime 없음)
     const requiresConfirm =
-      result.intent.intent === 'DELETE' || result.intent.intent === 'UPDATE' || result.intent.intent === 'COMPLETE';
+      result.intent.intent === 'DELETE' ||
+      result.intent.intent === 'UPDATE' ||
+      result.intent.intent === 'COMPLETE' ||
+      (result.intent.events?.length ?? 0) > 0;
 
     // ── confidence >= 0.85: 즉시 자동 저장 ──────────────────────
     if (confidence >= 0.85 && onAutoSave && !requiresConfirm) {
@@ -131,6 +138,7 @@ export function useVoiceFlow() {
     store.setClassifiedIntent(result.intent);
     store.setConfirmMessage(result.confirmMessage ?? null);
     store.setConfirmSource('voice');
+    if (result.confirmMessage) ttsService.speak(result.confirmMessage).catch(() => {});
     store.setPhase('confirming');
   }, [store, recorder]);
 
@@ -183,7 +191,8 @@ export function useVoiceFlow() {
   const cancelVoice = useCallback(() => {
     ttsService.stop();
     recorder.cancelRecording();
-    isRetryRef.current = false;
+    isRetryRef.current     = false;
+    isCancelledRef.current = true;
     store.reset();
   }, [store, recorder]);
 

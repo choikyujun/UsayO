@@ -38,7 +38,9 @@ export default function EventRow({
   const styles = makeStyles(colors);
 
   const [expanded,  setExpanded]  = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [localCompleted, setLocalCompleted] = useState(false);
+  // Reflect DB-persisted completion (e.g. set via voice COMPLETE intent)
+  const completed = localCompleted || !!event.completed_at;
   const swipeRef = useRef<Swipeable>(null);
 
   const isEffectivelyPast = isPast || completed;
@@ -61,7 +63,7 @@ export default function EventRow({
   }
 
   function handleComplete() {
-    setCompleted(true);
+    setLocalCompleted(true);
     swipeRef.current?.close();
     onComplete(event);
   }

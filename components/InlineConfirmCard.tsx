@@ -12,10 +12,11 @@ const RECORD_START_DELAY = 500;   // 사양: 500ms
 const RECORD_MAX_MS      = 3500;
 
 const INTENT_LABEL: Record<string, string> = {
-  CREATE: '일정 추가',
-  UPDATE: '일정 수정',
-  DELETE: '일정 삭제',
-  QUERY:  '일정 조회',
+  CREATE:   '일정 추가',
+  UPDATE:   '일정 수정',
+  DELETE:   '일정 삭제',
+  QUERY:    '일정 조회',
+  COMPLETE: '일정 완료',
 };
 
 interface Props {

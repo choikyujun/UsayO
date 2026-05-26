@@ -1,6 +1,6 @@
 import { Mic } from 'lucide-react-native';
 import { useEffect } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import ReAnimated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,20 +9,23 @@ import ReAnimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useColors } from '../constants/colors';
+import type { MicStatus } from '../types';
 
 interface Props {
-  visible:     boolean;
-  onCancel:    () => void;
-  onComplete?: () => void; // 마이크 탭 → 즉시 저장
+  visible:      boolean;
+  onCancel:     () => void;
+  onComplete?:  () => void;
+  micStatus?:   MicStatus;
+  isProcessing?: boolean;
 }
 
-export default function VoiceInputOverlay({ visible, onCancel, onComplete }: Props) {
+export default function VoiceInputOverlay({ visible, onCancel, onComplete, micStatus, isProcessing }: Props) {
   const colors = useColors();
-
+  const isRecording = micStatus === 'recording';
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    if (visible) {
+    if (visible && isRecording) {
       scale.value = withRepeat(
         withSequence(
           withTiming(1.4, { duration: 800 }),
@@ -34,7 +37,7 @@ export default function VoiceInputOverlay({ visible, onCancel, onComplete }: Pro
     } else {
       scale.value = withTiming(1.0, { duration: 200 });
     }
-  }, [visible]);
+  }, [visible, isRecording]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -49,33 +52,53 @@ export default function VoiceInputOverlay({ visible, onCancel, onComplete }: Pro
       onRequestClose={onCancel}
       statusBarTranslucent
     >
-      {/* 외부 dim 영역 탭 → 취소 */}
-      <Pressable style={styles.backdrop} onPress={onCancel}>
+      {/*
+        Outer Pressable = full-screen backdrop.
+        onPress fires when the user taps anywhere the inner View doesn't claim.
+        Disabled during processing so the spinner can't be accidentally dismissed.
+      */}
+      <Pressable
+        style={styles.backdrop}
+        onPress={isProcessing ? undefined : onCancel}
+      >
+        {/* box-none: inner View itself doesn't receive touches → unclaimed touches bubble to backdrop */}
         <View style={styles.center} pointerEvents="box-none">
-          {/* Pulse ring (non-interactive) */}
-          <ReAnimated.View
-            style={[styles.pulseRing, { borderColor: colors.primary }, pulseStyle]}
-          />
-
-          {/* 마이크 영역 탭 → 저장 */}
-          <Pressable
-            onPress={onComplete ?? onCancel}
-            hitSlop={20}
-            style={[styles.micCircle, { backgroundColor: colors.primary + '22' }]}
-          >
-            <Mic size={48} color={colors.primary} strokeWidth={1.5} />
-          </Pressable>
-
-          <Text style={styles.listenText}>듣고 있어요</Text>
-
-          {onComplete ? (
-            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-              마이크 탭 = 저장  ·  바깥 탭 = 취소
-            </Text>
+          {isProcessing ? (
+            <>
+              <View style={[styles.micCircle, { backgroundColor: colors.primary + '22' }]}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+              <Text style={styles.listenText}>분석 중...</Text>
+            </>
+          ) : isRecording ? (
+            <>
+              {/* pointerEvents="none" prevents pulseRing from swallowing taps */}
+              <ReAnimated.View
+                pointerEvents="none"
+                style={[styles.pulseRing, { borderColor: colors.primary }, pulseStyle]}
+              />
+              <Pressable
+                onPress={onComplete ?? onCancel}
+                hitSlop={20}
+                style={[styles.micCircle, { backgroundColor: colors.primary + '22' }]}
+              >
+                <Mic size={48} color={colors.primary} strokeWidth={1.5} />
+              </Pressable>
+              <Text style={styles.listenText}>지금 말씀하세요!</Text>
+              {onComplete && (
+                <Text style={[styles.hintText, { color: 'rgba(255,255,255,0.6)' }]}>
+                  마이크 탭 = 완료  ·  바깥 탭 = 취소
+                </Text>
+              )}
+            </>
           ) : (
-            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-              다시 탭하면 취소
-            </Text>
+            /* Preparing: TTS playing or audio session setup — show static dimmed mic */
+            <>
+              <View style={[styles.micCircle, { backgroundColor: colors.primary + '11' }]}>
+                <Mic size={48} color={colors.primary + '66'} strokeWidth={1.5} />
+              </View>
+              <Text style={[styles.listenText, { opacity: 0.7 }]}>준비 중...</Text>
+            </>
           )}
         </View>
       </Pressable>

@@ -4,9 +4,12 @@ import '../global.css';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { LogBox, Platform, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+// 개발 빌드에서 노란 배너 완전 억제 (console.error는 여전히 터미널에 출력됨)
+LogBox.ignoreAllLogs();
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { useColors } from '../constants/colors';
 import { ThemeProvider } from '../contexts/ThemeContext';
@@ -14,6 +17,7 @@ import { supabase } from '../lib/supabase';
 import { signInWithDevice } from '../services/auth/deviceAuth';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
+import { noiseDetector } from '../services/voice/NoiseDetectorService';
 import { requestNotificationPermission } from '../services/notifications';
 
 // Valid onboarding step → route segment map
@@ -38,8 +42,28 @@ function AppRoot() {
   const colorScheme = useColorScheme();
   const colors = useColors();
 
+  // 장기 세션 중 토큰 만료 → 자동 재인증
+  // initializing 중에는 무시 (signOut({ scope: 'local' }) 가 SIGNED_OUT을 발생시키므로)
+  const initDoneRef = useRef(false);
   useEffect(() => {
-    audioSessionService.preinit().catch(() => {});
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' && initDoneRef.current) {
+        signInWithDevice().catch(e =>
+          console.log('[Auth] session expired, re-auth failed:', (e as Error).message),
+        );
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    audioSessionService.preinit()
+      .then(() => noiseDetector.measureBackgroundNoise())
+      .then(noise => {
+        audioSessionService.setCachedNoise(noise.snr, noise.recommendation);
+        return audioSessionService.cleanup();
+      })
+      .catch(() => {});
     requestNotificationPermission().catch(() => {});
   }, []);
 
@@ -48,7 +72,12 @@ function AppRoot() {
       // 0. Log device ID unconditionally (needed to build device_user_mapping)
       import('../services/auth/deviceAuth').then(m => m.getDeviceId())
         .then(id  => console.log('[Auth] deviceId:', id))
-        .catch(e  => console.warn('[Auth] deviceId unavailable:', e));
+        .catch(e  => console.log('[Auth] deviceId unavailable:', e));
+
+      // Supabase autoRefreshToken이 이전 세션의 refresh token을 재사용하려다
+      // "Already Used" 에러를 내는 것을 막기 위해 로컬 세션을 먼저 제거.
+      // (network 호출 없음 — AsyncStorage 클리어만 수행)
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
 
       // 1. Device auth — always runs to ensure the session maps to the correct user.
       //    If the Edge Function is down, fall back to existing session or anonymous.
@@ -56,16 +85,18 @@ function AppRoot() {
         const uid = await signInWithDevice();
         console.log('[Auth] device auth OK:', uid);
       } catch (deviceErr) {
-        console.warn('[Auth] device auth failed, using fallback:', (deviceErr as Error).message);
+        console.log('[Auth] device auth failed, using fallback:', (deviceErr as Error).message);
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           const { data, error } = await supabase.auth.signInAnonymously();
-          if (error) console.warn('[Auth] signInAnonymously FAILED:', error.message);
+          if (error) console.log('[Auth] signInAnonymously FAILED:', error.message);
           else console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
         } else {
           console.log('[Auth] kept existing session:', session.user.id);
         }
       }
+      // 초기 인증 완료 — 이후 SIGNED_OUT은 진짜 토큰 만료로 처리
+      initDoneRef.current = true;
 
       // 2. 온보딩 완료 여부 확인
       const done = await AsyncStorage.getItem('onboarding_complete');

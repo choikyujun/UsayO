@@ -21,7 +21,7 @@ export class SpeechRecognitionService {
       const info = await FileSystem.getInfoAsync(audioUri);
       const size = (info as { size?: number }).size ?? 0;
       if (!info.exists || size < 1024) {
-        console.warn('[STT] 녹음 파일 너무 작음 (size:', size, ') → noSpeech 처리');
+        console.log('[STT] 녹음 파일 너무 작음 (size:', size, ') → noSpeech 처리');
         return { transcript: '', confidence: 0, language };
       }
     } catch { /* FileSystem 접근 실패 시 계속 진행 */ }
@@ -67,7 +67,7 @@ export class SpeechRecognitionService {
   async transcribe(audioUri: string, language = 'ko'): Promise<STTResult> {
     // Whisper API가 없으면 개발용 mock 반환
     if (!this.apiKey) {
-      console.warn('[STT] API 키 없음 — mock 사용');
+      console.log('[STT] API 키 없음 — mock 사용');
       return this.mockResult();
     }
 

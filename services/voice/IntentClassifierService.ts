@@ -72,7 +72,18 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 - attendees: "~씨", "~님", "~장", "~팀장", 인명 등 참석자. 없으면 null.
 - 확신 없는 경우 null 반환 — 잘못된 값보다 null이 낫다.
 
-## 예시
+## UPDATE 인텐트 핵심 규칙
+- **targetEventQuery**: 수정할 일정의 제목만 추출 (시간·날짜 제외). 예: "8시 30분 영화보기를 바꿔줘" → targetEventQuery는 "영화보기"
+- **startDateTime**: 대상 일정의 원래 시간 (검색 힌트). 발화에 원래 시간이 있으면 반드시 설정.
+- **updateFields**: 바꿀 내용 (새 시간, 새 제목, 새 장소 등). startDateTime과 별도.
+
+발화: "8시 30분 영화보기를 10시로 바꿔줘"
+→ {"intent":"UPDATE","targetEventQuery":"영화보기","startDateTime":{"date":"{exampleToday}T08:30:00+09:00","isRecurring":false,"confidence":0.9,"originalText":"8시 30분"},"updateFields":{"startDateTime":{"date":"{exampleToday}T10:00:00+09:00","isRecurring":false,"confidence":0.95,"originalText":"10시"}},"confidence":0.95}
+
+발화: "내일 3시 팀 회의 제목을 고객 미팅으로 바꿔줘"
+→ {"intent":"UPDATE","targetEventQuery":"팀 회의","startDateTime":{"date":"{exampleTomorrow}T15:00:00+09:00","isRecurring":false,"confidence":0.9,"originalText":"내일 3시"},"updateFields":{"title":"고객 미팅"},"confidence":0.95}
+
+## CREATE 예시
 발화: "내일 3시 강남역 스타벅스에서 김부장님과 팀 회의, 자료 준비 메모"
 → {"intent":"CREATE","title":"팀 회의","startDateTime":{"date":"{exampleTomorrow}T15:00:00+09:00","isRecurring":false,"confidence":0.95,"originalText":"내일 3시"},"location":"강남역 스타벅스","notes":"자료 준비","attendees":["김부장"],"category":"work","confidence":0.95}
 
@@ -131,7 +142,7 @@ export class IntentClassifierService {
     prefillContext?: string,
   ): Promise<ClassifiedIntent> {
     if (!this.apiKey) {
-      console.warn('[Intent] API 키 없음 — regex fallback 사용');
+      console.log('[Intent] API 키 없음 — regex fallback 사용');
       return this.regexFallback(transcript, prefillContext);
     }
 
@@ -200,7 +211,7 @@ export class IntentClassifierService {
           throw new Error(`Claude API 서버 오류: ${response.status}`);
         }
         // 4xx (모델 ID 오류, 키 오류 등) → regex fallback으로 음성 입력 유지
-        console.warn('[Intent] Claude API 4xx — regex fallback 사용');
+        console.log('[Intent] Claude API 4xx — regex fallback 사용');
         return this.regexFallback(transcript, prefillContext);
       }
 

@@ -27,7 +27,7 @@ class AudioSessionService {
       }
       console.log('[AudioSession] preinit done in', Date.now() - t0, 'ms, granted:', granted);
     } catch (e) {
-      console.warn('[AudioSession] preinit error:', e);
+      console.log('[AudioSession] preinit error:', e);
     } finally {
       this._preinitDone = true;
     }

@@ -267,9 +267,19 @@ export default function HomeScreen() {
     }
   }, [voice.phase]);
 
+  // ── Fail: auto-reset so FAB becomes pressable again ──────────
+  useEffect(() => {
+    if (voice.phase === 'fail') {
+      const t = setTimeout(() => voice.retryVoice(), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [voice.phase]);
+
   // ── Onboarding TTS + pulse ────────────────────────────────────
   useEffect(() => {
     if (!isFirstLaunch) return;
+    // 홈 화면 진입 즉시 완료 처리 — FAB 탭 전에 재마운트되어도 반복 재생되지 않도록
+    markOnboarded();
     onboardPulseV.value = withRepeat(
       withTiming(1.4, { duration: 1100, easing: Easing.inOut(Easing.quad) }),
       6,
@@ -289,9 +299,8 @@ export default function HomeScreen() {
     if (!gate.isAllowed) { setUpgradeVisible(true); return; }
     const ok = await quotaTracker.checkQuota('create');
     if (!ok) { setUpgradeVisible(true); return; }
-    if (isFirstLaunch) markOnboarded();
     voice.startVoice(handleApplyIntent);
-  }, [gate, isFirstLaunch, markOnboarded, voice, applyClassifiedIntent]);
+  }, [gate, voice, applyClassifiedIntent]);
 
   // DB 반영 즉시 화면 갱신: useSchedules(CRUD)와 useEventsForDate(display)가 분리돼 있어
   // applyClassifiedIntent 완료 후 바로 reloadForDate를 호출해야 이벤트가 즉시 표시됨

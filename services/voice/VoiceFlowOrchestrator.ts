@@ -81,12 +81,8 @@ export async function runVoiceFlow(
     return { success: false, sttResult, intent, error: { type: 'lowConfidence', sttResult } };
   }
 
-  // 4. TTS 재확인 메시지 (DELETE/UPDATE/COMPLETE는 카드로만 확인 — 이중 재생 방지)
-  const isDestructive = intent.intent === 'DELETE' || intent.intent === 'UPDATE' || intent.intent === 'COMPLETE';
+  // 4. 확인 메시지 생성 (TTS는 호출자가 담당 — 이중 재생 방지)
   const confirmMessage = ttsService.generateConfirmMessage(intent, language);
-  if (!skipTTS && confirmMessage && !isDestructive) {
-    ttsService.speak(confirmMessage).catch(() => {});
-  }
 
   return {
     success: true,

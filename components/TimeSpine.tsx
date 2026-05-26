@@ -18,6 +18,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { isKoreanHoliday } from '../hooks/useHolidays';
 import { isLunchHour } from '../utils/timeHelpers';
 import { supabase } from '../lib/supabase';
+import { cancelEventNotification, rescheduleEventNotification } from '../services/notifications';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
 import { calculateNewTime, EventPosition } from '../utils/rescheduleHelpers';
@@ -208,6 +209,7 @@ export default function TimeSpine({
     const realId = isVirtualInstance(event.id)
       ? (parseInstanceId(event.id)?.parentId ?? event.id)
       : event.id;
+    cancelEventNotification(realId).catch(e => console.log('[Notifications] cancel 실패:', e));
     supabase
       .from('events')
       .update({ deleted_at: new Date().toISOString() })
@@ -239,6 +241,7 @@ export default function TimeSpine({
         .then(({ error }) => { if (error) console.error('[TimeSpine] recurrence_end_date update failed:', error.message); });
     } else {
       // 전체: 부모 soft-delete
+      cancelEventNotification(parentId).catch(e => console.log('[Notifications] cancel 실패:', e));
       supabase
         .from('events')
         .update({ deleted_at: new Date().toISOString() })
@@ -358,8 +361,6 @@ export default function TimeSpine({
       <EventActionSheet
         event={sheetEvent}
         onClose={() => setSheetEvent(null)}
-        onDelete={handleDelete}
-        onDeleteRecurring={handleDeleteRecurring}
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
       />
@@ -373,7 +374,17 @@ export default function TimeSpine({
         visible={editTimeVisible}
         event={editEvent}
         onClose={() => setEditTimeVisible(false)}
-        onSaved={() => { setEditTimeVisible(false); onRefresh?.(); }}
+        onSaved={() => {
+          setEditTimeVisible(false);
+          if (editEvent) {
+            supabase.from('events').select('*').eq('id', editEvent.id).single()
+              .then(({ data }) => {
+                if (data) rescheduleEventNotification(data as Event).catch(e =>
+                  console.log('[Notifications] reschedule 실패:', e));
+              });
+          }
+          onRefresh?.();
+        }}
       />
     </View>
   );

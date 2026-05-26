@@ -26,6 +26,7 @@ export function useVoiceInput(ttsEnabled: boolean) {
   const voice = useVoiceFlow();
   const [overlayVisible, setOverlayVisible] = useState(false);
   const isTTSRef = useRef(false);
+  const isCancelledRef = useRef(false);
 
   // Hide overlay when voice reaches a terminal phase
   useEffect(() => {
@@ -40,6 +41,7 @@ export function useVoiceInput(ttsEnabled: boolean) {
   ) => {
     console.log('[Voice] long-press triggered, prefill:', { date: prefill.dateStr, ttsLabel: prefill.ttsLabel, hour: prefill.hour });
 
+    isCancelledRef.current = false;
     // 오버레이 즉시 표시 — 시각적 피드백 < 200ms
     setOverlayVisible(true);
 
@@ -50,14 +52,17 @@ export function useVoiceInput(ttsEnabled: boolean) {
         await speakPrefillLabel(prefill.ttsLabel);
         console.log('[Voice] TTS end (onDone)');
       } catch (e) {
-        console.warn('[Voice] TTS error:', e);
+        console.log('[Voice] TTS error:', e);
       } finally {
         stopPrefillTTS();
         isTTSRef.current = false;
         await audioSessionService.releasePlaybackSession();
       }
-      // 오디오 세션 핸드오프 대기 (TTS→마이크 전환)
-      await new Promise<void>(resolve => setTimeout(resolve, 300));
+      // 취소 여부 확인 (TTS 중 사용자가 취소했을 수 있음)
+      if (isCancelledRef.current) return;
+      // 오디오 세션 핸드오프 대기 (TTS→마이크 전환) — 500ms로 여유 확보
+      await new Promise<void>(resolve => setTimeout(resolve, 500));
+      if (isCancelledRef.current) return;
     }
 
     console.log('[Voice] STT start (startVoice called)');
@@ -66,6 +71,7 @@ export function useVoiceInput(ttsEnabled: boolean) {
   }, [voice, ttsEnabled]);
 
   const cancelVoiceInput = useCallback(() => {
+    isCancelledRef.current = true;
     stopPrefillTTS();
     isTTSRef.current = false;
     voice.cancelVoice();

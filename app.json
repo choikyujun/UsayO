@@ -18,7 +18,9 @@
       "icon": "./assets/icon.png",
       "supportsTablet": true,
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.yusay.app"]
+        "com.apple.security.application-groups": [
+          "group.com.yusay.app"
+        ]
       },
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "음성으로 일정을 등록하기 위해 필요합니다.",
@@ -42,7 +44,8 @@
     },
     "plugins": [
       "expo-router",
-      "./plugins/withYuSayWidgets"
+      "./plugins/withYuSayWidgets",
+      "@react-native-community/datetimepicker"
     ],
     "jsEngine": "hermes"
   }

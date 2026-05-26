@@ -9,6 +9,15 @@ import { defaultOffset } from '../utils/notificationHelpers';
 
 type Schedule = Database['public']['Tables']['schedules']['Row'];
 
+function extractTimeFromQuery(q: string): { hour: number; min: number } | null {
+  const m = q.match(/(\d{1,2})\s*시\s*(?:(\d{1,2})\s*분)?/);
+  if (!m) return null;
+  const hour = parseInt(m[1]);
+  const min  = m[2] ? parseInt(m[2]) : 0;
+  if (hour > 23 || min > 59) return null;
+  return { hour, min };
+}
+
 // ── 이벤트 검색 헬퍼 ─────────────────────────────────────────────
 async function searchEventsByQuery(query: string, hintDate?: string): Promise<Event[]> {
   // 날짜·시간·동사 제거 → 제목 키워드만 추출
@@ -47,6 +56,17 @@ async function searchEventsByQuery(query: string, hintDate?: string): Promise<Ev
       console.log('[Search] hintDate hit:', r1.length, r1.map(e => `"${e.title}"`));
       return r1 as Event[];
     }
+    // "8시" → AM으로 해석 후 이월(내일)됐을 때, 오늘 PM에 실제 일정이 있을 수 있음 → 전날도 시도
+    const prevDay   = new Date(d.getTime() - 24 * 60 * 60 * 1000);
+    const prevStart = new Date(prevDay.getFullYear(), prevDay.getMonth(), prevDay.getDate(), 0, 0, 0);
+    const prevEnd   = new Date(prevDay.getFullYear(), prevDay.getMonth(), prevDay.getDate(), 23, 59, 59);
+    const { data: r1p } = await buildQ(term)
+      .gte('start_at', prevStart.toISOString())
+      .lte('start_at', prevEnd.toISOString());
+    if (r1p?.length) {
+      console.log('[Search] hintDate-1day hit:', r1p.length, r1p.map(e => `"${e.title}"`));
+      return r1p as Event[];
+    }
     console.log('[Search] hintDate miss → full-range fallback');
   }
 
@@ -74,6 +94,47 @@ async function searchEventsByQuery(query: string, hintDate?: string): Promise<Ev
     if (r3?.length) {
       console.log('[Search] word-split hit on "%s":', word, r3.length, r3.map(e => `"${e.title}"`));
       return r3 as Event[];
+    }
+  }
+
+  // Try 4 — hintDate 없을 때 쿼리의 시간 힌트로 오늘 날짜 유도
+  // "8시 30분 영화보기" → 08:30 오늘 → 제목 검색 → 없으면 시간만으로 단독 매칭
+  if (!hintDate) {
+    const timeHint = extractTimeFromQuery(query);
+    if (timeHint) {
+      const now      = new Date();
+      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      const dayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+      // 4a — 오늘 + 제목
+      if (term) {
+        const { data: r4a } = await buildQ(term)
+          .gte('start_at', dayStart.toISOString())
+          .lte('start_at', dayEnd.toISOString());
+        if (r4a?.length) {
+          console.log('[Search] time-derived+title hit:', r4a.length, r4a.map(e => `"${e.title}"`));
+          return r4a as Event[];
+        }
+      }
+
+      // 4b — 시간만으로 오늘 일정 매칭 (정확히 1개일 때만)
+      // 한국어 "8시" = 08:00 or 20:00 → AM/PM 둘 다 시도
+      const { data: r4b } = await supabase.from('events').select('*').is('deleted_at', null)
+        .gte('start_at', dayStart.toISOString())
+        .lte('start_at', dayEnd.toISOString())
+        .order('start_at', { ascending: true });
+      const baseMin = timeHint.hour * 60 + timeHint.min;
+      const altMin  = ((timeHint.hour + 12) % 24) * 60 + timeHint.min;
+      for (const targetMin of [baseMin, altMin]) {
+        const atTime = (r4b ?? []).filter(e => {
+          const d = new Date(e.start_at);
+          return Math.abs(d.getHours() * 60 + d.getMinutes() - targetMin) <= 15;
+        });
+        if (atTime.length === 1) {
+          console.log('[Search] time-only hit (min=%d):', targetMin, `"${atTime[0].title}"`);
+          return atTime as Event[];
+        }
+      }
     }
   }
 
@@ -262,7 +323,7 @@ export function useSchedules(date: string, daysAhead = 0) {
         setLastCreatedId(savedEvent.id);
         // 알림 예약 (fire-and-forget — 실패해도 저장은 유지)
         scheduleEventNotification(savedEvent).catch(e =>
-          console.warn('[Notifications] 예약 실패:', e),
+          console.log('[Notifications] 예약 실패:', e),
         );
         return savedEvent.id;
       }
@@ -328,10 +389,17 @@ export function useSchedules(date: string, daysAhead = 0) {
       } = { updated_at: new Date().toISOString() };
 
       if (intent.updateFields?.startDateTime?.date) {
-        const newStart   = new Date(intent.updateFields.startDateTime.date);
-        const origDur    = new Date(target.end_at).getTime() - new Date(target.start_at).getTime();
-        patch.start_at   = newStart.toISOString();
-        patch.end_at     = new Date(newStart.getTime() + origDur).toISOString();
+        const newStart  = new Date(intent.updateFields.startDateTime.date);
+        const origStart = new Date(target.start_at);
+        // 한국어 시간 표현 AM/PM 보정:
+        // 원본 일정이 PM(12시 이후)인데 새 시간이 AM(12시 미만)으로 해석됐으면 PM으로 전환
+        // 예: 저녁 20:00 일정 → "11시로 바꿔줘" → 23:00 (11 PM)
+        if (origStart.getHours() >= 12 && newStart.getHours() < 12) {
+          newStart.setHours(newStart.getHours() + 12);
+        }
+        const origDur  = new Date(target.end_at).getTime() - new Date(target.start_at).getTime();
+        patch.start_at = newStart.toISOString();
+        patch.end_at   = new Date(newStart.getTime() + origDur).toISOString();
       }
       if (intent.updateFields?.title)    patch.title    = intent.updateFields.title;
       if (intent.updateFields?.location !== undefined) patch.location = intent.updateFields.location ?? null;

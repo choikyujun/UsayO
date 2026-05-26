@@ -1,7 +1,8 @@
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated, Modal, Pressable, StyleSheet, Text, View,
+  Animated, Modal, Platform, Pressable, StyleSheet, Text, View,
 } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
@@ -26,6 +27,35 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
+// 누르는 동안 자동 반복 — 350ms 후 시작, 120ms 간격, 1.2초 후 45ms로 가속
+function useRepeatPress(action: () => void) {
+  const actionRef   = useRef(action);
+  actionRef.current = action;
+  const ivRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const t1Ref = useRef<ReturnType<typeof setTimeout>  | null>(null);
+  const t2Ref = useRef<ReturnType<typeof setTimeout>  | null>(null);
+
+  const start = useCallback(() => {
+    actionRef.current();
+    t1Ref.current = setTimeout(() => {
+      ivRef.current = setInterval(() => actionRef.current(), 120);
+      t2Ref.current = setTimeout(() => {
+        if (ivRef.current) clearInterval(ivRef.current);
+        ivRef.current = setInterval(() => actionRef.current(), 45);
+      }, 1200);
+    }, 350);
+  }, []);
+
+  const stop = useCallback(() => {
+    if (t1Ref.current) { clearTimeout(t1Ref.current);   t1Ref.current = null; }
+    if (t2Ref.current) { clearTimeout(t2Ref.current);   t2Ref.current = null; }
+    if (ivRef.current) { clearInterval(ivRef.current);  ivRef.current = null; }
+  }, []);
+
+  useEffect(() => stop, []);
+  return { onPressIn: start, onPressOut: stop };
+}
+
 interface Props {
   visible: boolean;
   event: Event | null;
@@ -44,8 +74,15 @@ export default function EditTimeModal({ visible, event, onClose, onSaved }: Prop
   const [date,           setDate]           = useState(new Date());
   const [hour,           setHour]           = useState(0);
   const [minute,         setMinute]         = useState(0);
-  const [saving,         setSaving]         = useState(false);
+  const [saving,          setSaving]          = useState(false);
   const [showScopePicker, setShowScopePicker] = useState(false);
+  const [showTimePicker,  setShowTimePicker]  = useState(false);
+
+  const pickerDate = useMemo(() => {
+    const d = new Date(date);
+    d.setHours(hour, minute, 0, 0);
+    return d;
+  }, [date, hour, minute]);
 
   const isRecurring = event ? (event.is_recurring || isVirtualInstance(event.id)) : false;
   const ev          = event;
@@ -58,6 +95,7 @@ export default function EditTimeModal({ visible, event, onClose, onSaved }: Prop
       setHour(dt.getHours());
       setMinute(dt.getMinutes());
       setShowScopePicker(false);
+      setShowTimePicker(false);
       Animated.parallel([
         Animated.timing(fadeAnim,  { toValue: 1,    duration: 200, useNativeDriver: true }),
         Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true, tension: 200, friction: 20 }),
@@ -76,6 +114,21 @@ export default function EditTimeModal({ visible, event, onClose, onSaved }: Prop
   function decHour()   { setHour(h   => (h  + 23) % 24); }
   function incMinute() { setMinute(m => (m  +  5) % 60); }
   function decMinute() { setMinute(m => (m  + 55) % 60); }
+
+  function handleTimePickerChange(_: DateTimePickerEvent, selected?: Date) {
+    if (Platform.OS === 'android') setShowTimePicker(false);
+    if (selected) {
+      setHour(selected.getHours());
+      setMinute(selected.getMinutes());
+    }
+  }
+
+  const incHourRep   = useRepeatPress(incHour);
+  const decHourRep   = useRepeatPress(decHour);
+  const incMinuteRep = useRepeatPress(incMinute);
+  const decMinuteRep = useRepeatPress(decMinute);
+  const prevDayRep   = useRepeatPress(prevDay);
+  const nextDayRep   = useRepeatPress(nextDay);
 
   function buildTimes() {
     const start = new Date(date);
@@ -168,13 +221,13 @@ export default function EditTimeModal({ visible, event, onClose, onSaved }: Prop
             <>
               {/* ── Date row ── */}
               <View style={[styles.dateRow, { backgroundColor: colors.card2, borderColor: colors.border }]}>
-                <Pressable onPress={prevDay} hitSlop={10}>
+                <Pressable {...prevDayRep} hitSlop={10}>
                   <ChevronLeft size={20} color={colors.textMuted} strokeWidth={1.5} />
                 </Pressable>
                 <Text style={[styles.dateLabel, { color: colors.textPrimary }]}>
                   {formatDateLabel(date)}
                 </Text>
-                <Pressable onPress={nextDay} hitSlop={10}>
+                <Pressable {...nextDayRep} hitSlop={10}>
                   <ChevronRight size={20} color={colors.textMuted} strokeWidth={1.5} />
                 </Pressable>
               </View>
@@ -183,13 +236,15 @@ export default function EditTimeModal({ visible, event, onClose, onSaved }: Prop
               <View style={styles.timePicker}>
                 {/* Hour spinner */}
                 <View style={styles.spinnerCol}>
-                  <Pressable style={styles.spinnerArrow} onPress={incHour} hitSlop={12}>
+                  <Pressable style={styles.spinnerArrow} {...incHourRep} hitSlop={12}>
                     <ChevronUp size={22} color={colors.primary} strokeWidth={1.5} />
                   </Pressable>
-                  <View style={[styles.spinnerBox, { backgroundColor: colors.card2, borderColor: colors.border }]}>
-                    <Text style={[styles.spinnerNum, { color: colors.textPrimary }]}>{pad2(hour)}</Text>
-                  </View>
-                  <Pressable style={styles.spinnerArrow} onPress={decHour} hitSlop={12}>
+                  <Pressable onPress={() => setShowTimePicker(true)}>
+                    <View style={[styles.spinnerBox, { backgroundColor: colors.card2, borderColor: showTimePicker ? colors.primary : colors.border }]}>
+                      <Text style={[styles.spinnerNum, { color: colors.textPrimary }]}>{pad2(hour)}</Text>
+                    </View>
+                  </Pressable>
+                  <Pressable style={styles.spinnerArrow} {...decHourRep} hitSlop={12}>
                     <ChevronDown size={22} color={colors.primary} strokeWidth={1.5} />
                   </Pressable>
                 </View>
@@ -198,17 +253,49 @@ export default function EditTimeModal({ visible, event, onClose, onSaved }: Prop
 
                 {/* Minute spinner */}
                 <View style={styles.spinnerCol}>
-                  <Pressable style={styles.spinnerArrow} onPress={incMinute} hitSlop={12}>
+                  <Pressable style={styles.spinnerArrow} {...incMinuteRep} hitSlop={12}>
                     <ChevronUp size={22} color={colors.primary} strokeWidth={1.5} />
                   </Pressable>
-                  <View style={[styles.spinnerBox, { backgroundColor: colors.card2, borderColor: colors.border }]}>
-                    <Text style={[styles.spinnerNum, { color: colors.textPrimary }]}>{pad2(minute)}</Text>
-                  </View>
-                  <Pressable style={styles.spinnerArrow} onPress={decMinute} hitSlop={12}>
+                  <Pressable onPress={() => setShowTimePicker(true)}>
+                    <View style={[styles.spinnerBox, { backgroundColor: colors.card2, borderColor: showTimePicker ? colors.primary : colors.border }]}>
+                      <Text style={[styles.spinnerNum, { color: colors.textPrimary }]}>{pad2(minute)}</Text>
+                    </View>
+                  </Pressable>
+                  <Pressable style={styles.spinnerArrow} {...decMinuteRep} hitSlop={12}>
                     <ChevronDown size={22} color={colors.primary} strokeWidth={1.5} />
                   </Pressable>
                 </View>
               </View>
+
+              {/* ── 시스템 시계 피커 (iOS: 인라인 스피너, Android: 원형 클럭 다이얼로그) ── */}
+              {showTimePicker && Platform.OS === 'ios' && (
+                <View style={[styles.iosPickerWrap, { borderColor: colors.border }]}>
+                  <DateTimePicker
+                    value={pickerDate}
+                    mode="time"
+                    display="spinner"
+                    onChange={handleTimePickerChange}
+                    locale="ko-KR"
+                    minuteInterval={5}
+                    style={{ width: '100%' }}
+                  />
+                  <Pressable
+                    style={[styles.iosPickerDone, { backgroundColor: colors.primary }]}
+                    onPress={() => setShowTimePicker(false)}
+                  >
+                    <Text style={styles.iosPickerDoneText}>완료</Text>
+                  </Pressable>
+                </View>
+              )}
+              {showTimePicker && Platform.OS === 'android' && (
+                <DateTimePicker
+                  value={pickerDate}
+                  mode="time"
+                  display="clock"
+                  onChange={handleTimePickerChange}
+                  minuteInterval={5}
+                />
+              )}
 
               {/* Buttons */}
               <View style={styles.btnRow}>
@@ -311,6 +398,15 @@ function makeStyles(c: AppTheme) {
     },
     spinnerNum: { fontSize: 26, fontWeight: '300', letterSpacing: 1 },
     colon:      { fontSize: 26, fontWeight: '300', marginBottom: 4 },
+    iosPickerWrap: {
+      borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
+      overflow: 'hidden', marginBottom: 8,
+    },
+    iosPickerDone: {
+      margin: 12, borderRadius: 12,
+      alignItems: 'center', paddingVertical: 12,
+    },
+    iosPickerDoneText: { fontSize: 15, fontWeight: '600', color: '#fff' },
 
     btnRow: {
       flexDirection: 'row',

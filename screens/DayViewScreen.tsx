@@ -37,7 +37,7 @@ import { useDayEvents } from '../hooks/useDayEvents';
 import { useSchedules } from '../hooks/useSchedules';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { supabase } from '../lib/supabase';
-import { rescheduleEventNotification } from '../services/notifications';
+import { cancelEventNotification, rescheduleEventNotification } from '../services/notifications';
 import { Event } from '../types/database';
 import { ttsService } from '../services/voice/TTSService';
 import { useTheme } from '../contexts/ThemeContext';
@@ -103,6 +103,7 @@ export default function DayViewScreen() {
     const realId = isVirtualInstance(event.id)
       ? (parseInstanceId(event.id)?.parentId ?? event.id)
       : event.id;
+    cancelEventNotification(realId).catch(e => console.log('[Notifications] cancel 실패:', e));
     supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', realId)
       .then(({ error }) => { if (error) console.error('[DayView] delete failed:', error.message); });
     reload();
@@ -121,6 +122,7 @@ export default function DayViewScreen() {
       supabase.from('events').update({ recurrence_end_date: d.toISOString().split('T')[0] }).eq('id', parentId)
         .then(({ error }) => { if (error) console.error('[DayView] recurrence_end_date update failed:', error.message); });
     } else {
+      cancelEventNotification(parentId).catch(e => console.log('[Notifications] cancel 실패:', e));
       supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', parentId)
         .then(({ error }) => { if (error) console.error('[DayView] delete recurring failed:', error.message); });
     }
@@ -292,6 +294,8 @@ export default function DayViewScreen() {
       {/* ── Long-press voice overlay ─────────────────────────────── */}
       <VoiceInputOverlay
         visible={voice.overlayVisible}
+        micStatus={voice.micStatus}
+        isProcessing={voice.phase === 'processing'}
         onCancel={handleVoiceCancel}
         onComplete={() => voice.stopAndProcessStored()}
       />
@@ -335,8 +339,6 @@ export default function DayViewScreen() {
       <EventActionSheet
         event={sheetEvent}
         onClose={() => setSheetEvent(null)}
-        onDelete={handleDeleteEvent}
-        onDeleteRecurring={handleDeleteRecurring}
         onEditTitle={ev => {
           console.log('[DayView] onEditTitle 호출, eventId:', ev?.id);
           setEditEvent(ev);
@@ -367,7 +369,17 @@ export default function DayViewScreen() {
         visible={editTimeVisible}
         event={editEvent}
         onClose={() => setEditTimeVisible(false)}
-        onSaved={() => { setEditTimeVisible(false); reload(); }}
+        onSaved={() => {
+          setEditTimeVisible(false);
+          if (editEvent) {
+            supabase.from('events').select('*').eq('id', editEvent.id).single()
+              .then(({ data }) => {
+                if (data) rescheduleEventNotification(data as Event).catch(e =>
+                  console.log('[Notifications] reschedule 실패:', e));
+              });
+          }
+          reload();
+        }}
       />
       <EditNotificationModal
         visible={editNotifVisible}
@@ -382,7 +394,7 @@ export default function DayViewScreen() {
             console.error('[DayView] notification update failed:', error.message);
           } else {
             rescheduleEventNotification(updatedEvent).catch(e =>
-              console.warn('[Notifications] reschedule 실패:', e),
+              console.log('[Notifications] reschedule 실패:', e),
             );
             reload();
           }

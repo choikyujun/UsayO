@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
+import { cancelEventNotification, rescheduleEventNotification } from '../services/notifications';
 import { Event } from '../types/database';
 import { todayDateStr } from '../utils/timeHelpers';
 import RecurringEventRow from './RecurringEventRow';
@@ -71,23 +72,6 @@ export default function RecurringBadge({ events }: Props) {
         onClose={() => setSheetEvent(null)}
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
-        onDelete={ev => {
-          supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', ev.id)
-            .then(({ error }) => { if (error) console.error('[RecurringBadge] delete failed:', error.message); });
-        }}
-        onDeleteRecurring={(ev, scope: RecurringDeleteScope) => {
-          const today = todayDateStr();
-          if (scope === 'this') {
-            supabase.from('event_exceptions').insert({ parent_id: ev.id, instance_date: today, is_deleted: true })
-              .then(({ error }) => { if (error) console.error('[RecurringBadge] exception insert failed:', error.message); });
-          } else if (scope === 'future') {
-            supabase.from('events').update({ recurrence_end_date: today }).eq('id', ev.id)
-              .then(({ error }) => { if (error) console.error('[RecurringBadge] recurrence_end_date update failed:', error.message); });
-          } else {
-            supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', ev.id)
-              .then(({ error }) => { if (error) console.error('[RecurringBadge] delete recurring failed:', error.message); });
-          }
-        }}
       />
       <EditTitleModal
         visible={editTitleVisible}
@@ -99,7 +83,16 @@ export default function RecurringBadge({ events }: Props) {
         visible={editTimeVisible}
         event={editEvent}
         onClose={() => setEditTimeVisible(false)}
-        onSaved={() => setEditTimeVisible(false)}
+        onSaved={() => {
+          setEditTimeVisible(false);
+          if (editEvent) {
+            supabase.from('events').select('*').eq('id', editEvent.id).single()
+              .then(({ data }) => {
+                if (data) rescheduleEventNotification(data as Event).catch(e =>
+                  console.log('[Notifications] reschedule 실패:', e));
+              });
+          }
+        }}
       />
     </View>
   );
