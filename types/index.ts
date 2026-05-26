@@ -68,6 +68,8 @@ export interface ClassifiedIntent {
   queryType?: 'list' | 'free_slots' | 'specific';
   // NAVIGATION
   navigationTarget?: NavigationTarget;
+  // 복수 일정 (발화에 2개 이상 일정 포함 시)
+  events?: ClassifiedIntent[];
   // 원본
   rawTranscript?: string;
 }

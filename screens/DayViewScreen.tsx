@@ -28,6 +28,7 @@ import EditTitleModal from '../components/EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from '../components/EventActionSheet';
 import HourGrid from '../components/HourGrid';
 import InlineConfirmCard from '../components/InlineConfirmCard';
+import MultiConfirmCard from '../components/MultiConfirmCard';
 import LunchHint from '../components/LunchHint';
 import VoiceInputOverlay from '../components/VoiceInputOverlay';
 import { useColors } from '../constants/colors';
@@ -164,7 +165,13 @@ export default function DayViewScreen() {
 
   const handleVoiceConfirm = useCallback(async () => {
     ttsService.stop();
-    await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
+    if (voice.classifiedIntent?.events?.length) {
+      await voice.confirmMultiAction(async intents => {
+        for (const i of intents) await applyClassifiedIntent(i);
+      });
+    } else {
+      await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
+    }
   }, [voice, applyClassifiedIntent]);
 
   const handleVoiceCancel = useCallback(() => {
@@ -297,12 +304,21 @@ export default function DayViewScreen() {
       )}
 
       {voice.phase === 'confirming' && voice.classifiedIntent && (
-        <InlineConfirmCard
-          intent={voice.classifiedIntent}
-          transcript={voice.transcript}
-          onConfirm={handleVoiceConfirm}
-          onCancel={handleVoiceCancel}
-        />
+        voice.classifiedIntent.events?.length ? (
+          <MultiConfirmCard
+            events={voice.classifiedIntent.events}
+            transcript={voice.transcript}
+            onConfirm={handleVoiceConfirm}
+            onCancel={handleVoiceCancel}
+          />
+        ) : (
+          <InlineConfirmCard
+            intent={voice.classifiedIntent}
+            transcript={voice.transcript}
+            onConfirm={handleVoiceConfirm}
+            onCancel={handleVoiceCancel}
+          />
+        )
       )}
 
       {voice.phase === 'success' && (

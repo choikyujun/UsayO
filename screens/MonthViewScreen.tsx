@@ -13,6 +13,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import AppHeader from '../components/AppHeader';
 import DayEventsSheet from '../components/DayEventsSheet';
 import InlineConfirmCard from '../components/InlineConfirmCard';
+import MultiConfirmCard from '../components/MultiConfirmCard';
 import MonthGrid from '../components/MonthGrid';
 import VoiceInputOverlay from '../components/VoiceInputOverlay';
 import { useColors } from '../constants/colors';
@@ -172,16 +173,29 @@ export default function MonthViewScreen() {
         onCancel={() => voice.cancelVoiceInput()}
       />
 
-      {/* ── Inline confirm card ───────────────────────────────────── */}
+      {/* ── Inline / Multi confirm card ──────────────────────────── */}
       {voice.phase === 'confirming' && voice.classifiedIntent && (
-        <InlineConfirmCard
-          intent={voice.classifiedIntent}
-          transcript={voice.transcript}
-          onConfirm={async () => {
-            await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
-          }}
-          onCancel={() => voice.cancelVoiceInput()}
-        />
+        voice.classifiedIntent.events?.length ? (
+          <MultiConfirmCard
+            events={voice.classifiedIntent.events}
+            transcript={voice.transcript}
+            onConfirm={async () => {
+              await voice.confirmMultiAction(async intents => {
+                for (const i of intents) await applyClassifiedIntent(i);
+              });
+            }}
+            onCancel={() => voice.cancelVoiceInput()}
+          />
+        ) : (
+          <InlineConfirmCard
+            intent={voice.classifiedIntent}
+            transcript={voice.transcript}
+            onConfirm={async () => {
+              await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
+            }}
+            onCancel={() => voice.cancelVoiceInput()}
+          />
+        )
       )}
     </View>
   );

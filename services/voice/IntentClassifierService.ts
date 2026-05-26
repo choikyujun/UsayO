@@ -54,6 +54,17 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
   * recurrenceRule이 있으면 반드시 isRecurring: true 설정
   * startDateTime.date = 해당 반복 패턴의 첫 번째 발생일 (가장 가까운 미래)
 
+## 복수 일정 입력
+발화에 2개 이상의 별개 일정이 포함될 때 ("A 그리고 B", "A랑 B도", "A, B 잡아줘" 등):
+- 최상위 intent를 "CREATE"로 유지하고 events 배열에 각 일정을 개별 JSON으로 반환
+- 각 배열 항목은 아래 ## 반환 JSON 형식과 동일한 구조
+- 단일 일정이면 events 필드 없이 기존 형식 그대로 반환
+- 예시: "내일 오전 10시 팀 회의, 오후 6시에 저녁 약속도 잡아줘"
+  → {"intent":"CREATE","events":[
+       {"intent":"CREATE","title":"팀 회의","startDateTime":{"date":"...T10:00:00+09:00","isRecurring":false,"confidence":0.95},"confidence":0.95},
+       {"intent":"CREATE","title":"저녁 약속","startDateTime":{"date":"...T18:00:00+09:00","isRecurring":false,"confidence":0.95},"confidence":0.95}
+     ]}
+
 ## 장소·메모·참석자 추출 규칙
 - location: 발화에 명확한 장소("에서", "~에서", "~에서 만나", 특정 건물/카페/역 이름)가 있을 때만 추출. 없으면 반드시 null.
 - notes: 할 일·준비물·메모성 언급("챙기기", "준비", "미리", "확인해야" 등)을 정리. 없으면 null.

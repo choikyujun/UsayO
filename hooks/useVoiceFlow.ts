@@ -240,6 +240,26 @@ export function useVoiceFlow() {
     }
   }, [store]);
 
+  const confirmMultiAction = useCallback(async (
+    onSave: (intents: ClassifiedIntent[]) => Promise<void>,
+  ) => {
+    const intent = store.classifiedIntent;
+    const events = intent?.events;
+    if (!events?.length) return;
+    store.setPhase('processing');
+    ttsService.stop();
+    try {
+      await onSave(events);
+      store.setPhase('success');
+      ttsService.speak(`${events.length}개 일정을 등록했어요`).catch(() => {});
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '저장 실패';
+      store.setPhase('fail');
+      store.setError({ type: 'unknown', message: msg });
+      ttsService.speak('저장에 실패했어요. 다시 시도해주세요.').catch(() => {});
+    }
+  }, [store]);
+
   return {
     phase: store.phase,
     transcript: store.transcript,
@@ -262,5 +282,6 @@ export function useVoiceFlow() {
     dismissHybrid,
     setConfirmedIntent,
     confirmAction,
+    confirmMultiAction,
   };
 }

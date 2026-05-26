@@ -26,6 +26,7 @@ import ReAnimated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmCard from '../components/ConfirmCard';
 import InlineConfirmCard from '../components/InlineConfirmCard';
+import MultiConfirmCard from '../components/MultiConfirmCard';
 import RecurringBadge from '../components/RecurringBadge';
 import TimeSpine from '../components/TimeSpine';
 import UpcomingSection from '../components/UpcomingSection';
@@ -309,9 +310,15 @@ export default function HomeScreen() {
 
   const handleConfirm = useCallback(async () => {
     ttsService.stop();
-    await voice.confirmAction(async (intent: ClassifiedIntent) => {
-      await applyClassifiedIntent(intent);
-    });
+    if (voice.classifiedIntent?.events?.length) {
+      await voice.confirmMultiAction(async (intents: ClassifiedIntent[]) => {
+        for (const i of intents) await applyClassifiedIntent(i);
+      });
+    } else {
+      await voice.confirmAction(async (intent: ClassifiedIntent) => {
+        await applyClassifiedIntent(intent);
+      });
+    }
   }, [voice, applyClassifiedIntent]);
 
   const handleReschedule = useCallback((eventId: string, newTime: Date) => {
@@ -458,8 +465,16 @@ export default function HomeScreen() {
 
       {/* ── 확인 카드 (Modal 없이 absolute overlay) ──────────────── */}
       {voice.phase === 'confirming' && voice.classifiedIntent && (
-        voice.confirmSource === 'voice' ? (
-          // 음성 입력: InlineConfirmCard (버튼 없음, 자동 마이크 재활성)
+        voice.classifiedIntent.events?.length ? (
+          // 복수 일정: MultiConfirmCard
+          <MultiConfirmCard
+            events={voice.classifiedIntent.events}
+            transcript={voice.transcript}
+            onConfirm={handleConfirm}
+            onCancel={handleCancelVoice}
+          />
+        ) : voice.confirmSource === 'voice' ? (
+          // 단일 음성 입력: InlineConfirmCard (자동 마이크 재활성)
           <InlineConfirmCard
             intent={voice.classifiedIntent}
             transcript={voice.transcript}

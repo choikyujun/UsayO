@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '../constants/colors';
+import { useCurrentDate } from '../hooks/useCurrentDate';
 import VoiceHintRotator from './VoiceHintRotator';
 
 export type AppTab = 'home' | 'day' | 'week' | 'month' | 'year';
@@ -33,10 +34,11 @@ interface Props {
 export default function AppHeader({ currentTab }: Props) {
   const insets = useSafeAreaInsets();
   const colors = useColors();
+  const { today } = useCurrentDate(); // midnight-aware date (triggers at 00:00)
 
-  const [now, setNow] = useState(() => new Date());
+  const [timeStr, setTimeStr] = useState(() => formatTime(new Date()));
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
+    const id = setInterval(() => setTimeStr(formatTime(new Date())), 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -97,11 +99,11 @@ export default function AppHeader({ currentTab }: Props) {
       {/* ── 날짜 · 시간 ──────────────────────────────────────── */}
       <View style={styles.dateRow}>
         <Text style={[styles.dateText, { color: colors.textPrimary }]}>
-          {formatDate(now)}
+          {formatDate(today)}
         </Text>
         <Text style={[styles.sep, { color: colors.textSecondary }]}>  ·  </Text>
         <Text style={[styles.timeText, { color: colors.textSecondary }]}>
-          {formatTime(now)}
+          {timeStr}
         </Text>
       </View>
 

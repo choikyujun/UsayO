@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system';
+import { buildWhisperPrompt } from '../../constants/voiceVocabulary';
 import { STTResult } from '../../types';
 
 const WHISPER_URL = 'https://api.openai.com/v1/audio/transcriptions';
@@ -36,6 +37,7 @@ export class SpeechRecognitionService {
     formData.append('model', 'whisper-1');
     formData.append('language', lang);
     formData.append('response_format', 'verbose_json');
+    formData.append('prompt', buildWhisperPrompt());
 
     const response = await fetch(WHISPER_URL, {
       method: 'POST',

@@ -40,6 +40,9 @@ export function useVoiceInput(ttsEnabled: boolean) {
     onAutoSave: OnAutoSave,
     onUndo:     OnUndo,
   ) => {
+    // 오버레이 즉시 표시 — 시각적 피드백 < 200ms
+    setOverlayVisible(true);
+
     if (ttsEnabled && !isTTSRef.current) {
       isTTSRef.current = true;
       try {
@@ -47,14 +50,11 @@ export function useVoiceInput(ttsEnabled: boolean) {
       } catch { /* TTS 실패해도 계속 */ } finally {
         stopPrefillTTS();
         isTTSRef.current = false;
-        // TTS 재생 오디오 세션 명시적 해제 (Android 오디오 포커스 반환)
         await audioSessionService.releasePlaybackSession();
       }
-      // 오디오 세션 핸드오프 대기 (TTS→마이크 전환, 300ms → 500ms로 증가)
-      await new Promise<void>(resolve => setTimeout(resolve, 500));
+      // 오디오 세션 핸드오프 대기 (TTS→마이크 전환)
+      await new Promise<void>(resolve => setTimeout(resolve, 300));
     }
-
-    setOverlayVisible(true);
 
     const prefillContext = buildPrefillContext(prefill);
     voice.startVoice(onAutoSave, onUndo, prefillContext);

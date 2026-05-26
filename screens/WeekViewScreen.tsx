@@ -20,6 +20,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader from '../components/AppHeader';
 import InlineConfirmCard from '../components/InlineConfirmCard';
+import MultiConfirmCard from '../components/MultiConfirmCard';
 import EditTimeModal from '../components/EditTimeModal';
 import EditTitleModal from '../components/EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from '../components/EventActionSheet';
@@ -277,16 +278,29 @@ export default function WeekViewScreen() {
         onCancel={() => voice.cancelVoiceInput()}
       />
 
-      {/* ── Inline confirm card ───────────────────────────────────── */}
+      {/* ── Inline / Multi confirm card ──────────────────────────── */}
       {voice.phase === 'confirming' && voice.classifiedIntent && (
-        <InlineConfirmCard
-          intent={voice.classifiedIntent}
-          transcript={voice.transcript}
-          onConfirm={async () => {
-            await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
-          }}
-          onCancel={() => voice.cancelVoiceInput()}
-        />
+        voice.classifiedIntent.events?.length ? (
+          <MultiConfirmCard
+            events={voice.classifiedIntent.events}
+            transcript={voice.transcript}
+            onConfirm={async () => {
+              await voice.confirmMultiAction(async intents => {
+                for (const i of intents) await applyClassifiedIntent(i);
+              });
+            }}
+            onCancel={() => voice.cancelVoiceInput()}
+          />
+        ) : (
+          <InlineConfirmCard
+            intent={voice.classifiedIntent}
+            transcript={voice.transcript}
+            onConfirm={async () => {
+              await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
+            }}
+            onCancel={() => voice.cancelVoiceInput()}
+          />
+        )
       )}
     </View>
   );
