@@ -305,8 +305,24 @@ export default function HomeScreen() {
     if (!gate.isAllowed) { setUpgradeVisible(true); return; }
     const ok = await quotaTracker.checkQuota('create');
     if (!ok) { setUpgradeVisible(true); return; }
-    voice.startVoice(handleApplyIntent);
-  }, [gate, voice, applyClassifiedIntent]);
+
+    // ±7일 이벤트를 LLM 컨텍스트로 전달 (UPDATE/DELETE/COMPLETE 매칭 정확도 향상)
+    const nearbyCtx = allEvents.length > 0
+      ? allEvents.slice(0, 30).map(e => {
+          const d = new Date(e.start_at);
+          const m = d.getMonth() + 1;
+          const day = d.getDate();
+          const h = d.getHours();
+          const min = d.getMinutes();
+          const minStr = min > 0 ? `:${String(min).padStart(2, '0')}` : '';
+          const ampm = h < 12 ? '오전' : '오후';
+          const h12 = h % 12 || 12;
+          return `id: ${e.id}, time: ${m}월 ${day}일 ${ampm} ${h12}${minStr}시, title: ${e.title}`;
+        }).join('\n')
+      : undefined;
+
+    voice.startVoice(handleApplyIntent, undefined, nearbyCtx);
+  }, [gate, voice, applyClassifiedIntent, allEvents]);
 
   // DB 반영 즉시 화면 갱신: useSchedules(CRUD)와 useEventsForDate(display)가 분리돼 있어
   // applyClassifiedIntent 완료 후 바로 reloadForDate를 호출해야 이벤트가 즉시 표시됨
@@ -502,6 +518,7 @@ export default function HomeScreen() {
               transcript={voice.transcript}
               onConfirm={handleConfirm}
               onRetry={handleRetry}
+              onAmPmChange={voice.setConfirmedIntent}
             />
           </View>
         )

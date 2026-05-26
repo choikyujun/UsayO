@@ -342,20 +342,25 @@ export function useSchedules(date: string, daysAhead = 0) {
     if (intent.intent === 'DELETE') {
       const rawQuery = intent.deleteTargetQuery ?? intent.targetEventQuery ?? intent.title ?? '';
       const hintDate = intent.startDateTime?.date;
-      console.log('[VoiceFlow] DELETE branch entered, query:', rawQuery, '| hintDate:', hintDate);
+      console.log('[VoiceFlow] DELETE branch entered, query:', rawQuery, '| targetEventId:', intent.targetEventId ?? 'none', '| hintDate:', hintDate);
 
-      const candidates = await searchEventsByQuery(rawQuery, hintDate);
-      console.log('[VoiceFlow] DELETE candidates:', candidates.length, candidates.map(e => `"${e.title}" @ ${e.start_at}`));
-
-      if (candidates.length === 0) {
-        throw new Error('해당 일정을 찾을 수 없어요.');
+      let target: Event;
+      if (intent.targetEventId) {
+        const { data: direct, error: directErr } = await supabase
+          .from('events').select('*').eq('id', intent.targetEventId).is('deleted_at', null).single();
+        console.log('[VoiceFlow] DELETE direct lookup:', !!direct, directErr?.message ?? null);
+        if (!direct) throw new Error('해당 일정을 찾을 수 없어요.');
+        target = direct as Event;
+      } else {
+        const candidates = await searchEventsByQuery(rawQuery, hintDate);
+        console.log('[VoiceFlow] DELETE candidates:', candidates.length, candidates.map(e => `"${e.title}" @ ${e.start_at}`));
+        if (candidates.length === 0) throw new Error('해당 일정을 찾을 수 없어요.');
+        if (candidates.length > 1) {
+          const titles = candidates.slice(0, 3).map(e => e.title).join(', ');
+          throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
+        }
+        target = candidates[0];
       }
-      if (candidates.length > 1) {
-        const titles = candidates.slice(0, 3).map(e => e.title).join(', ');
-        throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
-      }
-
-      const target = candidates[0];
       const { data, error } = await supabase
         .from('events')
         .update({ deleted_at: new Date().toISOString() })
@@ -373,22 +378,26 @@ export function useSchedules(date: string, daysAhead = 0) {
     // ── UPDATE ──────────────────────────────────────────────────
     if (intent.intent === 'UPDATE') {
       const rawQuery = intent.targetEventQuery ?? intent.title ?? '';
-      // 날짜 힌트: updateFields의 원래 시간보다 startDateTime이 더 정확
       const hintDate = intent.startDateTime?.date;
-      console.log('[VoiceFlow] UPDATE branch entered, query:', rawQuery, '| hintDate:', hintDate);
+      console.log('[VoiceFlow] UPDATE branch entered, query:', rawQuery, '| targetEventId:', intent.targetEventId ?? 'none', '| hintDate:', hintDate);
 
-      const candidates = await searchEventsByQuery(rawQuery, hintDate);
-      console.log('[VoiceFlow] UPDATE candidates:', candidates.length, candidates.map(e => `"${e.title}" @ ${e.start_at}`));
-
-      if (candidates.length === 0) {
-        throw new Error('해당 일정을 찾을 수 없어요.');
+      let target: Event;
+      if (intent.targetEventId) {
+        const { data: direct, error: directErr } = await supabase
+          .from('events').select('*').eq('id', intent.targetEventId).is('deleted_at', null).single();
+        console.log('[VoiceFlow] UPDATE direct lookup:', !!direct, directErr?.message ?? null);
+        if (!direct) throw new Error('해당 일정을 찾을 수 없어요.');
+        target = direct as Event;
+      } else {
+        const candidates = await searchEventsByQuery(rawQuery, hintDate);
+        console.log('[VoiceFlow] UPDATE candidates:', candidates.length, candidates.map(e => `"${e.title}" @ ${e.start_at}`));
+        if (candidates.length === 0) throw new Error('해당 일정을 찾을 수 없어요.');
+        if (candidates.length > 1) {
+          const titles = candidates.slice(0, 3).map(e => e.title).join(', ');
+          throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
+        }
+        target = candidates[0];
       }
-      if (candidates.length > 1) {
-        const titles = candidates.slice(0, 3).map(e => e.title).join(', ');
-        throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
-      }
-
-      const target = candidates[0];
       const patch: {
         updated_at: string;
         start_at?: string;
@@ -425,6 +434,10 @@ export function useSchedules(date: string, daysAhead = 0) {
 
       if (data) {
         setEvents(prev => prev.map(e => e.id === target.id ? (data as Event) : e));
+        // 시간이 바뀐 경우 알림 재예약 (fire-and-forget)
+        scheduleEventNotification(data as Event).catch(e =>
+          console.log('[Notifications] UPDATE 재예약 실패:', e),
+        );
       }
       await load();
       return target.id;
@@ -434,20 +447,25 @@ export function useSchedules(date: string, daysAhead = 0) {
     if (intent.intent === 'COMPLETE') {
       const rawQuery = intent.completeTargetQuery ?? intent.targetEventQuery ?? intent.title ?? '';
       const hintDate = intent.startDateTime?.date;
-      console.log('[VoiceFlow] COMPLETE branch entered, query:', rawQuery, '| hintDate:', hintDate);
+      console.log('[VoiceFlow] COMPLETE branch entered, query:', rawQuery, '| targetEventId:', intent.targetEventId ?? 'none', '| hintDate:', hintDate);
 
-      const candidates = await searchEventsByQuery(rawQuery, hintDate);
-      console.log('[VoiceFlow] COMPLETE candidates:', candidates.length, candidates.map(e => `"${e.title}" @ ${e.start_at}`));
-
-      if (candidates.length === 0) {
-        throw new Error('해당 일정을 찾을 수 없어요.');
+      let target: Event;
+      if (intent.targetEventId) {
+        const { data: direct, error: directErr } = await supabase
+          .from('events').select('*').eq('id', intent.targetEventId).is('deleted_at', null).single();
+        console.log('[VoiceFlow] COMPLETE direct lookup:', !!direct, directErr?.message ?? null);
+        if (!direct) throw new Error('해당 일정을 찾을 수 없어요.');
+        target = direct as Event;
+      } else {
+        const candidates = await searchEventsByQuery(rawQuery, hintDate);
+        console.log('[VoiceFlow] COMPLETE candidates:', candidates.length, candidates.map(e => `"${e.title}" @ ${e.start_at}`));
+        if (candidates.length === 0) throw new Error('해당 일정을 찾을 수 없어요.');
+        if (candidates.length > 1) {
+          const titles = candidates.slice(0, 3).map(e => e.title).join(', ');
+          throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
+        }
+        target = candidates[0];
       }
-      if (candidates.length > 1) {
-        const titles = candidates.slice(0, 3).map(e => e.title).join(', ');
-        throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
-      }
-
-      const target = candidates[0];
       const { data, error } = await supabase
         .from('events')
         .update({ completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -485,10 +503,17 @@ export function useSchedules(date: string, daysAhead = 0) {
         ? { ...e, start_at: newStartIso, end_at: newEndIso, updated_at: updatedAt }
         : e,
     ));
-    await supabase
+    const { data } = await supabase
       .from('events')
       .update({ start_at: newStartIso, end_at: newEndIso, updated_at: updatedAt })
-      .eq('id', eventId);
+      .eq('id', eventId)
+      .select()
+      .single();
+    if (data) {
+      scheduleEventNotification(data as Event).catch(e =>
+        console.log('[Notifications] drag 재예약 실패:', e),
+      );
+    }
   }
 
   async function undoRescheduleEvent(
@@ -502,10 +527,17 @@ export function useSchedules(date: string, daysAhead = 0) {
         ? { ...e, start_at: originalStart, end_at: originalEnd, updated_at: updatedAt }
         : e,
     ));
-    await supabase
+    const { data } = await supabase
       .from('events')
       .update({ start_at: originalStart, end_at: originalEnd, updated_at: updatedAt })
-      .eq('id', eventId);
+      .eq('id', eventId)
+      .select()
+      .single();
+    if (data) {
+      scheduleEventNotification(data as Event).catch(e =>
+        console.log('[Notifications] undo 재예약 실패:', e),
+      );
+    }
   }
 
   return {

@@ -14,10 +14,11 @@ export function useVoiceFlow() {
   const store = useVoiceStore();
 
   // onAutoSave / prefillContext refs — startVoice 호출 시 저장, onAutoStop에서 참조
-  const onAutoSaveRef     = useRef<OnAutoSave | undefined>(undefined);
-  const prefillContextRef = useRef<string | undefined>(undefined);
-  const isRetryRef        = useRef(false); // lowConfidence/noSpeech 자동 1회 재시도 추적
-  const isCancelledRef    = useRef(false); // cancelVoice 호출 시 zombie 재녹음 방지
+  const onAutoSaveRef          = useRef<OnAutoSave | undefined>(undefined);
+  const prefillContextRef      = useRef<string | undefined>(undefined);
+  const nearbyEventsContextRef = useRef<string | undefined>(undefined);
+  const isRetryRef             = useRef(false); // lowConfidence/noSpeech 자동 1회 재시도 추적
+  const isCancelledRef         = useRef(false); // cancelVoice 호출 시 zombie 재녹음 방지
 
   const processUriRef = useRef<
     ((uri: string | null, onAutoSave?: OnAutoSave) => Promise<void>) | null
@@ -35,11 +36,13 @@ export function useVoiceFlow() {
   const startVoice = useCallback(async (
     onAutoSave?: OnAutoSave,
     prefillContext?: string,
+    nearbyEventsContext?: string,
   ) => {
-    onAutoSaveRef.current     = onAutoSave;
-    prefillContextRef.current = prefillContext;
-    isRetryRef.current        = false;
-    isCancelledRef.current    = false;
+    onAutoSaveRef.current          = onAutoSave;
+    prefillContextRef.current      = prefillContext;
+    nearbyEventsContextRef.current = nearbyEventsContext;
+    isRetryRef.current             = false;
+    isCancelledRef.current         = false;
     store.reset();
 
     try {
@@ -80,8 +83,12 @@ export function useVoiceFlow() {
     }
 
     console.log('[VoiceFlow] STT triggered:', uri);
-    const result = await runVoiceFlow(uri, { prefillContext: prefillContextRef.current });
-    prefillContextRef.current = undefined;
+    const result = await runVoiceFlow(uri, {
+      prefillContext: prefillContextRef.current,
+      nearbyEventsContext: nearbyEventsContextRef.current,
+    });
+    prefillContextRef.current      = undefined;
+    nearbyEventsContextRef.current = undefined;
     console.log('[VoiceFlow] intent classified:', result.intent);
 
     if (!result.success || !result.intent) {

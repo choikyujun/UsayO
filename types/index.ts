@@ -72,6 +72,11 @@ export interface ClassifiedIntent {
   navigationTarget?: NavigationTarget;
   // 복수 일정 (발화에 2개 이상 일정 포함 시)
   events?: ClassifiedIntent[];
+  // LLM이 nearby events에서 직접 매칭한 이벤트 ID (UPDATE/DELETE/COMPLETE 우선 경로)
+  targetEventId?: string;
+  // 시간 모호성 (오전/오후 미지정 "6시" 등)
+  ambiguous?: boolean;
+  suggestedMeridiem?: 'AM' | 'PM';
   // 원본
   rawTranscript?: string;
 }

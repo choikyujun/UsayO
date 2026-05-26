@@ -102,6 +102,20 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 발화: "매월 15일 임대료 자동이체"
 → {"intent":"CREATE","title":"임대료 자동이체","startDateTime":{"date":"{exampleNext15th}T09:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=MONTHLY;BYMONTHDAY=15","confidence":0.96,"originalText":"매월 15일"},"location":null,"notes":null,"attendees":null,"category":"personal","confidence":0.96}
 
+## 일정 목록 컨텍스트 활용 (UPDATE/DELETE/COMPLETE 전용)
+사용자 발화에 '근처 일정 목록'이 제공될 수 있습니다. 제공된 경우:
+- 발화가 UPDATE/DELETE/COMPLETE 인텐트이고 목록에서 대상 일정이 명확히 특정되면 → 'targetEventId'에 해당 id를 설정
+- 후보가 2개 이상이면 'targetEventId'는 null, 'targetEventQuery'만 반환 (호출자가 모호성 처리)
+- 목록에 없는 일정이면 'targetEventId'는 null
+
+## 시간 모호성 규칙 (ambiguous 플래그)
+발화에 오전/오후/새벽/밤/아침/저녁 등 명시적 표현 → ambiguous: false, 정확한 AM/PM으로 date 설정
+발화에 1~12 사이 숫자만 ("6시", "3시") → 아래 기본 규칙으로 해석하되 ambiguous: true + suggestedMeridiem 설정:
+  * 1~6 → suggestedMeridiem: "PM" (오후로 추정)
+  * 7~12 → suggestedMeridiem: "AM" (오전으로 추정)
+  * 단, 이미 지난 시간이면 PM/다음날 AM으로 이월하고 ambiguous: false
+ambiguous: true이면 사용자가 AM/PM을 UI에서 선택하므로 date는 suggestedMeridiem에 맞게 설정
+
 ## 반환 JSON 형식
 {
   "intent": "CREATE|UPDATE|DELETE|COMPLETE|QUERY|NAVIGATION|RESCHEDULE_UNDO|UNKNOWN",
@@ -119,13 +133,16 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
   "notes": null,
   "attendees": null,
   "category": "work|personal|important",
+  "targetEventId": "uuid (UPDATE/DELETE/COMPLETE 시, 목록에서 명확히 매칭된 경우)",
   "targetEventQuery": "수정/삭제/완료 대상 검색어 (UPDATE/DELETE/COMPLETE)",
   "updateFields": { "startDateTime": ..., "title": ..., "location": ..., "notes": ... },
   "deleteTargetQuery": "삭제 대상 검색어",
   "completeTargetQuery": "완료 처리 대상 검색어 (COMPLETE)",
   "queryRange": { "start": "ISO8601", "end": "ISO8601" },
   "queryType": "list|free_slots|specific",
-  "navigationTarget": "today|calendar|upcoming|settings"
+  "navigationTarget": "today|calendar|upcoming|settings",
+  "ambiguous": false,
+  "suggestedMeridiem": "AM|PM (ambiguous: true일 때만 설정)"
 }`;
 
 export class IntentClassifierService {
@@ -140,6 +157,7 @@ export class IntentClassifierService {
     language = 'ko',
     userTimezone = 'Asia/Seoul',
     prefillContext?: string,
+    nearbyEventsContext?: string,
   ): Promise<ClassifiedIntent> {
     if (!this.apiKey) {
       console.log('[Intent] API 키 없음 — regex fallback 사용');
@@ -196,9 +214,7 @@ export class IntentClassifierService {
           messages: [
             {
               role: 'user',
-              content: prefillContext
-                ? `발화 (언어: ${language}): "${transcript}" [기본 날짜/시간: ${prefillContext}, 발화에서 날짜·시간이 명시되지 않으면 이 값을 사용]`
-                : `발화 (언어: ${language}): "${transcript}"`,
+              content: this.buildUserMessage(transcript, language, prefillContext, nearbyEventsContext),
             },
           ],
         }),
@@ -245,6 +261,23 @@ export class IntentClassifierService {
       }
       throw e;
     }
+  }
+
+  private buildUserMessage(
+    transcript: string,
+    language: string,
+    prefillContext?: string,
+    nearbyEventsContext?: string,
+  ): string {
+    const parts: string[] = [];
+    if (nearbyEventsContext) {
+      parts.push(`[근처 일정 목록 (±7일)]\n${nearbyEventsContext}`);
+    }
+    const base = prefillContext
+      ? `발화 (언어: ${language}): "${transcript}" [기본 날짜/시간: ${prefillContext}, 발화에서 날짜·시간이 명시되지 않으면 이 값을 사용]`
+      : `발화 (언어: ${language}): "${transcript}"`;
+    parts.push(base);
+    return parts.join('\n\n');
   }
 
   // API 키 없거나 오류 시 기본 regex 분류

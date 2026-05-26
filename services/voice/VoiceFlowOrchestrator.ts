@@ -25,13 +25,14 @@ export interface VoiceFlowOptions {
   timezone?: string;
   skipTTS?: boolean;
   prefillContext?: string;
+  nearbyEventsContext?: string;
 }
 
 export async function runVoiceFlow(
   audioUri: string,
   options: VoiceFlowOptions = {},
 ): Promise<VoiceFlowResult> {
-  const { language = 'ko', timezone = 'Asia/Seoul', skipTTS = false, prefillContext } = options;
+  const { language = 'ko', timezone = 'Asia/Seoul', skipTTS = false, prefillContext, nearbyEventsContext } = options;
 
   // 1. STT 변환
   let sttResult: STTResult;
@@ -64,7 +65,7 @@ export async function runVoiceFlow(
   console.log('[Voice] LLM classifying...');
   let intent: ClassifiedIntent;
   try {
-    intent = await intentService.classify(sttResult.transcript, language, timezone, prefillContext);
+    intent = await intentService.classify(sttResult.transcript, language, timezone, prefillContext, nearbyEventsContext);
   } catch (e) {
     const message = e instanceof Error ? e.message : '인텐트 분류 실패';
     console.error('[VoiceFlow] 인텐트 분류 오류:', message);

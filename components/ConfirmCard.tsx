@@ -1,14 +1,16 @@
 import { Calendar, Check, FileText, MapPin, RefreshCw, Users } from 'lucide-react-native';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Colors } from '../constants/colors';
 import { ClassifiedIntent } from '../types';
+import { formatKoreanTime } from '../utils/timeFormat';
 
 type Props = {
   intent: ClassifiedIntent;
   transcript?: string | null;
   onConfirm: () => void;
   onRetry: () => void;
+  onAmPmChange?: (patched: ClassifiedIntent) => void;
 };
 
 const INTENT_LABEL: Record<string, string> = {
@@ -19,9 +21,28 @@ const INTENT_LABEL: Record<string, string> = {
   UNKNOWN: '알 수 없음',
 };
 
-export default function ConfirmCard({ intent, transcript, onConfirm, onRetry }: Props) {
+export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, onAmPmChange }: Props) {
   const slideY = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+
+  const displayDateTime = intent.startDateTime ?? intent.updateFields?.startDateTime;
+
+  // AM/PM 선택 상태: ambiguous일 때만 사용자가 바꿀 수 있음
+  const initialMeridiem = intent.suggestedMeridiem ?? 'AM';
+  const [meridiem, setMeridiem] = useState<'AM' | 'PM'>(initialMeridiem);
+
+  const handleMeridiem = (m: 'AM' | 'PM') => {
+    setMeridiem(m);
+    if (!intent.ambiguous || !displayDateTime) return;
+    const d = new Date(displayDateTime.date);
+    const h = d.getHours() % 12;
+    d.setHours(m === 'AM' ? h : h + 12);
+    onAmPmChange?.({
+      ...intent,
+      ambiguous: false,
+      startDateTime: { ...displayDateTime, date: d.toISOString() },
+    });
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -30,10 +51,18 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry }: 
     ]).start();
   }, []);
 
-  const displayDateTime = intent.startDateTime ?? intent.updateFields?.startDateTime;
-  const dateStr = displayDateTime
-    ? formatDateTime(displayDateTime.date, displayDateTime.originalText)
-    : null;
+  // ambiguous 시 meridiem 선택에 따라 date를 재계산 (표시용)
+  const resolvedDate = (() => {
+    if (!displayDateTime) return null;
+    if (!intent.ambiguous) return new Date(displayDateTime.date);
+    const d = new Date(displayDateTime.date);
+    const h = d.getHours() % 12;
+    d.setHours(meridiem === 'AM' ? h : h + 12);
+    return d;
+  })();
+
+  const dateStr = resolvedDate ? formatKoreanTime(resolvedDate) : null;
+
   const title =
     intent.title ??
     intent.updateFields?.title ??
@@ -55,10 +84,34 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry }: 
             <Text style={styles.detailText}>{title}</Text>
           </View>
         )}
-        {!!dateStr && (
+        {!!displayDateTime && (
           <View style={styles.detailRow}>
-            <Calendar size={16} color={Colors.textMuted} />
-            <Text style={styles.detailText}>{dateStr}</Text>
+            <Calendar size={16} color={intent.ambiguous ? Colors.accent : Colors.textMuted} />
+            {intent.ambiguous ? (
+              <View style={styles.ampmRow}>
+                <Text style={[styles.detailText, styles.ampmDate]}>{dateStr}</Text>
+                <View style={styles.ampmToggle}>
+                  <Pressable
+                    style={[styles.ampmBtn, meridiem === 'AM' && styles.ampmBtnActive]}
+                    onPress={() => handleMeridiem('AM')}
+                  >
+                    <Text style={[styles.ampmBtnText, meridiem === 'AM' && styles.ampmBtnTextActive]}>
+                      오전
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.ampmBtn, meridiem === 'PM' && styles.ampmBtnActive]}
+                    onPress={() => handleMeridiem('PM')}
+                  >
+                    <Text style={[styles.ampmBtnText, meridiem === 'PM' && styles.ampmBtnTextActive]}>
+                      오후
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.detailText}>{dateStr}</Text>
+            )}
           </View>
         )}
         {displayDateTime?.isRecurring && (
@@ -100,19 +153,6 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry }: 
       </View>
     </Animated.View>
   );
-}
-
-function formatDateTime(iso: string, originalText?: string): string {
-  if (originalText) return originalText;
-  const d = new Date(iso);
-  const month = d.getMonth() + 1;
-  const day = d.getDate();
-  const hour = d.getHours();
-  const min = d.getMinutes();
-  const ampm = hour < 12 ? '오전' : '오후';
-  const h12 = hour % 12 || 12;
-  const minStr = min > 0 ? `:${String(min).padStart(2, '0')}` : '';
-  return `${month}월 ${day}일 ${ampm} ${h12}${minStr}시`;
 }
 
 const styles = StyleSheet.create({
@@ -165,6 +205,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     color: Colors.textMuted,
+  },
+  ampmRow: {
+    flex: 1,
+    gap: 8,
+  },
+  ampmDate: {
+    flex: 0,
+  },
+  ampmToggle: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  ampmBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+  },
+  ampmBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  ampmBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  ampmBtnTextActive: {
+    color: '#fff',
   },
   actions: {
     flexDirection: 'row',
