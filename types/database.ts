@@ -106,6 +106,7 @@ export type Database = {
           attendees: string[] | null;
           recurrence_end_date: string | null;
           completed_at: string | null;
+          notification_offset_minutes: number | null;
           deleted_at: string | null;
           created_at: string;
           updated_at: string;
@@ -132,6 +133,7 @@ export type Database = {
           voice_transcript?: string | null;
           attendees?: string[] | null;
           completed_at?: string | null;
+          notification_offset_minutes?: number | null;
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -153,6 +155,7 @@ export type Database = {
           apple_event_id?: string | null;
           attendees?: string[] | null;
           completed_at?: string | null;
+          notification_offset_minutes?: number | null;
           deleted_at?: string | null;
           updated_at?: string;
         };
