@@ -100,8 +100,12 @@ export function useVoiceFlow() {
 
     const confidence = result.intent.confidence;
 
+    // DELETE/UPDATE는 CLAUDE.md 정책상 항상 확인 필요 (자동 저장 금지)
+    const requiresConfirm =
+      result.intent.intent === 'DELETE' || result.intent.intent === 'UPDATE';
+
     // ── confidence >= 0.85: 즉시 자동 저장 + 3초 취소 대기 ──────
-    if (confidence >= 0.85 && onAutoSave) {
+    if (confidence >= 0.85 && onAutoSave && !requiresConfirm) {
       store.setTranscript(result.sttResult?.transcript ?? null);
       store.setClassifiedIntent(result.intent);
       store.setPhase('processing');
@@ -110,7 +114,8 @@ export function useVoiceFlow() {
       try {
         savedId = await onAutoSave(result.intent);
         store.setPhase('success');
-        ttsService.speak('등록했어요').catch(() => {});
+        const successMsg = ttsService.generateSuccessMessage(result.intent);
+        ttsService.speak(successMsg || '완료됐어요').catch(() => {});
       } catch (e) {
         store.setPhase('fail');
         store.setError({ type: 'unknown', message: e instanceof Error ? e.message : '저장 실패' });
@@ -236,7 +241,8 @@ export function useVoiceFlow() {
       console.error('[VoiceFlow] save error:', e);
       store.setPhase('fail');
       store.setError({ type: 'unknown', message: msg });
-      ttsService.speak('저장에 실패했어요. 다시 시도해주세요.').catch(() => {});
+      // 사용자 친화적 오류 메시지는 그대로 읽어줌 (찾을 수 없어요, 여러 개 등)
+      ttsService.speak(msg).catch(() => {});
     }
   }, [store]);
 

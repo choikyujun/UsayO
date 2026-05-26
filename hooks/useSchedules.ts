@@ -7,6 +7,45 @@ import { expandRecurringEvent, EventException } from '../utils/recurrenceHelpers
 
 type Schedule = Database['public']['Tables']['schedules']['Row'];
 
+// ── 이벤트 검색 헬퍼 ─────────────────────────────────────────────
+// query: LLM이 반환한 검색어 (제목 기반)
+// hintDate: LLM이 추출한 날짜 힌트 (ISO8601). 있으면 해당 일자만 검색
+async function searchEventsByQuery(query: string, hintDate?: string): Promise<Event[]> {
+  if (!query.trim()) return [];
+
+  // 날짜·시간·동사 제거 → 제목 키워드만 추출
+  const cleaned = query
+    .replace(/내일|오늘|모레|어제|다음\s*주|이번\s*주|저번\s*주/, '')
+    .replace(/오전|오후|아침|점심|저녁|밤|새벽|퇴근/, '')
+    .replace(/\d+\s*시(\s*\d+\s*분)?/, '')
+    .replace(/취소|삭제|수정|바꿔|변경|옮겨|잡아줘|등록|추가|해줘|제발/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const term = cleaned || query.trim();
+
+  let q = supabase
+    .from('events')
+    .select('*')
+    .is('deleted_at', null)
+    .ilike('title', `%${term}%`);
+
+  if (hintDate) {
+    const d        = new Date(hintDate);
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+    const dayEnd   = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+    q = q.gte('start_at', dayStart.toISOString()).lte('start_at', dayEnd.toISOString());
+  } else {
+    // 날짜 힌트 없음 → 오늘부터 30일 이내 검색
+    const now  = new Date();
+    const end  = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    q = q.gte('start_at', now.toISOString()).lte('start_at', end.toISOString());
+  }
+
+  const { data } = await q.order('start_at', { ascending: true });
+  return (data ?? []) as Event[];
+}
+
 function dateRange(fromDate: string, daysAhead: number) {
   const from = `${fromDate}T00:00:00.000Z`;
   const toDay = new Date(fromDate + 'T00:00:00.000Z');
@@ -188,6 +227,92 @@ export function useSchedules(date: string, daysAhead = 0) {
         return data.id;
       }
     }
+
+    // ── DELETE ──────────────────────────────────────────────────
+    if (intent.intent === 'DELETE') {
+      const rawQuery = intent.deleteTargetQuery ?? intent.targetEventQuery ?? intent.title ?? '';
+      const hintDate = intent.startDateTime?.date;
+      console.log('[VoiceFlow] DELETE branch entered, query:', rawQuery, '| hintDate:', hintDate);
+
+      const candidates = await searchEventsByQuery(rawQuery, hintDate);
+      console.log('[VoiceFlow] DELETE candidates:', candidates.length, candidates.map(e => `"${e.title}" @ ${e.start_at}`));
+
+      if (candidates.length === 0) {
+        throw new Error('해당 일정을 찾을 수 없어요.');
+      }
+      if (candidates.length > 1) {
+        const titles = candidates.slice(0, 3).map(e => e.title).join(', ');
+        throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
+      }
+
+      const target = candidates[0];
+      const { data, error } = await supabase
+        .from('events')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', target.id)
+        .select()
+        .single();
+
+      console.log('[VoiceFlow] DB delete result: data=', !!data, '| error=', error?.message ?? null);
+      if (error) throw new Error(error.message);
+
+      setEvents(prev => prev.filter(e => e.id !== target.id));
+      return target.id;
+    }
+
+    // ── UPDATE ──────────────────────────────────────────────────
+    if (intent.intent === 'UPDATE') {
+      const rawQuery = intent.targetEventQuery ?? intent.title ?? '';
+      // 날짜 힌트: updateFields의 원래 시간보다 startDateTime이 더 정확
+      const hintDate = intent.startDateTime?.date;
+      console.log('[VoiceFlow] UPDATE branch entered, query:', rawQuery, '| hintDate:', hintDate);
+
+      const candidates = await searchEventsByQuery(rawQuery, hintDate);
+      console.log('[VoiceFlow] UPDATE candidates:', candidates.length, candidates.map(e => `"${e.title}" @ ${e.start_at}`));
+
+      if (candidates.length === 0) {
+        throw new Error('해당 일정을 찾을 수 없어요.');
+      }
+      if (candidates.length > 1) {
+        const titles = candidates.slice(0, 3).map(e => e.title).join(', ');
+        throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
+      }
+
+      const target = candidates[0];
+      const patch: {
+        updated_at: string;
+        start_at?: string;
+        end_at?: string;
+        title?: string;
+        location?: string | null;
+      } = { updated_at: new Date().toISOString() };
+
+      if (intent.updateFields?.startDateTime?.date) {
+        const newStart   = new Date(intent.updateFields.startDateTime.date);
+        const origDur    = new Date(target.end_at).getTime() - new Date(target.start_at).getTime();
+        patch.start_at   = newStart.toISOString();
+        patch.end_at     = new Date(newStart.getTime() + origDur).toISOString();
+      }
+      if (intent.updateFields?.title)    patch.title    = intent.updateFields.title;
+      if (intent.updateFields?.location !== undefined) patch.location = intent.updateFields.location ?? null;
+
+      const { data, error } = await supabase
+        .from('events')
+        .update(patch)
+        .eq('id', target.id)
+        .select()
+        .single();
+
+      console.log('[VoiceFlow] DB update result: data=', !!data, '| error=', error?.message ?? null);
+      if (error) throw new Error(error.message);
+
+      if (data) {
+        setEvents(prev => prev.map(e => e.id === target.id ? (data as Event) : e));
+      }
+      await load();
+      return target.id;
+    }
+
     return undefined;
   }
 
