@@ -69,30 +69,28 @@ function AppRoot() {
 
   useEffect(() => {
     (async () => {
-      // 0. Log device ID unconditionally (needed to build device_user_mapping)
+      // 0. Device ID 사전 확인 (로그용)
       import('../services/auth/deviceAuth').then(m => m.getDeviceId())
         .then(({ id, source }) => console.log('[Auth] deviceId pre-check:', source, id))
-        .catch(e => console.log('[Auth] deviceId unavailable:', e));
-
-      // Supabase autoRefreshToken이 이전 세션의 refresh token을 재사용하려다
-      // "Already Used" 에러를 내는 것을 막기 위해 로컬 세션을 먼저 제거.
-      // (network 호출 없음 — AsyncStorage 클리어만 수행)
-      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+        .catch(e => console.log('[Auth] deviceId unavailable:', (e as Error).message));
 
       // 1. Device auth — always runs to ensure the session maps to the correct user.
-      //    If the Edge Function is down, fall back to existing session or anonymous.
       try {
         const uid = await signInWithDevice();
         console.log('[Auth] device auth OK:', uid);
       } catch (deviceErr) {
-        console.log('[Auth] device auth failed, using fallback:', (deviceErr as Error).message);
+        // Edge Function 실패: 기존 세션 유지 (signOut 호출 금지 — 세션 날아감)
+        const errMsg = (deviceErr as Error).message;
+        console.log('[Auth] device auth FAILED:', errMsg);
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
+        if (session) {
+          console.log('[Auth] kept existing session:', session.user.id);
+        } else {
+          // 진짜 세션이 없을 때만 익명 로그인 (마지막 수단)
+          console.log('[Auth] no existing session — falling back to anonymous');
           const { data, error } = await supabase.auth.signInAnonymously();
           if (error) console.log('[Auth] signInAnonymously FAILED:', error.message);
           else console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
-        } else {
-          console.log('[Auth] kept existing session:', session.user.id);
         }
       }
       // 초기 인증 완료 — 이후 SIGNED_OUT은 진짜 토큰 만료로 처리
