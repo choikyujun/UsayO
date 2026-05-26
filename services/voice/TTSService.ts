@@ -2,7 +2,17 @@ import * as Speech from 'expo-speech';
 import { ClassifiedIntent } from '../../types';
 
 export class TTSService {
+  private _lastMsg = '';
+  private _lastAt  = 0;
+
   async speak(text: string, language = 'ko-KR', rate = 0.95): Promise<void> {
+    const now = Date.now();
+    if (text === this._lastMsg && now - this._lastAt < 1200) {
+      console.log('[TTS] dedup skip:', text);
+      return;
+    }
+    this._lastMsg = text;
+    this._lastAt  = now;
     return new Promise((resolve, reject) => {
       Speech.speak(text, {
         language,

@@ -19,6 +19,7 @@ export function useVoiceFlow() {
   const nearbyEventsContextRef = useRef<string | undefined>(undefined);
   const isRetryRef             = useRef(false); // lowConfidence/noSpeech 자동 1회 재시도 추적
   const isCancelledRef         = useRef(false); // cancelVoice 호출 시 zombie 재녹음 방지
+  const isProcessingRef        = useRef(false); // onAutoStop + 수동 탭 이중 호출 방지
 
   const processUriRef = useRef<
     ((uri: string | null, onAutoSave?: OnAutoSave) => Promise<void>) | null
@@ -43,6 +44,7 @@ export function useVoiceFlow() {
     nearbyEventsContextRef.current = nearbyEventsContext;
     isRetryRef.current             = false;
     isCancelledRef.current         = false;
+    isProcessingRef.current        = false;
     store.reset();
 
     try {
@@ -76,7 +78,13 @@ export function useVoiceFlow() {
     uri: string | null,
     onAutoSave?: OnAutoSave,
   ) => {
+    if (isProcessingRef.current) {
+      console.log('[VoiceFlow] processUri: 이미 처리 중 — 중복 호출 무시');
+      return;
+    }
+    isProcessingRef.current = true;
     if (!uri) {
+      isProcessingRef.current = false;
       store.setPhase('fail');
       store.setError({ type: 'noSpeech', message: '녹음 파일을 가져올 수 없어요.' });
       return;
@@ -96,7 +104,8 @@ export function useVoiceFlow() {
       // lowConfidence/noSpeech: TTS는 orchestrator에서 이미 완료 → 마이크 자동 재시작 (1회)
       if (errType === 'lowConfidence' || errType === 'noSpeech') {
         if (!isRetryRef.current && !isCancelledRef.current) {
-          isRetryRef.current = true;
+          isRetryRef.current    = true;
+          isProcessingRef.current = false;
           store.setPhase('listening');
           await recorder.startRecording();
         } else {
@@ -137,10 +146,12 @@ export function useVoiceFlow() {
         store.setPhase('fail');
         store.setError({ type: 'unknown', message: e instanceof Error ? e.message : '저장 실패' });
       }
+      isProcessingRef.current = false;
       return;
     }
 
     // ── 0.6 <= confidence < 0.85: InlineConfirmCard 표시 ────────
+    isProcessingRef.current = false;
     store.setTranscript(result.sttResult?.transcript ?? null);
     store.setClassifiedIntent(result.intent);
     store.setConfirmMessage(result.confirmMessage ?? null);
