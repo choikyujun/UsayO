@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '../constants/colors';
+import VoiceHintRotator from './VoiceHintRotator';
 
 export type AppTab = 'home' | 'day' | 'week' | 'month' | 'year';
 
@@ -103,13 +104,15 @@ export default function AppHeader({ currentTab }: Props) {
           {formatTime(now)}
         </Text>
       </View>
+
+      {/* ── 힌트 ─────────────────────────────────────────────── */}
+      <VoiceHintRotator />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom:     12,
     borderBottomWidth: 0.5,
   },
   tabRow: {
@@ -134,10 +137,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   dateRow: {
-    flexDirection: 'row',
-    paddingLeft:   24,
-    height:        36,
-    alignItems:    'center',
+    flexDirection:  'row',
+    paddingLeft:    24,
+    paddingBottom:  4,
+    height:         36,
+    alignItems:     'center',
   },
   dateText: {
     fontSize:   20,
