@@ -107,7 +107,8 @@ export function groupByDate<T extends { start_at: string }>(events: T[]): DateGr
     if (!map.has(key)) {
       map.set(key, { date: d, events: [], isHoliday: isKoreanHoliday(d) });
     }
-    map.get(key)!.events.push(ev);
+    const group = map.get(key);
+    if (group) group.events.push(ev);
   }
   return Array.from(map.values());
 }

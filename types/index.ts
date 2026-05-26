@@ -40,7 +40,7 @@ export interface STTResult {
   alternatives?: Array<{ transcript: string; confidence: number }>;
 }
 
-export type IntentType = 'CREATE' | 'UPDATE' | 'DELETE' | 'QUERY' | 'NAVIGATION' | 'RESCHEDULE_UNDO' | 'UNKNOWN';
+export type IntentType = 'CREATE' | 'UPDATE' | 'DELETE' | 'COMPLETE' | 'QUERY' | 'NAVIGATION' | 'RESCHEDULE_UNDO' | 'UNKNOWN';
 export type NavigationTarget = 'today' | 'calendar' | 'upcoming' | 'settings';
 
 export interface ClassifiedIntent {
@@ -63,6 +63,8 @@ export interface ClassifiedIntent {
   };
   // DELETE
   deleteTargetQuery?: string;
+  // COMPLETE
+  completeTargetQuery?: string;
   // QUERY
   queryRange?: { start: string; end: string };
   queryType?: 'list' | 'free_slots' | 'specific';

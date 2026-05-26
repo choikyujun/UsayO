@@ -41,7 +41,7 @@ export default function MonthViewScreen() {
 
   const cells        = useMemo(() => getMonthGrid(year, month), [year, month]);
   const { eventsByDate, reload } = useMonthEvents(year, month);
-  const { applyClassifiedIntent, undoSave } = useSchedules(localDateStr(today), 0);
+  const { applyClassifiedIntent } = useSchedules(localDateStr(today), 0);
   const voice = useVoiceInput(ttsEnabled);
 
   const isCurrentMonth = year === today.getFullYear() && month === (today.getMonth() + 1);
@@ -58,7 +58,6 @@ export default function MonthViewScreen() {
     voice.startWithPrefill(
       { dateStr, ttsLabel },
       intent => applyClassifiedIntent(intent),
-      async eventId => undoSave(eventId),
     );
   }
 

@@ -35,7 +35,7 @@ export default function RecurringEventRow({ event, onLongPress }: Props) {
     supabase
       .from('event_exceptions')
       .insert({ parent_id: parentId, instance_date: today, is_deleted: true })
-      .then(() => {});
+      .then(({ error }) => { if (error) console.error('[RecurringEventRow] skip failed:', error.message); });
   }
 
   async function handleStopAfterToday() {
@@ -47,7 +47,7 @@ export default function RecurringEventRow({ event, onLongPress }: Props) {
       .from('events')
       .update({ recurrence_end_date: today })
       .eq('id', parentId)
-      .then(() => {});
+      .then(({ error }) => { if (error) console.error('[RecurringEventRow] stop-after-today failed:', error.message); });
   }
 
   function renderRightActions() {

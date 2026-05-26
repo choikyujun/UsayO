@@ -72,16 +72,20 @@ export default function RecurringBadge({ events }: Props) {
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
         onDelete={ev => {
-          supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', ev.id).then(() => {});
+          supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', ev.id)
+            .then(({ error }) => { if (error) console.error('[RecurringBadge] delete failed:', error.message); });
         }}
         onDeleteRecurring={(ev, scope: RecurringDeleteScope) => {
           const today = todayDateStr();
           if (scope === 'this') {
-            supabase.from('event_exceptions').insert({ parent_id: ev.id, instance_date: today, is_deleted: true }).then(() => {});
+            supabase.from('event_exceptions').insert({ parent_id: ev.id, instance_date: today, is_deleted: true })
+              .then(({ error }) => { if (error) console.error('[RecurringBadge] exception insert failed:', error.message); });
           } else if (scope === 'future') {
-            supabase.from('events').update({ recurrence_end_date: today }).eq('id', ev.id).then(() => {});
+            supabase.from('events').update({ recurrence_end_date: today }).eq('id', ev.id)
+              .then(({ error }) => { if (error) console.error('[RecurringBadge] recurrence_end_date update failed:', error.message); });
           } else {
-            supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', ev.id).then(() => {});
+            supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', ev.id)
+              .then(({ error }) => { if (error) console.error('[RecurringBadge] delete recurring failed:', error.message); });
           }
         }}
       />

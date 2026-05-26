@@ -212,7 +212,7 @@ export default function TimeSpine({
       .from('events')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', realId)
-      .then(() => {});
+      .then(({ error }) => { if (error) console.error('[TimeSpine] delete failed:', error.message); });
   }
 
   function handleDeleteRecurring(event: Event, scope: RecurringDeleteScope) {
@@ -226,7 +226,7 @@ export default function TimeSpine({
       supabase
         .from('event_exceptions')
         .insert({ parent_id: parentId, instance_date: instanceDate, is_deleted: true })
-        .then(() => {});
+        .then(({ error }) => { if (error) console.error('[TimeSpine] exception insert failed:', error.message); });
     } else if (scope === 'future') {
       // recurrence_end_date = instanceDate - 1 day
       const d = new Date(instanceDate);
@@ -236,14 +236,14 @@ export default function TimeSpine({
         .from('events')
         .update({ recurrence_end_date: endDate })
         .eq('id', parentId)
-        .then(() => {});
+        .then(({ error }) => { if (error) console.error('[TimeSpine] recurrence_end_date update failed:', error.message); });
     } else {
       // 전체: 부모 soft-delete
       supabase
         .from('events')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', parentId)
-        .then(() => {});
+        .then(({ error }) => { if (error) console.error('[TimeSpine] delete recurring failed:', error.message); });
     }
   }
 

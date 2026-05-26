@@ -65,7 +65,7 @@ export default function WeekViewScreen() {
 
   const days = useMemo(() => getWeekDays(anchorDate), [anchorDate]);
   const { eventsByDate, loading, reload } = useWeekEvents(days);
-  const { applyClassifiedIntent, undoSave } = useSchedules(days[0] ?? todayDateStr(), 0);
+  const { applyClassifiedIntent } = useSchedules(days[0] ?? todayDateStr(), 0);
   const voice = useVoiceInput(ttsEnabled);
 
   // ── NOW tick (minute-level) ─────────────────────────────────────────
@@ -98,7 +98,8 @@ export default function WeekViewScreen() {
     const realId = isVirtualInstance(event.id)
       ? (parseInstanceId(event.id)?.parentId ?? event.id)
       : event.id;
-    supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', realId).then(() => {});
+    supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', realId)
+      .then(({ error }) => { if (error) console.error('[WeekView] delete failed:', error.message); });
     reload();
   }
 
@@ -108,12 +109,15 @@ export default function WeekViewScreen() {
     const instDate = parsed?.instanceDate ?? new Date(event.start_at).toISOString().split('T')[0];
 
     if (scope === 'this') {
-      supabase.from('event_exceptions').insert({ parent_id: parentId, instance_date: instDate, is_deleted: true }).then(() => {});
+      supabase.from('event_exceptions').insert({ parent_id: parentId, instance_date: instDate, is_deleted: true })
+        .then(({ error }) => { if (error) console.error('[WeekView] exception insert failed:', error.message); });
     } else if (scope === 'future') {
       const d = new Date(instDate); d.setDate(d.getDate() - 1);
-      supabase.from('events').update({ recurrence_end_date: d.toISOString().split('T')[0] }).eq('id', parentId).then(() => {});
+      supabase.from('events').update({ recurrence_end_date: d.toISOString().split('T')[0] }).eq('id', parentId)
+        .then(({ error }) => { if (error) console.error('[WeekView] recurrence_end_date update failed:', error.message); });
     } else {
-      supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', parentId).then(() => {});
+      supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', parentId)
+        .then(({ error }) => { if (error) console.error('[WeekView] delete recurring failed:', error.message); });
     }
     reload();
   }
@@ -174,7 +178,6 @@ export default function WeekViewScreen() {
     voice.startWithPrefill(
       { dateStr, hour: finalHour, minute: finalMin, ttsLabel },
       intent => applyClassifiedIntent(intent),
-      async eventId => undoSave(eventId),
     );
   }
 

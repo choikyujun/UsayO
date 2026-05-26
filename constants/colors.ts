@@ -12,6 +12,7 @@ export const Colors = {
   warning:    '#EF9F27',
   danger:     '#D85A30',
   error:      '#E24B4A',
+  fabActive:  '#C0392B', // 음성 녹음 중 FAB 활성 색상
   // Text (dark theme defaults)
   textPrimary:   '#FFFFFF',
   textSecondary: '#E8E6FF',

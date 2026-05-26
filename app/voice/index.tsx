@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { CheckCircle, Square, XCircle } from 'lucide-react-native';
+import { Square } from 'lucide-react-native';
 import { useCallback, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
@@ -15,13 +15,15 @@ import { Colors } from '../../constants/colors';
 import { useVoiceFlow } from '../../hooks/useVoiceFlow';
 import { useSchedules } from '../../hooks/useSchedules';
 import { ttsService } from '../../services/voice/TTSService';
+import { useCurrentDate } from '../../hooks/useCurrentDate';
 
-const TODAY = new Date().toISOString().split('T')[0];
+const SUCCESS_BACK_DELAY_MS = 1500; // 성공 후 모달 닫힘 딜레이
 
 export default function VoiceModal() {
   const insets = useSafeAreaInsets();
   const voice = useVoiceFlow();
-  const { applyClassifiedIntent, reload } = useSchedules(TODAY);
+  const { todayStr } = useCurrentDate();
+  const { applyClassifiedIntent, reload } = useSchedules(todayStr);
 
   // Pulse animation for listening state
   const pulseScale = useRef(new Animated.Value(1)).current;
@@ -100,7 +102,7 @@ export default function VoiceModal() {
   // Auto-navigate back after success
   useEffect(() => {
     if (voice.phase === 'success') {
-      const t = setTimeout(() => router.back(), 1500);
+      const t = setTimeout(() => router.back(), SUCCESS_BACK_DELAY_MS);
       return () => clearTimeout(t);
     }
   }, [voice.phase]);
@@ -159,16 +161,9 @@ export default function VoiceModal() {
         )}
 
         {/* ── SUCCESS ── */}
-        {voice.phase === 'success' && <PhaseSuccess />}
+        {/* success: TTS로만 피드백, 시각 UI 없음 */}
 
-        {/* ── FAIL ── */}
-        {voice.phase === 'fail' && (
-          <PhaseFail
-            message={errorMessage(voice.error)}
-            onRetry={voice.retryVoice}
-            onClose={handleClose}
-          />
-        )}
+        {/* fail: TTS로만 피드백, 시각 UI 없음 */}
       </View>
     </View>
   );
@@ -243,50 +238,6 @@ function PhaseProcessing() {
   );
 }
 
-function PhaseSuccess() {
-  return (
-    <View style={styles.phaseCenter}>
-      <CheckCircle size={56} color={Colors.success} />
-      <Text style={styles.successText}>완료!</Text>
-      <Text style={styles.successSub}>일정이 저장되었어요</Text>
-    </View>
-  );
-}
-
-function PhaseFail({
-  message,
-  onRetry,
-  onClose,
-}: {
-  message: string;
-  onRetry: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <View style={styles.phaseCenter}>
-      <XCircle size={48} color="#EF4444" />
-      <Text style={styles.failText}>{message}</Text>
-      <View style={styles.failActions}>
-        <Pressable style={styles.retryBtn} onPress={onRetry}>
-          <Text style={styles.retryText}>다시 시도</Text>
-        </Pressable>
-        <Pressable style={styles.closeBtn} onPress={onClose}>
-          <Text style={styles.closeBtnText}>닫기</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-function errorMessage(error: unknown): string {
-  if (!error) return '처리에 실패했어요';
-  if (typeof error === 'object' && 'message' in error) return (error as { message: string }).message;
-  if (typeof error === 'object' && 'type' in error) {
-    const e = error as { type: string };
-    if (e.type === 'lowConfidence') return '음성을 정확히 인식하지 못했어요';
-  }
-  return '처리에 실패했어요';
-}
 
 // ── Styles ────────────────────────────────────────────────────
 
@@ -408,51 +359,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textMuted,
     marginTop: 12,
-  },
-  successText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Colors.success,
-  },
-  successSub: {
-    fontSize: 15,
-    color: Colors.textMuted,
-  },
-  failText: {
-    fontSize: 15,
-    color: '#EF4444',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  failActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  retryBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-  },
-  retryText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  closeBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: Colors.accent,
-    alignItems: 'center',
-  },
-  closeBtnText: {
-    color: Colors.primary,
-    fontWeight: '600',
-    fontSize: 15,
   },
   confirmWrap: {
     paddingVertical: 8,

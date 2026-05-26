@@ -103,7 +103,7 @@ export default function TodayEventList({
       .from('events')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', event.id)
-      .then(() => {});
+      .then(({ error }) => { if (error) console.error('[TodayEventList] delete failed:', error.message); });
   }
 
   // ── Complete (visual only) ────────────────────────────────────

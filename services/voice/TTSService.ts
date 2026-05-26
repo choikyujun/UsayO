@@ -46,6 +46,10 @@ export class TTSService {
         const target = intent.deleteTargetQuery ?? '이 일정';
         return `${target}을(를) 삭제할까요?`;
       }
+      case 'COMPLETE': {
+        const target = intent.completeTargetQuery ?? intent.targetEventQuery ?? '이 일정';
+        return `${target}을(를) 완료 처리할까요?`;
+      }
       case 'QUERY': {
         return '일정을 불러올게요.';
       }
@@ -68,6 +72,7 @@ export class TTSService {
       case 'CREATE': return `${intent.title ?? '일정'}이 추가됐어요!`;
       case 'UPDATE': return '일정이 수정됐어요!';
       case 'DELETE': return '일정이 삭제됐어요.';
+      case 'COMPLETE': return '일정을 완료 처리했어요!';
       case 'QUERY': return '';
       default: return '완료됐어요!';
     }
@@ -91,6 +96,7 @@ export class TTSService {
       case 'CREATE': return `Create "${intent.title}"?`;
       case 'UPDATE': return `Update "${intent.targetEventQuery}"?`;
       case 'DELETE': return `Delete "${intent.deleteTargetQuery}"?`;
+      case 'COMPLETE': return `Mark "${intent.completeTargetQuery ?? intent.targetEventQuery}" as done?`;
       default: return 'Confirm?';
     }
   }

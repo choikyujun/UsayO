@@ -14,7 +14,7 @@ async function searchEventsByQuery(query: string, hintDate?: string): Promise<Ev
     .replace(/내일|오늘|모레|어제|다음\s*주|이번\s*주|저번\s*주/, '')
     .replace(/오전|오후|아침|점심|저녁|밤|새벽|퇴근/, '')
     .replace(/\d+\s*시(\s*\d+\s*분)?/, '')
-    .replace(/취소|삭제|수정|바꿔|변경|옮겨|잡아줘|등록|추가|해줘|제발/, '')
+    .replace(/취소|삭제|수정|바꿔|변경|옮겨|잡아줘|등록|추가|완료|체크|끝냈어|끝났어|다\s*했어|마쳤어|해줘|제발/, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -27,10 +27,11 @@ async function searchEventsByQuery(query: string, hintDate?: string): Promise<Ev
       .ilike('title', `%${term}%`)
       .order('start_at', { ascending: true });
 
-  // 날짜 범위: 오늘 자정 ~ +30일 (earlier-today 포함)
+  // 날짜 범위: -30일 ~ +30일 (과거 일정 완료 처리 등 포함)
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const end30 = new Date(todayStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const past30  = new Date(todayStart.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const future30 = new Date(todayStart.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   // Try 1 — hintDate 있을 때: 해당 일자 정확 검색
   if (hintDate && term) {
@@ -47,13 +48,31 @@ async function searchEventsByQuery(query: string, hintDate?: string): Promise<Ev
     console.log('[Search] hintDate miss → full-range fallback');
   }
 
-  // Try 2 — 날짜 없이 오늘 자정~30일 범위 (timezone 어긋남, no-hint 모두 처리)
+  // Try 2 — 날짜 없이 -30일~+30일 범위 (전체 구절 매칭)
   if (term) {
     const { data: r2 } = await buildQ(term)
-      .gte('start_at', todayStart.toISOString())
-      .lte('start_at', end30.toISOString());
+      .gte('start_at', past30.toISOString())
+      .lte('start_at', future30.toISOString());
     console.log('[Search] full-range hit:', r2?.length ?? 0);
-    return (r2 ?? []) as Event[];
+    if (r2?.length) return r2 as Event[];
+  }
+
+  // Try 3 — 단어 분리 fallback: 2글자 이상 단어를 길이 역순으로 개별 검색
+  // "철물점 약속" → ["철물점", "약속"] 순으로 시도
+  const words = term
+    .split(/\s+/)
+    .map(w => w.trim())
+    .filter(w => w.length >= 2)
+    .sort((a, b) => b.length - a.length);
+
+  for (const word of words) {
+    const { data: r3 } = await buildQ(word)
+      .gte('start_at', past30.toISOString())
+      .lte('start_at', future30.toISOString());
+    if (r3?.length) {
+      console.log('[Search] word-split hit on "%s":', word, r3.length, r3.map(e => `"${e.title}"`));
+      return r3 as Event[];
+    }
   }
 
   return [];
@@ -323,6 +342,40 @@ export function useSchedules(date: string, daysAhead = 0) {
         setEvents(prev => prev.map(e => e.id === target.id ? (data as Event) : e));
       }
       await load();
+      return target.id;
+    }
+
+    // ── COMPLETE ─────────────────────────────────────────────────
+    if (intent.intent === 'COMPLETE') {
+      const rawQuery = intent.completeTargetQuery ?? intent.targetEventQuery ?? intent.title ?? '';
+      const hintDate = intent.startDateTime?.date;
+      console.log('[VoiceFlow] COMPLETE branch entered, query:', rawQuery, '| hintDate:', hintDate);
+
+      const candidates = await searchEventsByQuery(rawQuery, hintDate);
+      console.log('[VoiceFlow] COMPLETE candidates:', candidates.length, candidates.map(e => `"${e.title}" @ ${e.start_at}`));
+
+      if (candidates.length === 0) {
+        throw new Error('해당 일정을 찾을 수 없어요.');
+      }
+      if (candidates.length > 1) {
+        const titles = candidates.slice(0, 3).map(e => e.title).join(', ');
+        throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
+      }
+
+      const target = candidates[0];
+      const { data, error } = await supabase
+        .from('events')
+        .update({ completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', target.id)
+        .select()
+        .single();
+
+      console.log('[VoiceFlow] DB complete result: data=', !!data, '| error=', error?.message ?? null);
+      if (error) throw new Error(error.message);
+
+      if (data) {
+        setEvents(prev => prev.map(e => e.id === target.id ? (data as Event) : e));
+      }
       return target.id;
     }
 

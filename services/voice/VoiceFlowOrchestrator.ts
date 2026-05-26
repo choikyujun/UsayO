@@ -42,21 +42,21 @@ export async function runVoiceFlow(
     console.error('[VoiceFlow] STT 오류:', message);
     const isNetworkError = message.includes('Network request failed') || message.includes('연결');
     const type: VoiceFlowError['type'] = isNetworkError ? 'network' : 'unknown';
-    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage(type));
+    if (!skipTTS) await ttsService.speak(ttsService.generateErrorMessage(type)).catch(() => {});
     return { success: false, error: { type, message } };
   }
 
   // 2. 무음 / 낮은 신뢰도 처리
   if (!sttResult.transcript.trim()) {
     console.log('[Voice] STT error or empty (no transcript)');
-    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('noSpeech'));
+    if (!skipTTS) await ttsService.speak(ttsService.generateErrorMessage('noSpeech')).catch(() => {});
     return { success: false, error: { type: 'noSpeech', message: '음성이 감지되지 않았어요.' } };
   }
 
   console.log('[Voice] STT result:', JSON.stringify({ transcript: sttResult.transcript, confidence: sttResult.confidence }));
 
   if (sttResult.confidence < CONFIDENCE_THRESHOLD) {
-    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('lowConfidence'));
+    if (!skipTTS) await ttsService.speak(ttsService.generateErrorMessage('lowConfidence')).catch(() => {});
     return { success: false, sttResult, error: { type: 'lowConfidence', sttResult } };
   }
 
@@ -70,21 +70,22 @@ export async function runVoiceFlow(
     console.error('[VoiceFlow] 인텐트 분류 오류:', message);
     const isNetworkError = message.includes('Network request failed') || message.includes('연결');
     const errorType: VoiceFlowError['type'] = isNetworkError ? 'network' : 'unknown';
-    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage(errorType));
+    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage(errorType)).catch(() => {});
     return { success: false, sttResult, error: { type: errorType, message } };
   }
 
   console.log('[Voice] LLM result:', JSON.stringify({ intent: intent.intent, confidence: intent.confidence, title: intent.title, deleteTargetQuery: intent.deleteTargetQuery, targetEventQuery: intent.targetEventQuery }));
 
   if (intent.intent === 'UNKNOWN' || intent.confidence < CONFIDENCE_THRESHOLD) {
-    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('lowConfidence'));
+    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('lowConfidence')).catch(() => {});
     return { success: false, sttResult, intent, error: { type: 'lowConfidence', sttResult } };
   }
 
-  // 4. TTS 재확인 메시지
+  // 4. TTS 재확인 메시지 (DELETE/UPDATE/COMPLETE는 카드로만 확인 — 이중 재생 방지)
+  const isDestructive = intent.intent === 'DELETE' || intent.intent === 'UPDATE' || intent.intent === 'COMPLETE';
   const confirmMessage = ttsService.generateConfirmMessage(intent, language);
-  if (!skipTTS && confirmMessage) {
-    ttsService.speak(confirmMessage);
+  if (!skipTTS && confirmMessage && !isDestructive) {
+    ttsService.speak(confirmMessage).catch(() => {});
   }
 
   return {

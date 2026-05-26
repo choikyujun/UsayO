@@ -5,24 +5,21 @@ import { runVoiceFlow } from '../services/voice/VoiceFlowOrchestrator';
 import { noiseDetector } from '../services/voice/NoiseDetectorService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { intentService } from '../services/voice/IntentClassifierService';
-import { speechService } from '../services/voice/SpeechRecognitionService';
 import { ttsService } from '../services/voice/TTSService';
-import { matchQuickResponse } from '../services/voice/QuickResponseMatcher';
 import { ClassifiedIntent } from '../types';
 
 type OnAutoSave = (intent: ClassifiedIntent) => Promise<string | undefined>;
-type OnUndo     = (eventId: string) => Promise<void>;
 
 export function useVoiceFlow() {
   const store = useVoiceStore();
 
-  // onAutoSave / onUndo / prefillContext refs — startVoice 호출 시 저장, onAutoStop에서 참조
+  // onAutoSave / prefillContext refs — startVoice 호출 시 저장, onAutoStop에서 참조
   const onAutoSaveRef     = useRef<OnAutoSave | undefined>(undefined);
-  const onUndoRef         = useRef<OnUndo | undefined>(undefined);
   const prefillContextRef = useRef<string | undefined>(undefined);
+  const isRetryRef        = useRef(false); // lowConfidence/noSpeech 자동 1회 재시도 추적
 
   const processUriRef = useRef<
-    ((uri: string | null, onAutoSave?: OnAutoSave, onUndo?: OnUndo) => Promise<void>) | null
+    ((uri: string | null, onAutoSave?: OnAutoSave) => Promise<void>) | null
   >(null);
 
   const recorder = useVoiceRecorder({
@@ -30,18 +27,17 @@ export function useVoiceFlow() {
       console.log('[VoiceFlow] auto-stop received URI:', uri);
       store.setPhase('processing');
       // onAutoSaveRef.current를 함께 전달 → 0.85+ 패스가 auto-stop에서도 동작
-      processUriRef.current?.(uri, onAutoSaveRef.current, onUndoRef.current);
+      processUriRef.current?.(uri, onAutoSaveRef.current);
     }, [store]),
   });
 
   const startVoice = useCallback(async (
     onAutoSave?: OnAutoSave,
-    onUndo?: OnUndo,
     prefillContext?: string,
   ) => {
     onAutoSaveRef.current     = onAutoSave;
-    onUndoRef.current         = onUndo;
     prefillContextRef.current = prefillContext;
+    isRetryRef.current        = false;
     store.reset();
 
     try {
@@ -74,7 +70,6 @@ export function useVoiceFlow() {
   const processUri = useCallback(async (
     uri: string | null,
     onAutoSave?: OnAutoSave,
-    onUndo?: OnUndo,
   ) => {
     if (!uri) {
       store.setPhase('fail');
@@ -88,9 +83,18 @@ export function useVoiceFlow() {
     console.log('[VoiceFlow] intent classified:', result.intent);
 
     if (!result.success || !result.intent) {
-      if (result.error?.type === 'lowConfidence') {
-        ttsService.speak('다시 한 번 말씀해주세요').catch(() => {});
-        store.setPhase('idle');
+      const errType = result.error?.type;
+      // lowConfidence/noSpeech: TTS는 orchestrator에서 이미 완료 → 마이크 자동 재시작 (1회)
+      if (errType === 'lowConfidence' || errType === 'noSpeech') {
+        if (!isRetryRef.current) {
+          isRetryRef.current = true;
+          store.setPhase('listening');
+          await recorder.startRecording();
+        } else {
+          isRetryRef.current = false;
+          store.setPhase('fail');
+          store.setError(result.error ?? { type: 'unknown', message: '처리 실패' });
+        }
         return;
       }
       store.setPhase('fail');
@@ -102,43 +106,22 @@ export function useVoiceFlow() {
 
     // DELETE/UPDATE는 CLAUDE.md 정책상 항상 확인 필요 (자동 저장 금지)
     const requiresConfirm =
-      result.intent.intent === 'DELETE' || result.intent.intent === 'UPDATE';
+      result.intent.intent === 'DELETE' || result.intent.intent === 'UPDATE' || result.intent.intent === 'COMPLETE';
 
-    // ── confidence >= 0.85: 즉시 자동 저장 + 3초 취소 대기 ──────
+    // ── confidence >= 0.85: 즉시 자동 저장 ──────────────────────
     if (confidence >= 0.85 && onAutoSave && !requiresConfirm) {
       store.setTranscript(result.sttResult?.transcript ?? null);
       store.setClassifiedIntent(result.intent);
       store.setPhase('processing');
 
-      let savedId: string | undefined;
       try {
-        savedId = await onAutoSave(result.intent);
+        await onAutoSave(result.intent);
         store.setPhase('success');
         const successMsg = ttsService.generateSuccessMessage(result.intent);
         ttsService.speak(successMsg || '완료됐어요').catch(() => {});
       } catch (e) {
         store.setPhase('fail');
         store.setError({ type: 'unknown', message: e instanceof Error ? e.message : '저장 실패' });
-        return;
-      }
-
-      // 3초간 음성 "취소" 대기
-      if (savedId && onUndo) {
-        try {
-          await recorder.startRecording();
-          await new Promise<void>(r => setTimeout(r, 3000));
-          const cancelUri = await recorder.stopRecording();
-          if (cancelUri) {
-            const stt    = await speechService.transcribe(cancelUri, 'ko');
-            const answer = matchQuickResponse(stt.transcript);
-            if (answer === 'negative') {
-              await onUndo(savedId);
-              store.reset();
-              ttsService.speak('취소했어요').catch(() => {});
-              return;
-            }
-          }
-        } catch { /* 취소 대기 실패 → 저장 유지 */ }
       }
       return;
     }
@@ -157,18 +140,17 @@ export function useVoiceFlow() {
   // 수동 종료 경로
   const stopAndProcess = useCallback(async (
     onAutoSave?: OnAutoSave,
-    onUndo?: OnUndo,
   ) => {
     store.setPhase('processing');
     const uri = await recorder.stopRecording();
-    await processUri(uri, onAutoSave, onUndo);
+    await processUri(uri, onAutoSave);
   }, [store, recorder, processUri]);
 
   // 마이크 탭 즉시 저장 — startVoice 때 저장된 콜백 재사용
   const stopAndProcessStored = useCallback(async () => {
     store.setPhase('processing');
     const uri = await recorder.stopRecording();
-    await processUri(uri, onAutoSaveRef.current, onUndoRef.current);
+    await processUri(uri, onAutoSaveRef.current);
   }, [store, recorder, processUri]);
 
   // 하이브리드 입력 확정
@@ -201,6 +183,7 @@ export function useVoiceFlow() {
   const cancelVoice = useCallback(() => {
     ttsService.stop();
     recorder.cancelRecording();
+    isRetryRef.current = false;
     store.reset();
   }, [store, recorder]);
 

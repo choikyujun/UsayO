@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { localDateStr } from '../utils/timeHelpers';
 
+const MIDNIGHT_BUFFER_MS = 100; // 자정 직후 확실히 새 날짜를 인식하기 위한 여유
+
 function msUntilMidnight(): number {
   const now = new Date();
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
@@ -17,7 +19,7 @@ export function useCurrentDate() {
     timerRef.current = setTimeout(() => {
       setToday(new Date());
       scheduleNextMidnight();
-    }, msUntilMidnight() + 100); // +100ms so it fires just after midnight
+    }, msUntilMidnight() + MIDNIGHT_BUFFER_MS);
   }
 
   useEffect(() => {

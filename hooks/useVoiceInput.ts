@@ -12,7 +12,6 @@ export interface VoiceInputPrefill {
 }
 
 type OnAutoSave = (intent: ClassifiedIntent) => Promise<string | undefined>;
-type OnUndo     = (eventId: string) => Promise<void>;
 
 function buildPrefillContext(prefill: VoiceInputPrefill): string {
   if (prefill.hour !== undefined) {
@@ -38,7 +37,6 @@ export function useVoiceInput(ttsEnabled: boolean) {
   const startWithPrefill = useCallback(async (
     prefill:    VoiceInputPrefill,
     onAutoSave: OnAutoSave,
-    onUndo:     OnUndo,
   ) => {
     console.log('[Voice] long-press triggered, prefill:', { date: prefill.dateStr, ttsLabel: prefill.ttsLabel, hour: prefill.hour });
 
@@ -64,7 +62,7 @@ export function useVoiceInput(ttsEnabled: boolean) {
 
     console.log('[Voice] STT start (startVoice called)');
     const prefillContext = buildPrefillContext(prefill);
-    voice.startVoice(onAutoSave, onUndo, prefillContext);
+    voice.startVoice(onAutoSave, prefillContext);
   }, [voice, ttsEnabled]);
 
   const cancelVoiceInput = useCallback(() => {

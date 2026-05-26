@@ -70,7 +70,7 @@ export default function DayViewScreen() {
 
   // ── Data ────────────────────────────────────────────────────────────
   const { events, loading, reload } = useDayEvents(dateStr);
-  const { applyClassifiedIntent, undoSave } = useSchedules(dateStr, 0);
+  const { applyClassifiedIntent } = useSchedules(dateStr, 0);
 
   // ── NOW tick ────────────────────────────────────────────────────────
   const [tick, setTick] = useState(0);
@@ -100,7 +100,8 @@ export default function DayViewScreen() {
     const realId = isVirtualInstance(event.id)
       ? (parseInstanceId(event.id)?.parentId ?? event.id)
       : event.id;
-    supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', realId).then(() => {});
+    supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', realId)
+      .then(({ error }) => { if (error) console.error('[DayView] delete failed:', error.message); });
     reload();
   }
 
@@ -110,12 +111,15 @@ export default function DayViewScreen() {
     const instDate  = parsed?.instanceDate ?? new Date(event.start_at).toISOString().split('T')[0];
 
     if (scope === 'this') {
-      supabase.from('event_exceptions').insert({ parent_id: parentId, instance_date: instDate, is_deleted: true }).then(() => {});
+      supabase.from('event_exceptions').insert({ parent_id: parentId, instance_date: instDate, is_deleted: true })
+        .then(({ error }) => { if (error) console.error('[DayView] exception insert failed:', error.message); });
     } else if (scope === 'future') {
       const d = new Date(instDate); d.setDate(d.getDate() - 1);
-      supabase.from('events').update({ recurrence_end_date: d.toISOString().split('T')[0] }).eq('id', parentId).then(() => {});
+      supabase.from('events').update({ recurrence_end_date: d.toISOString().split('T')[0] }).eq('id', parentId)
+        .then(({ error }) => { if (error) console.error('[DayView] recurrence_end_date update failed:', error.message); });
     } else {
-      supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', parentId).then(() => {});
+      supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', parentId)
+        .then(({ error }) => { if (error) console.error('[DayView] delete recurring failed:', error.message); });
     }
     reload();
   }
@@ -159,7 +163,6 @@ export default function DayViewScreen() {
     voice.startWithPrefill(
       { dateStr, hour: finalHour, minute: finalMin, ttsLabel },
       intent => applyClassifiedIntent(intent),
-      async eventId => undoSave(eventId),
     );
   }
 
@@ -325,23 +328,6 @@ export default function DayViewScreen() {
         )
       )}
 
-      {voice.phase === 'success' && (
-        <View style={styles.successOverlay} pointerEvents="none">
-          <Text style={styles.successIcon}>✅</Text>
-          <Text style={[styles.successText, { color: colors.success }]}>완료!</Text>
-        </View>
-      )}
-
-      {voice.phase === 'fail' && (
-        <View style={styles.failOverlay}>
-          <Text style={styles.failIcon}>❌</Text>
-          <Text style={[styles.failText, { color: colors.error }]}>다시 시도해 주세요</Text>
-          <Pressable onPress={handleVoiceCancel} style={[styles.cancelBtn, { borderColor: colors.border }]}>
-            <Text style={[styles.cancelText, { color: colors.textMuted }]}>닫기</Text>
-          </Pressable>
-        </View>
-      )}
-
       {/* ── Event action sheet ───────────────────────────────────── */}
       <EventActionSheet
         event={sheetEvent}
@@ -421,23 +407,5 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     },
     processText: { fontSize: 15 },
 
-    successOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      alignItems:     'center',
-      justifyContent: 'center',
-      gap:            10,
-    },
-    successIcon: { fontSize: 48 },
-    successText: { fontSize: 28, fontWeight: '800' },
-
-    failOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      alignItems:     'center',
-      justifyContent: 'center',
-      gap:            14,
-      paddingHorizontal: 32,
-    },
-    failIcon: { fontSize: 40 },
-    failText: { fontSize: 15, fontWeight: '600', textAlign: 'center' },
   });
 }

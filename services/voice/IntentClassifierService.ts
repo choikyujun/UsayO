@@ -11,6 +11,7 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 - CREATE: 새 일정 생성 ("잡아줘", "등록해줘", "추가해줘", "만들어줘")
 - UPDATE: 기존 일정 수정 ("바꿔줘", "수정해줘", "변경해줘", "옮겨줘")
 - DELETE: 기존 일정 삭제 ("취소해줘", "삭제해줘", "지워줘", "없애줘")
+- COMPLETE: 기존 일정 완료 처리 ("완료해줘", "완료 처리해줘", "끝났어", "다 했어", "체크해줘", "done", "끝냈어", "마쳤어")
 - QUERY:  일정 조회 ("알려줘", "보여줘", "뭐 있어", "확인해줘") — 단, 화면 이동이 명확하면 NAVIGATION 우선
 - NAVIGATION: 화면 이동 ("보여줘" + 화면명, "이동해줘", "열어줘")
 - RESCHEDULE_UNDO: 드래그 이동 취소 ("방금 옮긴 거 취소", "방금 이동한 거 되돌려", "되돌려줘", "원래대로")
@@ -73,26 +74,26 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 
 ## 예시
 발화: "내일 3시 강남역 스타벅스에서 김부장님과 팀 회의, 자료 준비 메모"
-→ {"intent":"CREATE","title":"팀 회의","startDateTime":{"date":"2026-05-26T15:00:00+09:00","isRecurring":false,"confidence":0.95,"originalText":"내일 3시"},"location":"강남역 스타벅스","notes":"자료 준비","attendees":["김부장"],"category":"work","confidence":0.95}
+→ {"intent":"CREATE","title":"팀 회의","startDateTime":{"date":"{exampleTomorrow}T15:00:00+09:00","isRecurring":false,"confidence":0.95,"originalText":"내일 3시"},"location":"강남역 스타벅스","notes":"자료 준비","attendees":["김부장"],"category":"work","confidence":0.95}
 
 발화: "오늘 7시 친구랑 저녁, 카드 챙기기"
-→ {"intent":"CREATE","title":"저녁","startDateTime":{"date":"2026-05-25T19:00:00+09:00","isRecurring":false,"confidence":0.9,"originalText":"오늘 7시"},"location":null,"notes":"카드 챙기기","attendees":["친구"],"category":"personal","confidence":0.9}
+→ {"intent":"CREATE","title":"저녁","startDateTime":{"date":"{exampleToday}T19:00:00+09:00","isRecurring":false,"confidence":0.9,"originalText":"오늘 7시"},"location":null,"notes":"카드 챙기기","attendees":["친구"],"category":"personal","confidence":0.9}
 
 발화: "매주 월요일 10시 팀 스탠드업"
-→ {"intent":"CREATE","title":"팀 스탠드업","startDateTime":{"date":"2026-05-27T10:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=WEEKLY;BYDAY=MO","confidence":0.98,"originalText":"매주 월요일 10시"},"location":null,"notes":null,"attendees":null,"category":"work","confidence":0.98}
+→ {"intent":"CREATE","title":"팀 스탠드업","startDateTime":{"date":"{exampleNextMonday}T10:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=WEEKLY;BYDAY=MO","confidence":0.98,"originalText":"매주 월요일 10시"},"location":null,"notes":null,"attendees":null,"category":"work","confidence":0.98}
 
 발화: "매일 아침 7시 운동"
-→ {"intent":"CREATE","title":"운동","startDateTime":{"date":"2026-05-26T07:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=DAILY","confidence":0.97,"originalText":"매일 아침 7시"},"location":null,"notes":null,"attendees":null,"category":"personal","confidence":0.97}
+→ {"intent":"CREATE","title":"운동","startDateTime":{"date":"{exampleToday}T07:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=DAILY","confidence":0.97,"originalText":"매일 아침 7시"},"location":null,"notes":null,"attendees":null,"category":"personal","confidence":0.97}
 
 발화: "평일 매일 9시 출근"
-→ {"intent":"CREATE","title":"출근","startDateTime":{"date":"2026-05-26T09:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR","confidence":0.97,"originalText":"평일 매일 9시"},"location":null,"notes":null,"attendees":null,"category":"work","confidence":0.97}
+→ {"intent":"CREATE","title":"출근","startDateTime":{"date":"{exampleToday}T09:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR","confidence":0.97,"originalText":"평일 매일 9시"},"location":null,"notes":null,"attendees":null,"category":"work","confidence":0.97}
 
 발화: "매월 15일 임대료 자동이체"
-→ {"intent":"CREATE","title":"임대료 자동이체","startDateTime":{"date":"2026-06-15T09:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=MONTHLY;BYMONTHDAY=15","confidence":0.96,"originalText":"매월 15일"},"location":null,"notes":null,"attendees":null,"category":"personal","confidence":0.96}
+→ {"intent":"CREATE","title":"임대료 자동이체","startDateTime":{"date":"{exampleNext15th}T09:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=MONTHLY;BYMONTHDAY=15","confidence":0.96,"originalText":"매월 15일"},"location":null,"notes":null,"attendees":null,"category":"personal","confidence":0.96}
 
 ## 반환 JSON 형식
 {
-  "intent": "CREATE|UPDATE|DELETE|QUERY|NAVIGATION|RESCHEDULE_UNDO|UNKNOWN",
+  "intent": "CREATE|UPDATE|DELETE|COMPLETE|QUERY|NAVIGATION|RESCHEDULE_UNDO|UNKNOWN",
   "confidence": 0~1,
   "title": "일정 제목 (CREATE/UPDATE)",
   "startDateTime": {
@@ -107,9 +108,10 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
   "notes": null,
   "attendees": null,
   "category": "work|personal|important",
-  "targetEventQuery": "수정/삭제 대상 검색어 (UPDATE/DELETE)",
+  "targetEventQuery": "수정/삭제/완료 대상 검색어 (UPDATE/DELETE/COMPLETE)",
   "updateFields": { "startDateTime": ..., "title": ..., "location": ..., "notes": ... },
   "deleteTargetQuery": "삭제 대상 검색어",
+  "completeTargetQuery": "완료 처리 대상 검색어 (COMPLETE)",
   "queryRange": { "start": "ISO8601", "end": "ISO8601" },
   "queryType": "list|free_slots|specific",
   "navigationTarget": "today|calendar|upcoming|settings"
@@ -139,9 +141,34 @@ export class IntentClassifierService {
       hour: '2-digit', minute: '2-digit', weekday: 'short',
     });
 
+    // 예시 날짜 동적 계산 (KST 기준)
+    const nowKST = new Date(new Date().toLocaleString('en-US', { timeZone: userTimezone }));
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmtDate = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    const exampleToday = fmtDate(nowKST);
+
+    const tom = new Date(nowKST); tom.setDate(tom.getDate() + 1);
+    const exampleTomorrow = fmtDate(tom);
+
+    // 다음 월요일 (0=Sun, 1=Mon)
+    const daysToMon = (8 - nowKST.getDay()) % 7 || 7;
+    const nextMon = new Date(nowKST); nextMon.setDate(nowKST.getDate() + daysToMon);
+    const exampleNextMonday = fmtDate(nextMon);
+
+    // 다음 15일
+    const next15 = new Date(nowKST.getFullYear(), nowKST.getMonth(), 15);
+    if (next15 <= nowKST) next15.setMonth(next15.getMonth() + 1);
+    const exampleNext15th = fmtDate(next15);
+
     const systemPrompt = SYSTEM_PROMPT
       .replace('{currentDateTime}', currentDateTime)
-      .replace('{timezone}', userTimezone);
+      .replace('{timezone}', userTimezone)
+      .replace(/{exampleToday}/g, exampleToday)
+      .replace(/{exampleTomorrow}/g, exampleTomorrow)
+      .replace(/{exampleNextMonday}/g, exampleNextMonday)
+      .replace(/{exampleNext15th}/g, exampleNext15th);
 
     try {
       const response = await fetch(CLAUDE_URL, {
@@ -227,6 +254,7 @@ export class IntentClassifierService {
       intent = 'NAVIGATION'; navigationTarget = 'today';
     } else if (/바꿔|수정|변경|옮겨/.test(lower)) intent = 'UPDATE';
     else if (/취소|삭제|지워|없애/.test(lower)) intent = 'DELETE';
+    else if (/완료|끝났어|다 했어|체크|끝냈어|마쳤어/.test(lower)) intent = 'COMPLETE';
     else if (/알려줘|보여줘|확인|뭐 있어/.test(lower)) intent = 'QUERY';
 
     let startDateTime = this.parseDateTime(text);
@@ -269,8 +297,9 @@ export class IntentClassifierService {
       title: this.extractTitle(text, intent),
       startDateTime: intent === 'NAVIGATION' ? undefined : startDateTime,
       navigationTarget,
-      targetEventQuery:    (intent === 'DELETE' || intent === 'UPDATE') ? eventKeyword : undefined,
-      deleteTargetQuery:   intent === 'DELETE'                          ? eventKeyword : undefined,
+      targetEventQuery:    (intent === 'DELETE' || intent === 'UPDATE' || intent === 'COMPLETE') ? eventKeyword : undefined,
+      deleteTargetQuery:   intent === 'DELETE'                                                  ? eventKeyword : undefined,
+      completeTargetQuery: intent === 'COMPLETE'                                                ? eventKeyword : undefined,
       rawTranscript: text,
     };
   }
@@ -281,7 +310,7 @@ export class IntentClassifierService {
       .replace(/내일|모레|오늘|다음\s*주|이번\s*주|어제/, '')
       .replace(/오전|오후|아침|점심|저녁|밤|새벽|퇴근/, '')
       .replace(/\d+\s*시(\s*\d+\s*분)?/, '')
-      .replace(/취소해줘|삭제해줘|지워줘|없애줘|바꿔줘|수정해줘|변경해줘|옮겨줘|잡아줘|등록해줘|추가해줘|해줘/, '')
+      .replace(/취소해줘|삭제해줘|지워줘|없애줘|바꿔줘|수정해줘|변경해줘|옮겨줘|잡아줘|등록해줘|추가해줘|완료해줘|완료\s*처리해줘|체크해줘|끝냈어|끝났어|다\s*했어|마쳤어|해줘/, '')
       .replace(/을|를|이|가|은|는/, '')
       .replace(/\s+/g, ' ')
       .trim();

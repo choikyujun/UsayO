@@ -49,8 +49,10 @@ import { addDays, toYearMonth } from '../utils/dateHelpers';
 import { useCurrentDate } from '../hooks/useCurrentDate';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const FAB_SMALL = 64;
-const FAB_LARGE = 160;
-const FAB_SCALE = FAB_LARGE / FAB_SMALL; // 2.5
+
+const SUCCESS_AUTO_RESET_MS   = 1800;  // 음성 성공 후 idle 복귀 딜레이
+const RESCHEDULE_TOAST_MS     = 10_000; // 일정 이동 토스트 자동 닫힘
+
 
 const FALLBACK_HYBRID: HybridInputState = {
   prefillText: '',
@@ -93,7 +95,7 @@ export default function HomeScreen() {
   const {
     events: allEvents,
     recurringParents,
-    lastCreatedId, applyClassifiedIntent, undoSave,
+    lastCreatedId, applyClassifiedIntent,
     rescheduleEvent, undoRescheduleEvent,
     reload: reloadSchedules,
   } = useSchedules(selectedDate, 7);
@@ -137,12 +139,6 @@ export default function HomeScreen() {
   const pulseAnimV = useSharedValue(0);
   const onboardPulseV = useSharedValue(1);
 
-  // How far FAB needs to travel upward to reach 40% from screen top
-  // FAB center (from top) at rest = SCREEN_H - insets.bottom - 28 - FAB_SMALL/2
-  // Target = SCREEN_H * 0.42
-  const fabRestY = SCREEN_H - insets.bottom - 28 - FAB_SMALL / 2;
-  const fabTargetY = SCREEN_H * 0.42;
-  const translateYTarget = fabTargetY - fabRestY; // negative = upward
 
   // ── Animated styles (Reanimated) ─────────────────────────────
   const fabAnimStyle = useAnimatedStyle(() => ({
@@ -186,8 +182,8 @@ export default function HomeScreen() {
     const phase = voice.phase;
 
     if (phase === 'listening') {
-      fabScaleV.value = withSpring(FAB_SCALE, { damping: 18, stiffness: 120 });
-      fabTranslateYV.value = withSpring(translateYTarget, { damping: 18, stiffness: 120 });
+      fabScaleV.value = withSpring(1, { damping: 18, stiffness: 120 });
+      fabTranslateYV.value = withSpring(0, { damping: 18, stiffness: 120 });
       contentOpacityV.value = withTiming(0.3, { duration: 300 });
       pulseAnimV.value = withRepeat(
         withTiming(1, { duration: 900, easing: Easing.out(Easing.quad) }),
@@ -216,10 +212,7 @@ export default function HomeScreen() {
     const prev = prevMicStatus.current;
     prevMicStatus.current = voice.micStatus;
     if (prev === 'recording' && voice.micStatus === 'idle' && voice.phase === 'listening') {
-      voice.stopAndProcess(
-        async (intent) => applyClassifiedIntent(intent),
-        async (eventId) => undoSave(eventId),
-      );
+      voice.stopAndProcess(handleApplyIntent);
     }
   }, [voice.micStatus, voice.phase]);
 
@@ -269,7 +262,7 @@ export default function HomeScreen() {
     if (voice.phase === 'success') {
       reloadForDate().catch(() => {});
       reloadSchedules().catch(() => {});
-      const t = setTimeout(() => voice.retryVoice(), 1800);
+      const t = setTimeout(() => voice.retryVoice(), SUCCESS_AUTO_RESET_MS);
       return () => clearTimeout(t);
     }
   }, [voice.phase]);
@@ -297,11 +290,16 @@ export default function HomeScreen() {
     const ok = await quotaTracker.checkQuota('create');
     if (!ok) { setUpgradeVisible(true); return; }
     if (isFirstLaunch) markOnboarded();
-    voice.startVoice(
-      async (intent) => applyClassifiedIntent(intent),
-      async (eventId) => undoSave(eventId),
-    );
-  }, [gate, isFirstLaunch, markOnboarded, voice, applyClassifiedIntent, undoSave]);
+    voice.startVoice(handleApplyIntent);
+  }, [gate, isFirstLaunch, markOnboarded, voice, applyClassifiedIntent]);
+
+  // DB 반영 즉시 화면 갱신: useSchedules(CRUD)와 useEventsForDate(display)가 분리돼 있어
+  // applyClassifiedIntent 완료 후 바로 reloadForDate를 호출해야 이벤트가 즉시 표시됨
+  const handleApplyIntent = useCallback(async (intent: ClassifiedIntent) => {
+    const id = await applyClassifiedIntent(intent);
+    reloadForDate().catch(() => {});
+    return id;
+  }, [applyClassifiedIntent, reloadForDate]);
 
   const handleCancelVoice = useCallback(() => {
     ttsService.stop();
@@ -312,14 +310,14 @@ export default function HomeScreen() {
     ttsService.stop();
     if (voice.classifiedIntent?.events?.length) {
       await voice.confirmMultiAction(async (intents: ClassifiedIntent[]) => {
-        for (const i of intents) await applyClassifiedIntent(i);
+        for (const i of intents) await handleApplyIntent(i);
       });
     } else {
       await voice.confirmAction(async (intent: ClassifiedIntent) => {
-        await applyClassifiedIntent(intent);
+        await handleApplyIntent(intent);
       });
     }
-  }, [voice, applyClassifiedIntent]);
+  }, [voice, handleApplyIntent]);
 
   const handleReschedule = useCallback((eventId: string, newTime: Date) => {
     const event = events.find(e => e.id === eventId);
@@ -349,7 +347,7 @@ export default function HomeScreen() {
     const timeoutId = setTimeout(() => {
       Animated.timing(rescheduleToastOpacity, { toValue: 0, duration: 250, useNativeDriver: true })
         .start(() => setLastRescheduled(null));
-    }, 10_000);
+    }, RESCHEDULE_TOAST_MS);
 
     setLastRescheduled({ eventId, title, originalStart, originalEnd, timeoutId });
   }, [events, patchEvent, rescheduleEvent, rescheduleToastOpacity]);
@@ -492,31 +490,6 @@ export default function HomeScreen() {
             />
           </View>
         )
-      )}
-
-      {/* ── 성공 ─────────────────────────────────────────────────── */}
-      {voice.phase === 'success' && (
-        <View style={styles.successLayer} pointerEvents="none">
-          <Text style={styles.successIcon}>✅</Text>
-          <Text style={styles.successText}>완료!</Text>
-          <Text style={styles.successSub}>일정이 저장되었어요</Text>
-        </View>
-      )}
-
-      {/* ── 실패 ─────────────────────────────────────────────────── */}
-      {voice.phase === 'fail' && (
-        <View style={styles.failLayer}>
-          <Text style={styles.failIcon}>❌</Text>
-          <Text style={styles.failText}>{errorMessage(voice.error)}</Text>
-          <View style={styles.failRow}>
-            <Pressable style={styles.retryBtn} onPress={handleRetry}>
-              <Text style={styles.retryText}>다시 시도</Text>
-            </Pressable>
-            <Pressable style={styles.closeBtnStyle} onPress={handleCancelVoice}>
-              <Text style={styles.closeBtnText}>취소</Text>
-            </Pressable>
-          </View>
-        </View>
       )}
 
       {/* ── 재스케줄 취소 토스트 (10초) ─────────────────────────── */}
@@ -683,63 +656,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       justifyContent: 'center',
     },
 
-    // ── Success ──────────────────────────────────────────────────
-    successLayer: {
-      ...StyleSheet.absoluteFillObject,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 12,
-    },
-    successIcon: { fontSize: 52 },
-    successText: {
-      fontSize: 30,
-      fontWeight: '800',
-      color: c.success,
-    },
-    successSub: {
-      fontSize: 15,
-      color: c.textTertiary,
-    },
-
-    // ── Fail ─────────────────────────────────────────────────────
-    failLayer: {
-      ...StyleSheet.absoluteFillObject,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 14,
-      paddingHorizontal: 32,
-    },
-    failIcon: { fontSize: 44 },
-    failText: {
-      fontSize: 15,
-      color: c.error,
-      textAlign: 'center',
-      fontWeight: '600',
-    },
-    failRow: {
-      flexDirection: 'row',
-      gap: 12,
-      marginTop: 8,
-      width: '100%',
-    },
-    retryBtn: {
-      flex: 1,
-      paddingVertical: 14,
-      borderRadius: 14,
-      backgroundColor: c.primary,
-      alignItems: 'center',
-    },
-    retryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-    closeBtnStyle: {
-      flex: 1,
-      paddingVertical: 14,
-      borderRadius: 14,
-      borderWidth: 1.5,
-      borderColor: c.border,
-      alignItems: 'center',
-    },
-    closeBtnText: { color: c.textSecondary, fontWeight: '600', fontSize: 15 },
-
     // ── FAB ──────────────────────────────────────────────────────
     fabAnchor: {
       position: 'absolute',
@@ -795,8 +711,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       elevation: 10,
     },
     fabActive: {
-      backgroundColor: '#C0392B',
-      shadowColor: '#C0392B',
+      backgroundColor: Colors.fabActive,
+      shadowColor: Colors.fabActive,
     },
     fabLabel: {
       fontSize: 12,

@@ -122,8 +122,8 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
         const rec = recordingRef.current;
         if (!rec) return;
 
-        const st = await rec.getStatusAsync();
-        if (!st.isRecording) return;
+        const st = await rec.getStatusAsync().catch(() => null);
+        if (!st?.isRecording) return;
 
         const now     = Date.now();
         const elapsed = now - startTimeRef.current;
