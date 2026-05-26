@@ -94,7 +94,12 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 → {"intent":"CREATE","title":"팀 회의","startDateTime":{"date":"{exampleTomorrow}T15:00:00+09:00","isRecurring":false,"confidence":0.95,"originalText":"내일 3시"},"location":"강남역 스타벅스","notes":"자료 준비","attendees":["김부장"],"category":"work","confidence":0.95}
 
 발화: "오늘 7시 친구랑 저녁, 카드 챙기기"
-→ {"intent":"CREATE","title":"저녁","startDateTime":{"date":"{exampleToday}T19:00:00+09:00","isRecurring":false,"confidence":0.9,"originalText":"오늘 7시"},"location":null,"notes":"카드 챙기기","attendees":["친구"],"category":"personal","confidence":0.9}
+→ {"intent":"CREATE","title":"저녁","startDateTime":{"date":"{exampleToday}T07:00:00+09:00","isRecurring":false,"confidence":0.9,"originalText":"오늘 7시"},"location":null,"notes":"카드 챙기기","attendees":["친구"],"category":"personal","confidence":0.9,"ambiguous":true,"suggestedMeridiem":"AM"}
+(주의: "7시" 뒤에 오는 "저녁"은 제목이지 시간 수식어가 아님 → ambiguous: true)
+
+발화: "오늘 저녁 7시 친구랑 식사"
+→ {"intent":"CREATE","title":"식사","startDateTime":{"date":"{exampleToday}T19:00:00+09:00","isRecurring":false,"confidence":0.95,"originalText":"오늘 저녁 7시"},"location":null,"notes":null,"attendees":["친구"],"category":"personal","confidence":0.95,"ambiguous":false}
+(주의: "저녁"이 "7시" 앞에 위치 → PM, ambiguous: false)
 
 발화: "매주 월요일 10시 팀 스탠드업"
 → {"intent":"CREATE","title":"팀 스탠드업","startDateTime":{"date":"{exampleNextMonday}T10:00:00+09:00","isRecurring":true,"recurrenceRule":"FREQ=WEEKLY;BYDAY=MO","confidence":0.98,"originalText":"매주 월요일 10시"},"location":null,"notes":null,"attendees":null,"category":"work","confidence":0.98}
@@ -121,12 +126,20 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 - 목록에 없는 일정이면 'targetEventId'는 null
 
 ## 시간 모호성 규칙 (ambiguous 플래그)
-발화에 오전/오후/새벽/밤/아침/저녁 등 명시적 표현 → ambiguous: false, 정확한 AM/PM으로 date 설정
+발화에 오전/오후/새벽/밤/아침/저녁 등 명시적 표현이 숫자 시간 **앞에** 위치할 때만 → ambiguous: false, 정확한 AM/PM으로 date 설정
+  * "저녁 7시", "오전 11시", "밤 10시" (수식어가 숫자 앞) → ambiguous: false ✓
+  * "7시 저녁", "6시 밥집", "6시 운동" (숫자 뒤 단어는 제목) → ambiguous: true (아래 규칙 적용)
 발화에 1~12 사이 숫자만 ("6시", "3시") → 아래 기본 규칙으로 해석하되 ambiguous: true + suggestedMeridiem 설정:
   * 1~6 → suggestedMeridiem: "PM" (오후로 추정)
   * 7~12 → suggestedMeridiem: "AM" (오전으로 추정)
   * 단, 이미 지난 시간이면 PM/다음날 AM으로 이월하고 ambiguous: false
 ambiguous: true이면 사용자가 AM/PM을 UI에서 선택하므로 date는 suggestedMeridiem에 맞게 설정
+
+**중요 — 제목 단어로 시간 추론 절대 금지**: 숫자 시간('N시') 뒤에 오는 단어('밥집', '저녁식사', '저녁', '운동', '회의', '약속', '식사' 등)는 제목이지 시간 수식어가 아닙니다. 이 단어들이 있어도 명시적 AM/PM 표현(숫자 앞에 위치)이 없으면 무조건 ambiguous: true.
+  * "6시 밥집" → 6시 단독 → ambiguous: true, suggestedMeridiem: "PM"
+  * "6시 운동" → 6시 단독 → ambiguous: true, suggestedMeridiem: "PM"
+  * "7시 저녁 약속" → 7시 단독 → ambiguous: true, suggestedMeridiem: "AM"
+  * "저녁 7시 약속" → 저녁이 숫자 앞 → PM, ambiguous: false ✓
 
 ## 반환 JSON 형식
 {
@@ -252,11 +265,16 @@ export class IntentClassifierService {
       const jsonText = rawText.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(jsonText) as ClassifiedIntent;
       parsed.rawTranscript = transcript;
+      console.log('[Intent] 발화:', transcript);
+      console.log('[Intent] LLM 응답 raw:', rawText.slice(0, 300));
+      console.log('[Intent] ambiguous:', parsed.ambiguous, '| suggestedMeridiem:', parsed.suggestedMeridiem ?? 'none');
       console.log('[Intent] classified:', JSON.stringify({
         intent: parsed.intent,
         title: parsed.title,
         targetEventQuery: parsed.targetEventQuery,
         deleteTargetQuery: parsed.deleteTargetQuery,
+        targetEventId: parsed.targetEventId ?? null,
+        targetEventIds: parsed.targetEventIds ?? null,
         updateFields: parsed.updateFields,
         startDateTime: parsed.startDateTime?.date,
         events: parsed.events?.length,

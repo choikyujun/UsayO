@@ -342,8 +342,24 @@ export function useSchedules(date: string, daysAhead = 0) {
     if (intent.intent === 'DELETE') {
       const rawQuery = intent.deleteTargetQuery ?? intent.targetEventQuery ?? intent.title ?? '';
       const hintDate = intent.startDateTime?.date;
-      console.log('[VoiceFlow] DELETE branch entered, query:', rawQuery, '| targetEventId:', intent.targetEventId ?? 'none', '| hintDate:', hintDate);
+      console.log('[VoiceFlow] DELETE branch entered, query:', rawQuery, '| targetEventId:', intent.targetEventId ?? 'none', '| targetEventIds:', intent.targetEventIds ?? null, '| hintDate:', hintDate);
 
+      // ── targetEventIds: 일괄 삭제 (단일 경로보다 먼저 체크) ──
+      if (intent.targetEventIds && intent.targetEventIds.length > 0) {
+        console.log('[VoiceFlow] DELETE batch path — ids:', intent.targetEventIds.length, intent.targetEventIds);
+        const deletedAt = new Date().toISOString();
+        const { error: batchErr, count } = await supabase
+          .from('events')
+          .update({ deleted_at: deletedAt })
+          .in('id', intent.targetEventIds);
+        console.log('[VoiceFlow] DB batch delete result: count=', count, '| error=', batchErr?.message ?? null);
+        if (batchErr) throw new Error(batchErr.message);
+        const ids = new Set(intent.targetEventIds);
+        setEvents(prev => prev.filter(e => !ids.has(e.id)));
+        return intent.targetEventIds[0];
+      }
+
+      // ── 단일 일정 삭제 ───────────────────────────────────────
       let target: Event;
       if (intent.targetEventId) {
         const { data: direct, error: directErr } = await supabase
@@ -360,20 +376,6 @@ export function useSchedules(date: string, daysAhead = 0) {
           throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
         }
         target = candidates[0];
-      }
-      // ── targetEventIds: 일괄 삭제 ────────────────────────────
-      if (intent.targetEventIds && intent.targetEventIds.length > 0) {
-        console.log('[VoiceFlow] DELETE batch:', intent.targetEventIds.length, intent.targetEventIds);
-        const deletedAt = new Date().toISOString();
-        const { error: batchErr } = await supabase
-          .from('events')
-          .update({ deleted_at: deletedAt })
-          .in('id', intent.targetEventIds);
-        console.log('[VoiceFlow] DB batch delete error:', batchErr?.message ?? null);
-        if (batchErr) throw new Error(batchErr.message);
-        const ids = new Set(intent.targetEventIds);
-        setEvents(prev => prev.filter(e => !ids.has(e.id)));
-        return intent.targetEventIds[0];
       }
 
       const { data, error } = await supabase
