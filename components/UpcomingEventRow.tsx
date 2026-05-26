@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme } from '../constants/colors';
@@ -11,18 +12,29 @@ const DOT_GAP   = 14;
 const DOT_SIZE  = 5;
 
 interface Props {
-  event:    Event;
-  colors:   AppTheme;
-  expanded: boolean;
-  onTap:    () => void;
+  event:        Event;
+  colors:       AppTheme;
+  expanded:     boolean;
+  onTap:        () => void;
+  onLongPress?: () => void;
 }
 
-export default function UpcomingEventRow({ event, colors, expanded, onTap }: Props) {
+export default function UpcomingEventRow({ event, colors, expanded, onTap, onLongPress }: Props) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const startTime = formatTimeRow(new Date(event.start_at));
 
+  function handleLongPress() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    onLongPress?.();
+  }
+
   return (
-    <Pressable onPress={onTap} style={styles.row}>
+    <Pressable
+      onPress={onTap}
+      onLongPress={onLongPress ? handleLongPress : undefined}
+      delayLongPress={500}
+      style={styles.row}
+    >
       {/* Time */}
       <Text style={styles.time}>{startTime}</Text>
 

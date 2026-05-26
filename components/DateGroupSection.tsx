@@ -9,11 +9,12 @@ const PADDING_H = 20;
 const SPINE_X   = PADDING_H + 38 + 14 / 2; // matches TimeSpine spine line position
 
 interface Props {
-  group:  DateGroup<Event>;
-  colors: AppTheme;
+  group:            DateGroup<Event>;
+  colors:           AppTheme;
+  onLongPress?: (event: Event) => void;
 }
 
-export default function DateGroupSection({ group, colors }: Props) {
+export default function DateGroupSection({ group, colors, onLongPress }: Props) {
   const styles  = useMemo(() => makeStyles(colors), [colors]);
   const label   = formatUpcomingDate(group.date);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export default function DateGroupSection({ group, colors }: Props) {
             colors={colors}
             expanded={expandedId === ev.id}
             onTap={() => toggleExpand(ev.id)}
+            onLongPress={onLongPress ? () => onLongPress(ev) : undefined}
           />
         ))}
       </View>

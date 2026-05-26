@@ -5,10 +5,11 @@ import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
 import DateGroupSection from './DateGroupSection';
 
 interface Props {
-  allEvents: Event[];
+  allEvents:    Event[];
+  onLongPress?: (event: Event) => void;
 }
 
-export default function UpcomingSection({ allEvents }: Props) {
+export default function UpcomingSection({ allEvents, onLongPress }: Props) {
   const colors = useColors();
   const groups = useUpcomingEvents(allEvents);
 
@@ -21,6 +22,7 @@ export default function UpcomingSection({ allEvents }: Props) {
           key={group.date.toISOString()}
           group={group}
           colors={colors}
+          onLongPress={onLongPress}
         />
       ))}
     </View>
