@@ -74,6 +74,10 @@ export interface ClassifiedIntent {
   events?: ClassifiedIntent[];
   // LLM이 nearby events에서 직접 매칭한 이벤트 ID (UPDATE/DELETE/COMPLETE 우선 경로)
   targetEventId?: string;
+  // LLM이 "다/모두/전부" 패턴으로 매칭한 복수 이벤트 ID 배열
+  targetEventIds?: string[];
+  // 다중 매칭 범위
+  scope?: 'single' | 'all_day' | 'filtered';
   // 시간 모호성 (오전/오후 미지정 "6시" 등)
   ambiguous?: boolean;
   suggestedMeridiem?: 'AM' | 'PM';

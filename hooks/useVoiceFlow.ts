@@ -126,11 +126,13 @@ export function useVoiceFlow() {
 
     // DELETE/UPDATE/COMPLETE는 항상 확인 필요, 멀티 일정도 항상 카드 표시 (outer intent에 startDateTime 없음)
     // ambiguous: true이면 AM/PM 확인 전까지 저장 불가
+    // targetEventIds 배치 삭제도 확인 필수
     const requiresConfirm =
       result.intent.intent === 'DELETE' ||
       result.intent.intent === 'UPDATE' ||
       result.intent.intent === 'COMPLETE' ||
       (result.intent.events?.length ?? 0) > 0 ||
+      (result.intent.targetEventIds?.length ?? 0) > 0 ||
       result.intent.ambiguous === true;
 
     // ── confidence >= 0.85: 즉시 자동 저장 ──────────────────────

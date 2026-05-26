@@ -361,6 +361,21 @@ export function useSchedules(date: string, daysAhead = 0) {
         }
         target = candidates[0];
       }
+      // ── targetEventIds: 일괄 삭제 ────────────────────────────
+      if (intent.targetEventIds && intent.targetEventIds.length > 0) {
+        console.log('[VoiceFlow] DELETE batch:', intent.targetEventIds.length, intent.targetEventIds);
+        const deletedAt = new Date().toISOString();
+        const { error: batchErr } = await supabase
+          .from('events')
+          .update({ deleted_at: deletedAt })
+          .in('id', intent.targetEventIds);
+        console.log('[VoiceFlow] DB batch delete error:', batchErr?.message ?? null);
+        if (batchErr) throw new Error(batchErr.message);
+        const ids = new Set(intent.targetEventIds);
+        setEvents(prev => prev.filter(e => !ids.has(e.id)));
+        return intent.targetEventIds[0];
+      }
+
       const { data, error } = await supabase
         .from('events')
         .update({ deleted_at: new Date().toISOString() })

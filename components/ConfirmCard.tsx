@@ -63,11 +63,13 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
 
   const dateStr = resolvedDate ? formatKoreanTime(resolvedDate) : null;
 
-  const title =
-    intent.title ??
-    intent.updateFields?.title ??
-    intent.targetEventQuery ??
-    intent.deleteTargetQuery;
+  const batchCount = intent.targetEventIds?.length ?? 0;
+  const title = batchCount > 1
+    ? `${batchCount}개 일정`
+    : (intent.title ??
+       intent.updateFields?.title ??
+       intent.targetEventQuery ??
+       intent.deleteTargetQuery);
 
   return (
     <Animated.View style={[styles.card, { transform: [{ translateY: slideY }], opacity }]}>

@@ -111,6 +111,12 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 ## 일정 목록 컨텍스트 활용 (UPDATE/DELETE/COMPLETE 전용)
 사용자 발화에 '근처 일정 목록'이 제공될 수 있습니다. 제공된 경우:
 - 발화가 UPDATE/DELETE/COMPLETE 인텐트이고 목록에서 대상 일정이 명확히 특정되면 → 'targetEventId'에 해당 id를 설정
+- 발화에 "다/모두/전부/다 취소/전부 삭제/다 지워" 등 일괄 패턴이 있으면 → 매칭 id들을 'targetEventIds' 배열에 설정 + scope 설정
+  * "내일 일정 다 취소" → 내일 날짜 모든 이벤트 id 배열, scope: "all_day"
+  * "오늘 회의 다 취소" → 오늘 + 회의 키워드 매칭 id 배열, scope: "filtered"
+  * "이번 주 일정 다 지워" → 이번 주 모든 이벤트 id 배열, scope: "filtered"
+  * targetEventIds는 반드시 목록에 실제 있는 id만 포함 (추측 금지)
+- 단일 특정 → 'targetEventId' (문자열), 일괄 → 'targetEventIds' (배열)
 - 후보가 2개 이상이면 'targetEventId'는 null, 'targetEventQuery'만 반환 (호출자가 모호성 처리)
 - 목록에 없는 일정이면 'targetEventId'는 null
 
@@ -139,7 +145,9 @@ ambiguous: true이면 사용자가 AM/PM을 UI에서 선택하므로 date는 sug
   "notes": null,
   "attendees": null,
   "category": "work|personal|important",
-  "targetEventId": "uuid (UPDATE/DELETE/COMPLETE 시, 목록에서 명확히 매칭된 경우)",
+  "targetEventId": "uuid (단일 매칭, UPDATE/DELETE/COMPLETE 시)",
+  "targetEventIds": ["uuid1", "uuid2"],
+  "scope": "single|all_day|filtered",
   "targetEventQuery": "수정/삭제/완료 대상 검색어 (UPDATE/DELETE/COMPLETE)",
   "updateFields": { "startDateTime": ..., "title": ..., "location": ..., "notes": ... },
   "deleteTargetQuery": "삭제 대상 검색어",
