@@ -1,9 +1,13 @@
-import { Calendar, Check, FileText, MapPin, RefreshCw, Users } from 'lucide-react-native';
+import { Calendar, Check, FileText, MapPin, Mic, RefreshCw, Users } from 'lucide-react-native';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Colors } from '../constants/colors';
 import { ClassifiedIntent } from '../types';
 import { formatKoreanTime } from '../utils/timeFormat';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import { speechService } from '../services/voice/SpeechRecognitionService';
+import { ttsService } from '../services/voice/TTSService';
+import { matchAmbiguousResponse, AmbiguousResponse } from '../utils/voiceResponseMatcher';
 
 type Props = {
   intent: ClassifiedIntent;
@@ -21,20 +25,125 @@ const INTENT_LABEL: Record<string, string> = {
   UNKNOWN: '알 수 없음',
 };
 
+const RECORD_MS = 2500; // 음성 응답 최대 녹음 시간
+
 export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, onAmPmChange }: Props) {
   const slideY = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
-  const _dt = intent.startDateTime ?? intent.updateFields?.startDateTime;
-  console.log('[ConfirmCard/Full] props 받음:', { time: _dt?.date ?? 'none', ambiguous: intent.ambiguous, suggestedMeridiem: intent.suggestedMeridiem ?? 'none' });
+  console.log('[ConfirmCard/Full] props 받음:', { ambiguous: intent.ambiguous, suggestedMeridiem: intent.suggestedMeridiem ?? 'none' });
   console.log('[ConfirmCard/Full] showAmpmToggle 결정:', intent.ambiguous === true);
   console.log('[ConfirmCard/Full] 렌더 시점:', new Date().toISOString());
 
   const displayDateTime = intent.startDateTime ?? intent.updateFields?.startDateTime;
 
-  // AM/PM 선택 상태: ambiguous일 때만 사용자가 바꿀 수 있음
+  // AM/PM 선택 상태
   const initialMeridiem = intent.suggestedMeridiem ?? 'AM';
   const [meridiem, setMeridiem] = useState<'AM' | 'PM'>(initialMeridiem);
+  const [voiceActive, setVoiceActive] = useState(false);
+
+  // 음성 응답용 refs
+  const confirmedRef   = useRef(false);
+  const recordStopRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceRecorder  = useVoiceRecorder();
+
+  // resolveVoice는 매 렌더마다 최신 값을 캡처하도록 ref에 직접 할당
+  const resolveVoiceRef = useRef<((a: AmbiguousResponse | 'cancel') => void) | null>(null);
+  resolveVoiceRef.current = (action: AmbiguousResponse | 'cancel') => {
+    if (confirmedRef.current) return;
+    confirmedRef.current = true;
+    if (recordStopRef.current) clearTimeout(recordStopRef.current);
+    voiceRecorder.cancelRecording();
+    setVoiceActive(false);
+
+    if ((action === 'am' || action === 'pm') && displayDateTime) {
+      const m: 'AM' | 'PM' = action === 'am' ? 'AM' : 'PM';
+      const d = new Date(displayDateTime.date);
+      const h = d.getHours() % 12;
+      d.setHours(m === 'PM' ? h + 12 : h);
+      onAmPmChange?.({
+        ...intent,
+        ambiguous: false,
+        startDateTime: { ...displayDateTime, date: d.toISOString() },
+      });
+    }
+    if (action === 'cancel') {
+      onRetry();
+    } else {
+      onConfirm();
+    }
+  };
+
+  // 슬라이드인 애니메이션
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(slideY, { toValue: 0, useNativeDriver: true, tension: 60 }),
+      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  // 음성 응답 흐름 (ambiguous일 때만)
+  useEffect(() => {
+    if (!intent.ambiguous) return;
+    let active = true;
+
+    const run = async () => {
+      // TTS 완료 대기
+      await ttsService.waitForSpeech();
+      if (!active || confirmedRef.current) return;
+      await new Promise<void>(r => setTimeout(r, 200));
+      if (!active || confirmedRef.current) return;
+
+      await voiceRecorder.startRecording();
+      if (!active || confirmedRef.current) { voiceRecorder.cancelRecording(); return; }
+      setVoiceActive(true);
+      console.log('[ConfirmCard] 음성 응답 녹음 시작');
+
+      recordStopRef.current = setTimeout(async () => {
+        if (!active || confirmedRef.current) return;
+        setVoiceActive(false);
+        const uri = await voiceRecorder.stopRecording();
+
+        if (!uri) {
+          console.log('[ConfirmCard] 무음 → 추정값 확정');
+          resolveVoiceRef.current?.('confirm');
+          return;
+        }
+
+        try {
+          const stt    = await speechService.transcribe(uri, 'ko');
+          const action = matchAmbiguousResponse(stt.transcript);
+          console.log('[ConfirmCard] 음성 응답 매칭:', stt.transcript, '→', action);
+          resolveVoiceRef.current?.(action === 'unknown' ? 'confirm' : action);
+        } catch {
+          console.log('[ConfirmCard] STT 실패 → 추정값 확정');
+          resolveVoiceRef.current?.('confirm');
+        }
+      }, RECORD_MS);
+    };
+
+    run();
+    return () => {
+      active = false;
+      if (recordStopRef.current) clearTimeout(recordStopRef.current);
+      voiceRecorder.cancelRecording();
+    };
+  }, []);  // 마운트 시 1회
+
+  // 버튼 탭 시 음성 응답 루프 중단
+  const handleManualConfirm = useCallback(() => {
+    confirmedRef.current = true;
+    if (recordStopRef.current) clearTimeout(recordStopRef.current);
+    voiceRecorder.cancelRecording();
+    onConfirm();
+  }, [onConfirm, voiceRecorder]);
+
+  const handleManualRetry = useCallback(() => {
+    confirmedRef.current = true;
+    if (recordStopRef.current) clearTimeout(recordStopRef.current);
+    voiceRecorder.cancelRecording();
+    onRetry();
+  }, [onRetry, voiceRecorder]);
 
   const handleMeridiem = (m: 'AM' | 'PM') => {
     setMeridiem(m);
@@ -48,13 +157,6 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
       startDateTime: { ...displayDateTime, date: d.toISOString() },
     });
   };
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(slideY, { toValue: 0, useNativeDriver: true, tension: 60 }),
-      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-    ]).start();
-  }, []);
 
   // ambiguous 시 meridiem 선택에 따라 date를 재계산 (표시용)
   const resolvedDate = (() => {
@@ -115,6 +217,12 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
                     </Text>
                   </Pressable>
                 </View>
+                {voiceActive && (
+                  <View style={styles.voiceIndicator}>
+                    <Mic size={12} color={Colors.primary} />
+                    <Text style={styles.voiceHint}>듣고 있어요</Text>
+                  </View>
+                )}
               </View>
             ) : (
               <Text style={styles.detailText}>{dateStr}</Text>
@@ -150,10 +258,10 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
       </View>
 
       <View style={styles.actions}>
-        <Pressable style={styles.retryBtn} onPress={onRetry}>
+        <Pressable style={styles.retryBtn} onPress={handleManualRetry}>
           <Text style={styles.retryText}>다시</Text>
         </Pressable>
-        <Pressable style={styles.confirmBtn} onPress={onConfirm}>
+        <Pressable style={styles.confirmBtn} onPress={handleManualConfirm}>
           <Check size={16} color="#fff" />
           <Text style={styles.confirmText}>맞아요</Text>
         </Pressable>
@@ -243,6 +351,16 @@ const styles = StyleSheet.create({
   },
   ampmBtnTextActive: {
     color: '#fff',
+  },
+  voiceIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  voiceHint: {
+    fontSize: 12,
+    color: Colors.primary,
   },
   actions: {
     flexDirection: 'row',
