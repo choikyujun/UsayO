@@ -338,7 +338,16 @@ export default function TimeSpine({
                       )
                     : undefined
                 }
-                onReschedule={onReschedule}
+                onReschedule={onReschedule ? (id, time) => {
+                  // 드래그로 미래 시간으로 이동 → 완료 표시 해제
+                  setCompletedIds(prev => {
+                    if (!prev.has(id)) return prev;
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                  });
+                  onReschedule(id, time);
+                } : undefined}
               />
             ),
           )}

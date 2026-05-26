@@ -81,5 +81,12 @@ export function useMonthEvents(year: number, month: number) {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') load();
+    });
+    return () => subscription.unsubscribe();
+  }, [load]);
+
   return { eventsByDate, loading, reload: load };
 }

@@ -76,6 +76,16 @@ export function useEventsForDate(selectedDate: string, anchorYearMonth: string) 
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        load();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [load]);
+
+
   // Events for the selected day only (filtered from the already-loaded month)
   const events = useMemo(
     () => monthEvents.filter(e => localDateStr(new Date(e.start_at)) === selectedDate),

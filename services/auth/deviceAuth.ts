@@ -2,9 +2,6 @@ import * as Application from 'expo-application';
 import { Platform } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
-const EDGE_FN_URL   = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/device-auth`;
-const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-
 // Returns a stable device identifier.
 // Android: androidId — same signing key 유지 시 재설치 후에도 유지 (Android 8+)
 // iOS: identifierForVendor — 앱 삭제 시 초기화됨 (같은 vendor 앱이 남아있으면 유지)
@@ -27,31 +24,24 @@ export async function signInWithDevice(): Promise<string> {
   console.log('[Auth] device_id source:', source);
   console.log('[Auth] device_id value:', deviceId);
 
-  const payload = { device_id: deviceId };
-  console.log('[Auth] Edge Function call payload:', JSON.stringify(payload));
-
-  const res = await fetch(EDGE_FN_URL, {
-    method:  'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${SUPABASE_ANON}`,
-      'apikey':        SUPABASE_ANON,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    console.log('[Auth] Edge Function error:', res.status, text);
-    throw new Error(`device-auth failed ${res.status}: ${text}`);
-  }
-
-  const authResult = await res.json() as {
+  const { data: authResult, error: fnError } = await supabase.functions.invoke<{
     access_token:   string;
     refresh_token:  string;
     user_id:        string;
     is_new_mapping?: boolean;
-  };
+  }>('device-auth', {
+    body: { device_id: deviceId },
+  });
+
+  if (fnError || !authResult) {
+    let msg = fnError?.message ?? 'empty response';
+    try {
+      const body = await (fnError as any)?.context?.text?.();
+      if (body) msg += ` | body: ${body}`;
+    } catch {}
+    console.log('[Auth] Edge Function error:', msg);
+    throw new Error(`device-auth failed: ${msg}`);
+  }
 
   console.log('[Auth] Edge Function response:', JSON.stringify({
     user_id:        authResult.user_id,

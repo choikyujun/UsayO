@@ -4,8 +4,7 @@ import { Database, Event } from '../types/database';
 import { ClassifiedIntent, VoiceCommand } from '../types';
 import { widgetService } from '../services/widget/WidgetService';
 import { expandRecurringEvent, EventException } from '../utils/recurrenceHelpers';
-import { scheduleEventNotification } from '../services/notifications';
-import { defaultOffset } from '../utils/notificationHelpers';
+import { scheduleEventNotification, getEnabledOffsets } from '../services/notifications';
 
 type Schedule = Database['public']['Tables']['schedules']['Row'];
 
@@ -229,6 +228,16 @@ export function useSchedules(date: string, daysAhead = 0) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Re-fetch when device auth completes (setSession triggers SIGNED_IN or TOKEN_REFRESHED)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        load();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [load]);
+
   async function applyVoiceCommand(command: VoiceCommand): Promise<void> {
     const userId = await ensureAuth();
 
@@ -296,7 +305,7 @@ export function useSchedules(date: string, daysAhead = 0) {
         ...(recurrenceEndDate ? { recurrence_end_date: recurrenceEndDate } : {}),
         created_via: 'voice' as const,
         voice_transcript: intent.rawTranscript ?? null,
-        notification_offset_minutes: defaultOffset(isAllDay),
+        notification_offset_minutes: null,
       };
 
       console.log('[Save] event:', payload);

@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Mic, Settings2 } from 'lucide-react-native';
 import AppHeader from '../components/AppHeader';
@@ -101,6 +101,12 @@ export default function HomeScreen() {
   } = useSchedules(selectedDate, 7);
 
   const recurringEvents = useRecurringEvents(recurringParents);
+
+  // 다른 화면에서 돌아올 때(DayView 삭제/수정 등) 즉시 반영
+  useFocusEffect(useCallback(() => {
+    reloadForDate();
+    reloadSchedules();
+  }, [reloadForDate, reloadSchedules]));
 
   // First upcoming event for conversational header (오늘이 빈 날 케이스)
   const firstUpcoming = useMemo(() => {

@@ -90,5 +90,12 @@ export function useWeekEvents(days: string[]) {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') load();
+    });
+    return () => subscription.unsubscribe();
+  }, [load]);
+
   return { eventsByDate, loading, reload: load };
 }

@@ -81,5 +81,12 @@ export function useDayEvents(dateStr: string) {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') load();
+    });
+    return () => subscription.unsubscribe();
+  }, [load]);
+
   return { events, loading, reload: load };
 }

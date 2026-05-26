@@ -60,16 +60,20 @@ export function calculateNewTime(
 
   let candidate = snapTo30Minutes(anchor);
 
-  // Clamp to future
-  const floor = addMinutes(new Date(), 30);
-  if (candidate.getTime() < floor.getTime()) candidate = snapTo30Minutes(floor);
+  // Clamp to near-future: minimum 5 min from now.
+  // Do NOT snap the floor itself — snapTo30Minutes can roll past midnight (e.g. 23:50 → 00:00 tomorrow).
+  const floorMs = Date.now() + 5 * 60_000;
+  if (candidate.getTime() < floorMs) candidate = new Date(floorMs);
 
-  // Resolve conflicts by bumping forward
+  // 자정(오늘 끝) — 충돌 해소가 이 시각을 넘으면 멈춤
+  const midnight = new Date(candidate);
+  midnight.setHours(23, 59, 59, 999);
+
+  // Resolve conflicts by bumping forward, but never cross midnight
   for (let attempt = 0; attempt < 10; attempt++) {
     const candidateEnd = new Date(candidate.getTime() + durationMs);
     if (!hasConflict(candidate, candidateEnd, events, excludeId)) break;
 
-    // Find the conflicting event that ends latest
     const conflicting = events.filter(ev => {
       if (ev.id === excludeId) return false;
       const evS = new Date(ev.start_at).getTime();
@@ -82,7 +86,10 @@ export function calculateNewTime(
       (max, ev) => Math.max(max, new Date(ev.end_at).getTime()),
       0,
     );
-    candidate = snapTo30Minutes(new Date(latestEnd));
+    const next = snapTo30Minutes(new Date(latestEnd));
+    // 자정을 넘기면 충돌을 허용하고 현재 위치 유지
+    if (next.getTime() > midnight.getTime()) break;
+    candidate = next;
   }
 
   return candidate;

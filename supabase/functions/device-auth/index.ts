@@ -5,33 +5,6 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ── JWT signing via Web Crypto (Deno built-in, no external deps) ─────────
-function b64url(buf: ArrayBuffer | Uint8Array): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buf as ArrayBuffer)))
-    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-}
-
-async function signJWT(
-  payload: Record<string, unknown>,
-  secret: string,
-): Promise<string> {
-  const header  = b64url(new TextEncoder().encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
-  const body    = b64url(new TextEncoder().encode(JSON.stringify(payload)));
-  const data    = `${header}.${body}`;
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
-  return `${data}.${b64url(sig)}`;
-}
-
-// ── Main handler ─────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS });
@@ -39,7 +12,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const { device_id } = await req.json() as { device_id?: string };
-    console.log('[device-auth] received device_id:', device_id);
+    console.log('[device-auth] device_id:', device_id);
 
     if (!device_id || typeof device_id !== 'string' || device_id.length < 4) {
       return json({ error: 'invalid device_id' }, 400);
@@ -47,13 +20,15 @@ Deno.serve(async (req: Request) => {
 
     const supabaseUrl    = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const jwtSecret      = Deno.env.get('SUPABASE_JWT_SECRET')!;
+    const anonKey        = Deno.env.get('SUPABASE_ANON_KEY')!;
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // ── 1. Look up or create user ────────────────────────────────────────
+    const deviceEmail = `device_${device_id}@yusay.device`;
+
+    // ── 1. Look up or create user ─────────────────────────────────────────
     let userId: string;
     let isNewMapping = false;
 
@@ -63,54 +38,119 @@ Deno.serve(async (req: Request) => {
       .eq('device_id', device_id)
       .maybeSingle();
 
-    console.log('[device-auth] existing mapping lookup:', JSON.stringify(mapping), '| error:', lookupErr?.message ?? null);
-
+    console.log('[device-auth] mapping:', JSON.stringify(mapping), '| err:', lookupErr?.message ?? null);
     if (lookupErr) throw new Error(`lookup: ${lookupErr.message}`);
 
     if (mapping?.user_id) {
       userId = mapping.user_id;
-      console.log('[device-auth] action: returned existing | user_id:', userId);
+      console.log('[device-auth] existing user:', userId);
+
+      // Ensure user has email for OTP generation (migrate if created by old code)
+      const { data: userData } = await admin.auth.admin.getUserById(userId);
+      if (!userData.user?.email) {
+        console.log('[device-auth] migrating: adding email to user');
+        const { error: migrateErr } = await admin.auth.admin.updateUserById(userId, {
+          email: deviceEmail,
+          email_confirm: true,
+        });
+        if (migrateErr) throw new Error(`migrate: ${migrateErr.message}`);
+      }
+
       await admin
         .from('device_user_mapping')
         .update({ last_login: new Date().toISOString() })
         .eq('device_id', device_id);
     } else {
-      console.log('[device-auth] action: creating new user for device_id:', device_id);
+      console.log('[device-auth] creating new user for device:', device_id);
       const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
+        email: deviceEmail,
         email_confirm: true,
-        app_metadata:  { provider: 'device', device_id },
+        app_metadata: { provider: 'device', device_id },
       });
-      if (createErr || !newUser.user) throw new Error(`createUser: ${createErr?.message}`);
-      userId = newUser.user.id;
-      isNewMapping = true;
 
+      if (createErr) {
+        // Email already exists: mapping was deleted but auth user still remains.
+        // Find the orphaned user via generateLink (returns user info without sending email).
+        if (createErr.message?.toLowerCase().includes('already')) {
+          console.log('[device-auth] email exists, reconnecting orphaned user...');
+          const { data: orphanLink, error: orphanErr } = await admin.auth.admin.generateLink({
+            type: 'magiclink',
+            email: deviceEmail,
+          });
+          if (orphanErr || !orphanLink?.user?.id) {
+            throw new Error(`find orphaned user: ${orphanErr?.message ?? 'no user'}`);
+          }
+          userId = orphanLink.user.id;
+          console.log('[device-auth] reconnected orphaned user:', userId);
+        } else {
+          throw new Error(`createUser: ${createErr.message}`);
+        }
+      } else {
+        userId = newUser.user!.id;
+        console.log('[device-auth] created new user:', userId);
+      }
+
+      isNewMapping = true;
       const { error: insertErr } = await admin.from('device_user_mapping').insert({
         device_id, user_id: userId,
       });
       if (insertErr) throw new Error(`insert mapping: ${insertErr.message}`);
-      console.log('[device-auth] action: created new | user_id:', userId);
     }
 
-    console.log('[device-auth] final user_id:', userId, '| is_new_mapping:', isNewMapping);
+    // ── 2. Generate magic link OTP and exchange for session ───────────────
+    // Use the user's actual email (not deviceEmail) so the token is for the correct user.
+    const { data: uidData } = await admin.auth.admin.getUserById(userId);
+    const linkEmail = uidData.user?.email ?? deviceEmail;
+    console.log('[device-auth] generating link for email:', linkEmail, '| userId:', userId);
 
-    // ── 2. Issue tokens (30-day access + 30-day refresh) ─────────────────
-    const now     = Math.floor(Date.now() / 1000);
-    const exp30d  = now + 60 * 60 * 24 * 30;
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: linkEmail,
+    });
 
-    const baseClaims = {
-      sub:  userId,
-      role: 'authenticated',
-      aud:  'authenticated',
-      iss:  'supabase',
-      iat:  now,
+    if (linkErr || !linkData?.properties?.hashed_token) {
+      throw new Error(`generateLink: ${linkErr?.message ?? 'no token in response'}`);
+    }
+
+    console.log('[device-auth] link generated, exchanging token for session...');
+
+    // POST /verify with no redirect_to returns JSON session directly (GoTrue behavior).
+    const verifyResp = await fetch(`${supabaseUrl}/auth/v1/verify`, {
+      method: 'POST',
+      headers: {
+        'apikey':       anonKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token_hash: linkData.properties.hashed_token,
+        type:       'magiclink',
+      }),
+    });
+
+    if (!verifyResp.ok) {
+      const errBody = await verifyResp.text();
+      throw new Error(`verifyOtp: ${verifyResp.status} ${errBody}`);
+    }
+
+    const session = await verifyResp.json() as {
+      access_token:  string;
+      refresh_token: string;
+      user?: { id: string };
     };
 
-    const [accessToken, refreshToken] = await Promise.all([
-      signJWT({ ...baseClaims, exp: exp30d },             jwtSecret),
-      signJWT({ ...baseClaims, exp: exp30d, type: 'refresh' }, jwtSecret),
-    ]);
+    if (!session.access_token) {
+      throw new Error('verifyOtp: no access_token in response');
+    }
 
-    return json({ access_token: accessToken, refresh_token: refreshToken, user_id: userId, is_new_mapping: isNewMapping });
+    console.log('[device-auth] session ready, user_id:', session.user?.id ?? userId);
+
+    return json({
+      access_token:   session.access_token,
+      refresh_token:  session.refresh_token,
+      user_id:        userId,
+      is_new_mapping: isNewMapping,
+    });
+
   } catch (err) {
     console.error('[device-auth]', err);
     return json({ error: (err as Error).message }, 500);
