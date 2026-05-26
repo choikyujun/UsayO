@@ -8,11 +8,7 @@ import { expandRecurringEvent, EventException } from '../utils/recurrenceHelpers
 type Schedule = Database['public']['Tables']['schedules']['Row'];
 
 // ── 이벤트 검색 헬퍼 ─────────────────────────────────────────────
-// query: LLM이 반환한 검색어 (제목 기반)
-// hintDate: LLM이 추출한 날짜 힌트 (ISO8601). 있으면 해당 일자만 검색
 async function searchEventsByQuery(query: string, hintDate?: string): Promise<Event[]> {
-  if (!query.trim()) return [];
-
   // 날짜·시간·동사 제거 → 제목 키워드만 추출
   const cleaned = query
     .replace(/내일|오늘|모레|어제|다음\s*주|이번\s*주|저번\s*주/, '')
@@ -23,27 +19,44 @@ async function searchEventsByQuery(query: string, hintDate?: string): Promise<Ev
     .trim();
 
   const term = cleaned || query.trim();
+  console.log('[Search] ilike term="%s" hintDate=%s', term, hintDate ?? 'none');
 
-  let q = supabase
-    .from('events')
-    .select('*')
-    .is('deleted_at', null)
-    .ilike('title', `%${term}%`);
+  // 쿼리 빌더 (공통)
+  const buildQ = (term: string) =>
+    supabase.from('events').select('*').is('deleted_at', null)
+      .ilike('title', `%${term}%`)
+      .order('start_at', { ascending: true });
 
-  if (hintDate) {
+  // 날짜 범위: 오늘 자정 ~ +30일 (earlier-today 포함)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const end30 = new Date(todayStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  // Try 1 — hintDate 있을 때: 해당 일자 정확 검색
+  if (hintDate && term) {
     const d        = new Date(hintDate);
     const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
     const dayEnd   = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
-    q = q.gte('start_at', dayStart.toISOString()).lte('start_at', dayEnd.toISOString());
-  } else {
-    // 날짜 힌트 없음 → 오늘부터 30일 이내 검색
-    const now  = new Date();
-    const end  = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    q = q.gte('start_at', now.toISOString()).lte('start_at', end.toISOString());
+    const { data: r1 } = await buildQ(term)
+      .gte('start_at', dayStart.toISOString())
+      .lte('start_at', dayEnd.toISOString());
+    if (r1?.length) {
+      console.log('[Search] hintDate hit:', r1.length, r1.map(e => `"${e.title}"`));
+      return r1 as Event[];
+    }
+    console.log('[Search] hintDate miss → full-range fallback');
   }
 
-  const { data } = await q.order('start_at', { ascending: true });
-  return (data ?? []) as Event[];
+  // Try 2 — 날짜 없이 오늘 자정~30일 범위 (timezone 어긋남, no-hint 모두 처리)
+  if (term) {
+    const { data: r2 } = await buildQ(term)
+      .gte('start_at', todayStart.toISOString())
+      .lte('start_at', end30.toISOString());
+    console.log('[Search] full-range hit:', r2?.length ?? 0);
+    return (r2 ?? []) as Event[];
+  }
+
+  return [];
 }
 
 function dateRange(fromDate: string, daysAhead: number) {

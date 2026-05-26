@@ -2,7 +2,7 @@ import { ClassifiedIntent, ParsedDateTime } from '../../types';
 import { KoreanDateParser } from '../nlp/KoreanDateParser';
 
 const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-3-5-haiku-20241022';  // 실시간 처리 → 속도 우선 (Claude 3.5 Haiku)
+const MODEL = 'claude-haiku-4-5-20251001';  // 실시간 처리 → 속도 우선 (Claude Haiku 4.5)
 
 const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리 엔진입니다.
 사용자의 한국어 발화를 분석하여 반드시 유효한 JSON만 반환하세요. 다른 텍스트는 절대 포함하지 마세요.
@@ -260,14 +260,31 @@ export class IntentClassifierService {
       }
     }
 
+    // DELETE/UPDATE: targetEventQuery 추출 (제목 키워드, 검색용)
+    const eventKeyword = this.extractEventKeyword(text);
+
     return {
       intent,
       confidence: 0.7,
       title: this.extractTitle(text, intent),
       startDateTime: intent === 'NAVIGATION' ? undefined : startDateTime,
       navigationTarget,
+      targetEventQuery:    (intent === 'DELETE' || intent === 'UPDATE') ? eventKeyword : undefined,
+      deleteTargetQuery:   intent === 'DELETE'                          ? eventKeyword : undefined,
       rawTranscript: text,
     };
+  }
+
+  // 발화에서 제목 키워드 추출 (DELETE/UPDATE 검색용)
+  private extractEventKeyword(text: string): string {
+    return text
+      .replace(/내일|모레|오늘|다음\s*주|이번\s*주|어제/, '')
+      .replace(/오전|오후|아침|점심|저녁|밤|새벽|퇴근/, '')
+      .replace(/\d+\s*시(\s*\d+\s*분)?/, '')
+      .replace(/취소해줘|삭제해줘|지워줘|없애줘|바꿔줘|수정해줘|변경해줘|옮겨줘|잡아줘|등록해줘|추가해줘|해줘/, '')
+      .replace(/을|를|이|가|은|는/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private parseDateTime(text: string): ParsedDateTime {
