@@ -135,8 +135,16 @@ export function useVoiceFlow() {
       (result.intent.targetEventIds?.length ?? 0) > 0 ||
       result.intent.ambiguous === true;
 
+    console.log('[VoiceFlow] 확인 단계 필요:', requiresConfirm,
+      '| intent:', result.intent.intent,
+      '| confidence:', confidence,
+      '| ambiguous:', result.intent.ambiguous,
+      '| onAutoSave:', !!onAutoSave,
+    );
+
     // ── confidence >= 0.85: 즉시 자동 저장 ──────────────────────
     if (confidence >= 0.85 && onAutoSave && !requiresConfirm) {
+      console.log('[VoiceFlow] DB 저장 호출 (auto-save), time:', result.intent.startDateTime?.date ?? 'none');
       store.setTranscript(result.sttResult?.transcript ?? null);
       store.setClassifiedIntent(result.intent);
       store.setPhase('processing');

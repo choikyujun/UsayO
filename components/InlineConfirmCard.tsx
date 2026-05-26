@@ -97,6 +97,11 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  const dt = intent.startDateTime ?? intent.updateFields?.startDateTime;
+  console.log('[ConfirmCard/Inline] props 받음:', { time: dt?.date ?? 'none', ambiguous: intent.ambiguous, suggestedMeridiem: intent.suggestedMeridiem ?? 'none' });
+  console.log('[ConfirmCard/Inline] showAmpmToggle 결정:', false, '(InlineConfirmCard는 AM/PM 토글 없음 — ambiguous이면 ConfirmCard로 라우팅돼야 함)');
+  console.log('[ConfirmCard/Inline] 렌더 시점:', new Date().toISOString());
+
   const [micActive, setMicActive] = useState(false);
 
   const confirmedRef   = useRef(false);
@@ -169,7 +174,6 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
     };
   }, []);
 
-  const dt      = intent.startDateTime ?? intent.updateFields?.startDateTime;
   const dateStr = dt ? formatDateTime(dt.date, dt.originalText) : null;
   const title   =
     intent.title ??

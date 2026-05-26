@@ -265,9 +265,13 @@ export class IntentClassifierService {
       const jsonText = rawText.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(jsonText) as ClassifiedIntent;
       parsed.rawTranscript = transcript;
+      console.log('[Intent] === 발화 분석 ===');
       console.log('[Intent] 발화:', transcript);
-      console.log('[Intent] LLM 응답 raw:', rawText.slice(0, 300));
-      console.log('[Intent] ambiguous:', parsed.ambiguous, '| suggestedMeridiem:', parsed.suggestedMeridiem ?? 'none');
+      console.log('[Intent] LLM 시스템 프롬프트 길이:', systemPrompt.length);
+      console.log('[Intent] LLM 응답 raw:', rawText);
+      console.log('[Intent] parsed time:', parsed.startDateTime?.date ?? 'none');
+      console.log('[Intent] parsed ambiguous:', parsed.ambiguous);
+      console.log('[Intent] parsed suggested_meridiem:', parsed.suggestedMeridiem ?? 'none');
       console.log('[Intent] classified:', JSON.stringify({
         intent: parsed.intent,
         title: parsed.title,

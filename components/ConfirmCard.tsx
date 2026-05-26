@@ -25,6 +25,11 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
   const slideY = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
+  const _dt = intent.startDateTime ?? intent.updateFields?.startDateTime;
+  console.log('[ConfirmCard/Full] props 받음:', { time: _dt?.date ?? 'none', ambiguous: intent.ambiguous, suggestedMeridiem: intent.suggestedMeridiem ?? 'none' });
+  console.log('[ConfirmCard/Full] showAmpmToggle 결정:', intent.ambiguous === true);
+  console.log('[ConfirmCard/Full] 렌더 시점:', new Date().toISOString());
+
   const displayDateTime = intent.startDateTime ?? intent.updateFields?.startDateTime;
 
   // AM/PM 선택 상태: ambiguous일 때만 사용자가 바꿀 수 있음

@@ -76,6 +76,7 @@ export async function runVoiceFlow(
   }
 
   console.log('[Voice] LLM result:', JSON.stringify({ intent: intent.intent, confidence: intent.confidence, title: intent.title, deleteTargetQuery: intent.deleteTargetQuery, targetEventQuery: intent.targetEventQuery }));
+  console.log('[VoiceFlow] CREATE 진입, ambiguous:', intent.ambiguous, '| suggestedMeridiem:', intent.suggestedMeridiem ?? 'none', '| time:', intent.startDateTime?.date ?? 'none');
 
   if (intent.intent === 'UNKNOWN' || intent.confidence < CONFIDENCE_THRESHOLD) {
     if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('lowConfidence')).catch(() => {});
