@@ -150,16 +150,26 @@ export async function scheduleEventNotification(event: Event): Promise<string | 
 
 export async function cancelEventNotification(eventId: string): Promise<void> {
   if (!N) return;
-  const ids = notifIdMap.get(eventId);
-  if (!ids || ids.length === 0) return;
+
+  // 1) 인메모리 맵에서 취소 (현재 세션에서 예약한 경우)
+  const ids = notifIdMap.get(eventId) ?? [];
   for (const id of ids) {
-    try {
-      await N.cancelScheduledNotificationAsync(id);
-    } catch (e) {
-      console.log('[Notifications] cancel 실패:', e);
-    }
+    try { await N.cancelScheduledNotificationAsync(id); } catch {}
   }
   notifIdMap.delete(eventId);
+
+  // 2) 앱 재시작 후 맵이 비워진 경우: 시스템 큐를 스캔해서 eventId 매칭 알림 전부 취소
+  try {
+    const all = await N.getAllScheduledNotificationsAsync();
+    const stale = all.filter(n => (n.content.data as Record<string, unknown>)?.eventId === eventId);
+    await Promise.all(stale.map(n => N!.cancelScheduledNotificationAsync(n.identifier).catch(() => {})));
+    if (stale.length > 0) {
+      console.log('[Notifications] 앱 재시작 후 스캔 취소:', eventId, '개수:', stale.length);
+    }
+  } catch (e) {
+    console.log('[Notifications] 스캔 취소 실패:', e);
+  }
+
   console.log('[Notifications] 취소 완료:', eventId);
 }
 

@@ -4,7 +4,7 @@ import { Database, Event } from '../types/database';
 import { ClassifiedIntent, VoiceCommand } from '../types';
 import { widgetService } from '../services/widget/WidgetService';
 import { expandRecurringEvent, EventException } from '../utils/recurrenceHelpers';
-import { scheduleEventNotification, getEnabledOffsets } from '../services/notifications';
+import { scheduleEventNotification, cancelEventNotification, getEnabledOffsets } from '../services/notifications';
 
 type Schedule = Database['public']['Tables']['schedules']['Row'];
 
@@ -366,6 +366,7 @@ export function useSchedules(date: string, daysAhead = 0) {
         if (batchErr) throw new Error(batchErr.message);
         const ids = new Set(intent.targetEventIds);
         setEvents(prev => prev.filter(e => !ids.has(e.id)));
+        await Promise.all(intent.targetEventIds.map(id => cancelEventNotification(id)));
         return intent.targetEventIds[0];
       }
 
@@ -399,6 +400,7 @@ export function useSchedules(date: string, daysAhead = 0) {
       if (error) throw new Error(error.message);
 
       setEvents(prev => prev.filter(e => e.id !== target.id));
+      cancelEventNotification(target.id).catch(() => {});
       return target.id;
     }
 
@@ -512,6 +514,14 @@ export function useSchedules(date: string, daysAhead = 0) {
     return undefined;
   }
 
+  async function deleteEventById(eventId: string): Promise<void> {
+    setEvents(prev => prev.filter(e => e.id !== eventId));
+    await Promise.all([
+      supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', eventId),
+      cancelEventNotification(eventId),
+    ]);
+  }
+
   async function undoSave(eventId: string): Promise<void> {
     await supabase
       .from('events')
@@ -575,6 +585,7 @@ export function useSchedules(date: string, daysAhead = 0) {
     lastCreatedId,
     applyVoiceCommand,
     applyClassifiedIntent,
+    deleteEventById,
     undoSave,
     rescheduleEvent,
     undoRescheduleEvent,
