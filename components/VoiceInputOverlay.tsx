@@ -11,11 +11,12 @@ import ReAnimated, {
 import { useColors } from '../constants/colors';
 
 interface Props {
-  visible:  boolean;
-  onCancel: () => void;
+  visible:     boolean;
+  onCancel:    () => void;
+  onComplete?: () => void; // 마이크 탭 → 즉시 저장
 }
 
-export default function VoiceInputOverlay({ visible, onCancel }: Props) {
+export default function VoiceInputOverlay({ visible, onCancel, onComplete }: Props) {
   const colors = useColors();
 
   const scale = useSharedValue(1);
@@ -48,22 +49,34 @@ export default function VoiceInputOverlay({ visible, onCancel }: Props) {
       onRequestClose={onCancel}
       statusBarTranslucent
     >
+      {/* 외부 dim 영역 탭 → 취소 */}
       <Pressable style={styles.backdrop} onPress={onCancel}>
         <View style={styles.center} pointerEvents="box-none">
-          {/* Pulse ring */}
+          {/* Pulse ring (non-interactive) */}
           <ReAnimated.View
             style={[styles.pulseRing, { borderColor: colors.primary }, pulseStyle]}
           />
 
-          {/* Mic circle */}
-          <View style={[styles.micCircle, { backgroundColor: colors.primary + '22' }]}>
+          {/* 마이크 영역 탭 → 저장 */}
+          <Pressable
+            onPress={onComplete ?? onCancel}
+            hitSlop={20}
+            style={[styles.micCircle, { backgroundColor: colors.primary + '22' }]}
+          >
             <Mic size={48} color={colors.primary} strokeWidth={1.5} />
-          </View>
+          </Pressable>
 
           <Text style={styles.listenText}>듣고 있어요</Text>
-          <Text style={[styles.cancelHint, { color: colors.textSecondary }]}>
-            다시 탭하면 취소
-          </Text>
+
+          {onComplete ? (
+            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+              마이크 탭 = 저장  ·  바깥 탭 = 취소
+            </Text>
+          ) : (
+            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+              다시 탭하면 취소
+            </Text>
+          )}
         </View>
       </Pressable>
     </Modal>
@@ -101,7 +114,8 @@ const styles = StyleSheet.create({
     fontWeight:   '500',
     marginBottom: 8,
   },
-  cancelHint: {
-    fontSize: 12,
+  hintText: {
+    fontSize:  12,
+    textAlign: 'center',
   },
 });

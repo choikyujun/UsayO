@@ -284,7 +284,11 @@ export default function DayViewScreen() {
       </GestureDetector>
 
       {/* ── Long-press voice overlay ─────────────────────────────── */}
-      <VoiceInputOverlay visible={voice.overlayVisible} onCancel={handleVoiceCancel} />
+      <VoiceInputOverlay
+        visible={voice.overlayVisible}
+        onCancel={handleVoiceCancel}
+        onComplete={() => voice.stopAndProcessStored()}
+      />
 
       {/* ── Voice overlays ───────────────────────────────────────── */}
       {voice.phase === 'listening' && !voice.overlayVisible && (

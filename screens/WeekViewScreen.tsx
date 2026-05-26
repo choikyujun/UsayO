@@ -276,6 +276,7 @@ export default function WeekViewScreen() {
       <VoiceInputOverlay
         visible={voice.overlayVisible}
         onCancel={() => voice.cancelVoiceInput()}
+        onComplete={() => voice.stopAndProcessStored()}
       />
 
       {/* ── Inline / Multi confirm card ──────────────────────────── */}

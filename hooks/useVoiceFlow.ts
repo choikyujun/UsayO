@@ -164,6 +164,13 @@ export function useVoiceFlow() {
     await processUri(uri, onAutoSave, onUndo);
   }, [store, recorder, processUri]);
 
+  // 마이크 탭 즉시 저장 — startVoice 때 저장된 콜백 재사용
+  const stopAndProcessStored = useCallback(async () => {
+    store.setPhase('processing');
+    const uri = await recorder.stopRecording();
+    await processUri(uri, onAutoSaveRef.current, onUndoRef.current);
+  }, [store, recorder, processUri]);
+
   // 하이브리드 입력 확정
   const confirmHybridInput = useCallback(async (editedText: string) => {
     store.setPhase('processing');
@@ -289,5 +296,6 @@ export function useVoiceFlow() {
     setConfirmedIntent,
     confirmAction,
     confirmMultiAction,
+    stopAndProcessStored,
   };
 }
