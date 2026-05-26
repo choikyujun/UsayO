@@ -283,8 +283,18 @@ export function useSchedules(date: string, daysAhead = 0) {
     console.log('[Schedules] applyClassifiedIntent userId:', userId);
 
     if (intent.intent === 'CREATE' && intent.startDateTime) {
+      // ambiguous가 아직 true면 (사용자가 토글 안 건드림) suggestedMeridiem을 date에 반영
+      let resolvedStartDate = intent.startDateTime.date;
+      if (intent.ambiguous && intent.suggestedMeridiem) {
+        const d = new Date(intent.startDateTime.date);
+        const h12 = d.getHours() % 12;
+        d.setHours(intent.suggestedMeridiem === 'PM' ? h12 + 12 : h12);
+        resolvedStartDate = d.toISOString();
+        console.log('[Save] ambiguous → suggestedMeridiem 적용:', intent.suggestedMeridiem, resolvedStartDate);
+      }
+
       const endAt = intent.endDateTime?.date
-        ?? new Date(new Date(intent.startDateTime.date).getTime() + 3_600_000).toISOString();
+        ?? new Date(new Date(resolvedStartDate).getTime() + 3_600_000).toISOString();
 
       const recurrenceEndDate = intent.startDateTime.recurrenceUntil
         ? intent.startDateTime.recurrenceUntil.split('T')[0]
@@ -294,7 +304,7 @@ export function useSchedules(date: string, daysAhead = 0) {
       const payload = {
         user_id: userId,
         title: intent.title ?? '새 일정',
-        start_at: intent.startDateTime.date,
+        start_at: resolvedStartDate,
         end_at: endAt,
         location: intent.location ?? null,
         description: intent.notes ?? null,

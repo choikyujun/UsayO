@@ -255,7 +255,7 @@ export class IntentClassifierService {
         }
         // 4xx (모델 ID 오류, 키 오류 등) → regex fallback으로 음성 입력 유지
         console.log('[Intent] Claude API 4xx — regex fallback 사용');
-        return this.regexFallback(transcript, prefillContext);
+        return this.postProcessAmbiguous(this.regexFallback(transcript, prefillContext), transcript);
       }
 
       const data = await response.json();
@@ -284,12 +284,12 @@ export class IntentClassifierService {
         events: parsed.events?.length,
         confidence: parsed.confidence,
       }));
-      return parsed;
+      return this.postProcessAmbiguous(parsed, transcript);
 
     } catch (e) {
       if (e instanceof SyntaxError) {
         console.error('[Intent] JSON 파싱 실패 — fallback');
-        return this.regexFallback(transcript);
+        return this.postProcessAmbiguous(this.regexFallback(transcript), transcript);
       }
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('Network') || msg.includes('fetch')) {
@@ -382,6 +382,41 @@ export class IntentClassifierService {
       completeTargetQuery: intent === 'COMPLETE'                                                ? eventKeyword : undefined,
       rawTranscript: text,
     };
+  }
+
+  // LLM 무관하게 N시(1-12) + 수식어 없으면 ambiguous: true 강제
+  private postProcessAmbiguous(parsed: ClassifiedIntent, transcript: string): ClassifiedIntent {
+    if (parsed.intent !== 'CREATE' || !parsed.startDateTime) return parsed;
+    if (parsed.ambiguous === true) return parsed; // 이미 ambiguous → 그대로
+
+    // 발화에 N시 (1-12) 패턴 있는지 확인
+    const timeMatch = transcript.match(/(\d{1,2})\s*시/);
+    if (!timeMatch) return parsed;
+    const hourNum = parseInt(timeMatch[1]);
+    if (hourNum < 1 || hourNum > 12) return parsed; // 13시+ 명확
+
+    // 명시적 수식어가 시간 앞에 있으면 신뢰 ("오후 6시", "저녁 6시" 등)
+    if (/(오전|오후|새벽|밤|아침|저녁)\s*\d{1,2}\s*시/.test(transcript)) return parsed;
+
+    // 독립 시간 키워드 ("점심", "퇴근", "정오", "자정")
+    if (/(점심|퇴근|정오|자정)/.test(transcript)) return parsed;
+
+    // 1~6 → PM 추정, 7~12 → AM 추정
+    const suggested: 'AM' | 'PM' = hourNum <= 6 ? 'PM' : 'AM';
+
+    // 날짜 명시 없는 발화: 추정 시각이 이미 지났으면 LLM 롤오버 판단 신뢰
+    const hasDate = /(내일|모레|오늘|다음\s*주|이번\s*주|\d+일\s*후|월요일|화요일|수요일|목요일|금요일|토요일|일요일)/.test(transcript);
+    if (!hasDate) {
+      const now = new Date();
+      const h24 = suggested === 'PM'
+        ? (hourNum === 12 ? 12 : hourNum + 12)
+        : (hourNum === 12 ? 0 : hourNum);
+      const todayEst = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h24, 0, 0, 0);
+      if (todayEst <= now) return parsed; // 이미 지남 → 롤오버 신뢰
+    }
+
+    console.log('[Intent] postProcess: ambiguous 강제 —', transcript, '→ suggestedMeridiem:', suggested);
+    return { ...parsed, ambiguous: true, suggestedMeridiem: suggested };
   }
 
   // 발화에서 제목 키워드 추출 (DELETE/UPDATE 검색용)
