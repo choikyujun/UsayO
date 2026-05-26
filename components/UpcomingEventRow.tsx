@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
@@ -17,60 +18,86 @@ interface Props {
   expanded:     boolean;
   onTap:        () => void;
   onLongPress?: () => void;
+  onDelete?:    () => void;
 }
 
-export default function UpcomingEventRow({ event, colors, expanded, onTap, onLongPress }: Props) {
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+export default function UpcomingEventRow({ event, colors, expanded, onTap, onLongPress, onDelete }: Props) {
+  const styles   = useMemo(() => makeStyles(colors), [colors]);
+  const swipeRef = useRef<Swipeable>(null);
   const startTime = formatTimeRow(new Date(event.start_at));
 
-  function handleLongPress() {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  async function handleLongPress() {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     onLongPress?.();
   }
 
-  return (
-    <Pressable
-      onPress={onTap}
-      onLongPress={onLongPress ? handleLongPress : undefined}
-      delayLongPress={500}
-      style={styles.row}
-    >
-      {/* Time */}
-      <Text style={styles.time}>{startTime}</Text>
+  async function handleSwipeDelete() {
+    swipeRef.current?.close();
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    onDelete?.();
+  }
 
-      {/* Dot + content */}
-      <View style={styles.dotCol}>
-        <View style={styles.dot} />
+  function renderRightAction() {
+    return (
+      <View style={styles.actionRight}>
+        <Text style={styles.actionRightIcon}>🗑️</Text>
+        <Text style={styles.actionRightLabel}>삭제</Text>
       </View>
+    );
+  }
 
-      <View style={styles.content}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title} numberOfLines={expanded ? undefined : 1}>
-            {event.title}
-          </Text>
-          {event.is_recurring && (
-            <Text style={[styles.recurIcon, { color: colors.accent }]}>🔁</Text>
+  return (
+    <Swipeable
+      ref={swipeRef}
+      renderRightActions={onDelete ? renderRightAction : undefined}
+      onSwipeableOpen={(direction) => { if (direction === 'right') handleSwipeDelete(); }}
+      friction={2}
+      rightThreshold={60}
+      overshootRight={false}
+    >
+      <Pressable
+        onPress={onTap}
+        onLongPress={onLongPress ? handleLongPress : undefined}
+        delayLongPress={500}
+        style={styles.row}
+      >
+        {/* Time */}
+        <Text style={styles.time}>{startTime}</Text>
+
+        {/* Dot + content */}
+        <View style={styles.dotCol}>
+          <View style={styles.dot} />
+        </View>
+
+        <View style={styles.content}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={expanded ? undefined : 1}>
+              {event.title}
+            </Text>
+            {event.is_recurring && (
+              <Text style={[styles.recurIcon, { color: colors.accent }]}>🔁</Text>
+            )}
+          </View>
+          {expanded && (
+            <View style={styles.expandedArea}>
+              {event.is_recurring && event.recurrence_rule ? (
+                <Text style={styles.meta}>🔁 {humanReadableRRule(event.recurrence_rule)}</Text>
+              ) : null}
+              {event.end_at && (
+                <Text style={styles.meta}>
+                  {formatTimeRow(new Date(event.start_at))} – {formatTimeRow(new Date(event.end_at))}
+                </Text>
+              )}
+              {event.location ? <Text style={styles.meta}>📍 {event.location}</Text> : null}
+              {event.description ? <Text style={styles.meta}>💭 {event.description}</Text> : null}
+              {event.attendees?.length ? (
+                <Text style={styles.meta}>👥 {event.attendees.join(', ')}</Text>
+              ) : null}
+            </View>
           )}
         </View>
-        {expanded && (
-          <View style={styles.expandedArea}>
-            {event.is_recurring && event.recurrence_rule ? (
-              <Text style={styles.meta}>🔁 {humanReadableRRule(event.recurrence_rule)}</Text>
-            ) : null}
-            {event.end_at && (
-              <Text style={styles.meta}>
-                {formatTimeRow(new Date(event.start_at))} – {formatTimeRow(new Date(event.end_at))}
-              </Text>
-            )}
-            {event.location ? <Text style={styles.meta}>📍 {event.location}</Text> : null}
-            {event.description ? <Text style={styles.meta}>💭 {event.description}</Text> : null}
-            {event.attendees?.length ? (
-              <Text style={styles.meta}>👥 {event.attendees.join(', ')}</Text>
-            ) : null}
-          </View>
-        )}
-      </View>
-    </Pressable>
+      </Pressable>
+    </Swipeable>
   );
 }
 
@@ -82,6 +109,7 @@ function makeStyles(c: AppTheme) {
       paddingHorizontal: PADDING_H,
       paddingVertical:   8,
       gap:               DOT_GAP,
+      backgroundColor:   'transparent',
     },
     time: {
       width:      TIME_W,
@@ -125,5 +153,14 @@ function makeStyles(c: AppTheme) {
       color:      c.textMuted,
       fontFamily: MONO,
     },
+    actionRight: {
+      backgroundColor: c.error,
+      alignItems:      'center',
+      justifyContent:  'center',
+      paddingHorizontal: 24,
+      gap: 2,
+    },
+    actionRightIcon:  { fontSize: 16 },
+    actionRightLabel: { fontSize: 10, color: '#fff', fontWeight: '700' },
   });
 }

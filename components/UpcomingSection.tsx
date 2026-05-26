@@ -7,9 +7,10 @@ import DateGroupSection from './DateGroupSection';
 interface Props {
   allEvents:    Event[];
   onLongPress?: (event: Event) => void;
+  onDelete?:    (event: Event) => void;
 }
 
-export default function UpcomingSection({ allEvents, onLongPress }: Props) {
+export default function UpcomingSection({ allEvents, onLongPress, onDelete }: Props) {
   const colors = useColors();
   const groups = useUpcomingEvents(allEvents);
 
@@ -23,6 +24,7 @@ export default function UpcomingSection({ allEvents, onLongPress }: Props) {
           group={group}
           colors={colors}
           onLongPress={onLongPress}
+          onDelete={onDelete}
         />
       ))}
     </View>

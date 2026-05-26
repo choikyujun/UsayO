@@ -101,6 +101,7 @@ export default function HomeScreen() {
     events: allEvents,
     recurringParents,
     lastCreatedId, applyClassifiedIntent,
+    deleteEventById,
     rescheduleEvent, undoRescheduleEvent,
     reload: reloadSchedules,
   } = useSchedules(selectedDate, 7);
@@ -353,6 +354,10 @@ export default function HomeScreen() {
     setSheetEvent(event);
   }, []);
 
+  const handleDeleteUpcoming = useCallback((event: CalEvent) => {
+    deleteEventById(event.id).catch(() => {});
+  }, [deleteEventById]);
+
   const handleConfirm = useCallback(async () => {
     ttsService.stop();
     if (voice.classifiedIntent?.events?.length) {
@@ -471,7 +476,7 @@ export default function HomeScreen() {
           isRefreshing={isRefreshing}
           listPaddingBottom={insets.bottom + 120}
           onReschedule={handleReschedule}
-          footerContent={<UpcomingSection allEvents={allEvents} onLongPress={handleLongPressUpcoming} />}
+          footerContent={<UpcomingSection allEvents={allEvents} onLongPress={handleLongPressUpcoming} onDelete={handleDeleteUpcoming} />}
         />
       </ReAnimated.View>
 
