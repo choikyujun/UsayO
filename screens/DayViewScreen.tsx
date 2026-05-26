@@ -24,6 +24,7 @@ import DayEventBlock from '../components/DayEventBlock';
 import DayNowMarker from '../components/DayNowMarker';
 import DinnerHint from '../components/DinnerHint';
 import EditTimeModal from '../components/EditTimeModal';
+import EditNotificationModal from '../components/EditNotificationModal';
 import EditTitleModal from '../components/EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from '../components/EventActionSheet';
 import HourGrid from '../components/HourGrid';
@@ -36,6 +37,7 @@ import { useDayEvents } from '../hooks/useDayEvents';
 import { useSchedules } from '../hooks/useSchedules';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { supabase } from '../lib/supabase';
+import { rescheduleEventNotification } from '../services/notifications';
 import { Event } from '../types/database';
 import { ttsService } from '../services/voice/TTSService';
 import { useTheme } from '../contexts/ThemeContext';
@@ -91,10 +93,11 @@ export default function DayViewScreen() {
   }, [dateStr]);
 
   // ── Action sheet + edit modals ──────────────────────────────────────
-  const [sheetEvent,       setSheetEvent]       = useState<Event | null>(null);
-  const [editEvent,        setEditEvent]        = useState<Event | null>(null);
-  const [editTitleVisible, setEditTitleVisible] = useState(false);
-  const [editTimeVisible,  setEditTimeVisible]  = useState(false);
+  const [sheetEvent,            setSheetEvent]            = useState<Event | null>(null);
+  const [editEvent,             setEditEvent]             = useState<Event | null>(null);
+  const [editTitleVisible,      setEditTitleVisible]      = useState(false);
+  const [editTimeVisible,       setEditTimeVisible]       = useState(false);
+  const [editNotifVisible,      setEditNotifVisible]      = useState(false);
 
   function handleDeleteEvent(event: Event) {
     const realId = isVirtualInstance(event.id)
@@ -348,6 +351,11 @@ export default function DayViewScreen() {
           setEditTimeVisible(true);
           console.log('[DayView] setEditTimeVisible(true) 완료');
         }}
+        onEditNotification={ev => {
+          setEditEvent(ev);
+          setSheetEvent(null);
+          setEditNotifVisible(true);
+        }}
       />
       <EditTitleModal
         visible={editTitleVisible}
@@ -360,6 +368,26 @@ export default function DayViewScreen() {
         event={editEvent}
         onClose={() => setEditTimeVisible(false)}
         onSaved={() => { setEditTimeVisible(false); reload(); }}
+      />
+      <EditNotificationModal
+        visible={editNotifVisible}
+        event={editEvent}
+        onClose={() => setEditNotifVisible(false)}
+        onSaved={async updatedEvent => {
+          const { error } = await supabase
+            .from('events')
+            .update({ notification_offset_minutes: updatedEvent.notification_offset_minutes, updated_at: new Date().toISOString() })
+            .eq('id', updatedEvent.id);
+          if (error) {
+            console.error('[DayView] notification update failed:', error.message);
+          } else {
+            rescheduleEventNotification(updatedEvent).catch(e =>
+              console.warn('[Notifications] reschedule 실패:', e),
+            );
+            reload();
+          }
+          setEditNotifVisible(false);
+        }}
       />
     </View>
   );

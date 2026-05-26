@@ -1,4 +1,5 @@
 import { Bell, Bookmark, ChevronsRight, Clock, Pencil, Share2, Trash2 } from 'lucide-react-native';
+
 import type { LucideIcon } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -7,7 +8,7 @@ import {
 import { AppTheme, useColors } from '../constants/colors';
 import { Event } from '../types/database';
 import { formatTimeKo } from '../utils/timeHelpers';
-import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { isVirtualInstance } from '../utils/recurrenceHelpers';
 
 export type RecurringDeleteScope = 'this' | 'future' | 'all';
 
@@ -18,9 +19,10 @@ interface Props {
   onDeleteRecurring?: (event: Event, scope: RecurringDeleteScope) => void;
   onEditTitle?: (event: Event) => void;
   onEditTime?: (event: Event) => void;
+  onEditNotification?: (event: Event) => void;
 }
 
-export default function EventActionSheet({ event, onClose, onDelete, onDeleteRecurring, onEditTitle, onEditTime }: Props) {
+export default function EventActionSheet({ event, onClose, onDelete, onDeleteRecurring, onEditTitle, onEditTime, onEditNotification }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const slideY = useRef(new Animated.Value(320)).current;
@@ -108,7 +110,10 @@ export default function EventActionSheet({ event, onClose, onDelete, onDeleteRec
                 if (onEditTitle) { console.log('[ActionSheet] onEditTitle 존재, 호출'); onEditTitle(ev); }
                 else             { console.log('[ActionSheet] onEditTitle prop 누락'); }
               }} colors={colors} />
-              <ActionBtn label="알림 설정" Icon={Bell}    onPress={onClose}          colors={colors} />
+              <ActionBtn label="알림 설정" Icon={Bell}    onPress={() => {
+                onClose();
+                if (onEditNotification) onEditNotification(ev);
+              }} colors={colors} />
               <ActionBtn label="카카오로 공유" Icon={Share2} onPress={handleShare}   colors={colors} />
               <ActionBtn label="삭제"      Icon={Trash2}  onPress={handleDeletePress} colors={colors} danger />
             </View>
