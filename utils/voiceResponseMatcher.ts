@@ -2,17 +2,25 @@ export type AmbiguousResponse = 'confirm' | 'am' | 'pm' | 'cancel' | 'unknown';
 
 export function matchAmbiguousResponse(transcript: string): AmbiguousResponse {
   const text = transcript.trim();
-  if (!text) return 'unknown';
+  console.log('[Matcher] input:', JSON.stringify(transcript));
+  if (!text) {
+    console.log('[Matcher] return: unknown (empty)');
+    return 'unknown';
+  }
 
-  // 취소는 가장 먼저 체크 (부정이 다른 패턴과 겹칠 수 있음)
-  if (/취소|아니|다시|그만|싫어/.test(text)) return 'cancel';
+  const cancelTest = /취소|아니|다시|그만|싫어/.test(text);
+  const amTest     = /오전|아침|새벽|am/i.test(text);
+  const pmTest     = /오후|저녁|밤|pm/i.test(text);
+  const confirmTest = /네|맞아|오케이|ok|응|그래|확인|좋아|맞습니다|맞아요|ㅇㅇ/i.test(text);
+  console.log('[Matcher] AM test:', amTest, '| PM test:', pmTest, '| cancel test:', cancelTest, '| confirm test:', confirmTest);
 
-  // AM/PM 명시
-  if (/오전|아침|새벽|\bam\b/i.test(text)) return 'am';
-  if (/오후|저녁|밤|\bpm\b/i.test(text))   return 'pm';
+  let result: AmbiguousResponse;
+  if (cancelTest)       result = 'cancel';
+  else if (amTest)      result = 'am';
+  else if (pmTest)      result = 'pm';
+  else if (confirmTest) result = 'confirm';
+  else                  result = 'unknown';
 
-  // 긍정 → 추정값 확정
-  if (/네|맞아|오케이|ok|응|그래|확인|좋아|맞습니다|맞아요|ㅇㅇ/i.test(text)) return 'confirm';
-
-  return 'unknown';
+  console.log('[Matcher] return:', result);
+  return result;
 }

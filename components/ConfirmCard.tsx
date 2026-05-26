@@ -50,6 +50,7 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
   // resolveVoice는 매 렌더마다 최신 값을 캡처하도록 ref에 직접 할당
   const resolveVoiceRef = useRef<((a: AmbiguousResponse | 'cancel') => void) | null>(null);
   resolveVoiceRef.current = (action: AmbiguousResponse | 'cancel') => {
+    console.log('[Ambig] 적용 액션:', action);
     if (confirmedRef.current) return;
     confirmedRef.current = true;
     if (recordStopRef.current) clearTimeout(recordStopRef.current);
@@ -61,10 +62,12 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
       const d = new Date(displayDateTime.date);
       const h = d.getHours() % 12;
       d.setHours(m === 'PM' ? h + 12 : h);
+      const finalDate = d.toISOString();
+      console.log('[Ambig] saveEvent 직전 final meridiem:', m, '| 원본 시간:', displayDateTime.date, '| 변환 시간:', finalDate);
       onAmPmChange?.({
         ...intent,
         ambiguous: false,
-        startDateTime: { ...displayDateTime, date: d.toISOString() },
+        startDateTime: { ...displayDateTime, date: finalDate },
       });
     }
     if (action === 'cancel') {
@@ -90,6 +93,7 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
     const run = async () => {
       // TTS 완료 대기
       await ttsService.waitForSpeech();
+      console.log('[Ambig] TTS 완료, STT 재개 시도');
       if (!active || confirmedRef.current) return;
       await new Promise<void>(r => setTimeout(r, 200));
       if (!active || confirmedRef.current) return;
@@ -97,7 +101,7 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
       await voiceRecorder.startRecording();
       if (!active || confirmedRef.current) { voiceRecorder.cancelRecording(); return; }
       setVoiceActive(true);
-      console.log('[ConfirmCard] 음성 응답 녹음 시작');
+      console.log('[Ambig] STT 시작됨, isListening: true, RECORD_MS:', RECORD_MS);
 
       recordStopRef.current = setTimeout(async () => {
         if (!active || confirmedRef.current) return;
@@ -105,18 +109,19 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
         const uri = await voiceRecorder.stopRecording();
 
         if (!uri) {
-          console.log('[ConfirmCard] 무음 → 추정값 확정');
+          console.log('[Ambig] 무음(uri 없음) → 추정값 확정');
           resolveVoiceRef.current?.('confirm');
           return;
         }
 
         try {
           const stt    = await speechService.transcribe(uri, 'ko');
+          console.log('[Ambig] STT transcript 받음:', JSON.stringify(stt.transcript), '| confidence:', stt.confidence);
           const action = matchAmbiguousResponse(stt.transcript);
-          console.log('[ConfirmCard] 음성 응답 매칭:', stt.transcript, '→', action);
+          console.log('[Ambig] matchConfirmResponse 결과:', action);
           resolveVoiceRef.current?.(action === 'unknown' ? 'confirm' : action);
-        } catch {
-          console.log('[ConfirmCard] STT 실패 → 추정값 확정');
+        } catch (e) {
+          console.log('[Ambig] STT 실패 → 추정값 확정, 오류:', e instanceof Error ? e.message : String(e));
           resolveVoiceRef.current?.('confirm');
         }
       }, RECORD_MS);
