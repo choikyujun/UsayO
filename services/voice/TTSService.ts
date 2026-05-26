@@ -27,6 +27,23 @@ export class TTSService {
     Speech.stop();
   }
 
+  // TTS가 끝날 때까지 대기 (ConfirmCard 음성 응답 시작 전 호출)
+  async waitForSpeech(maxWaitMs = 10000): Promise<void> {
+    const start = Date.now();
+    await new Promise<void>(r => setTimeout(r, 400)); // TTS 시작 대기
+    return new Promise(resolve => {
+      const check = async () => {
+        if (Date.now() - start > maxWaitMs) { resolve(); return; }
+        try {
+          const speaking = await Speech.isSpeakingAsync();
+          if (!speaking) { resolve(); return; }
+        } catch { resolve(); return; }
+        setTimeout(check, 200);
+      };
+      check();
+    });
+  }
+
   generateConfirmMessage(intent: ClassifiedIntent, language = 'ko'): string {
     if (language !== 'ko') return this.generateEnglishConfirm(intent);
 
@@ -38,8 +55,10 @@ export class TTSService {
           const d      = new Date(dt.date);
           const h12    = d.getHours() % 12 || 12;
           const minStr = d.getMinutes() > 0 ? ` ${d.getMinutes()}분` : '';
-          const guess  = intent.suggestedMeridiem === 'PM' ? '오후' : '오전';
-          return `${h12}시${minStr}이 ${guess}인가요, 오전인가요? 확인 후 저장할게요.`;
+          if (intent.suggestedMeridiem === 'PM') {
+            return `오후 ${h12}시${minStr} 맞아요? 오전이면 말씀해주세요`;
+          }
+          return `오전 ${h12}시${minStr} 맞아요?`;
         }
         const dateStr = intent.startDateTime
           ? this.formatDateTime(intent.startDateTime.date, intent.startDateTime.originalText)
