@@ -25,6 +25,10 @@ import ReAnimated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmCard from '../components/ConfirmCard';
+import EditNotificationModal from '../components/EditNotificationModal';
+import EditTimeModal from '../components/EditTimeModal';
+import EditTitleModal from '../components/EditTitleModal';
+import EventActionSheet from '../components/EventActionSheet';
 import InlineConfirmCard from '../components/InlineConfirmCard';
 import MultiConfirmCard from '../components/MultiConfirmCard';
 import RecurringBadge from '../components/RecurringBadge';
@@ -45,6 +49,7 @@ import { useVoiceFlow } from '../hooks/useVoiceFlow';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
 import { ttsService } from '../services/voice/TTSService';
 import { ClassifiedIntent, HybridInputState } from '../types';
+import type { Event as CalEvent } from '../types/database';
 import { addDays, toYearMonth } from '../utils/dateHelpers';
 import { useCurrentDate } from '../hooks/useCurrentDate';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -137,6 +142,13 @@ export default function HomeScreen() {
   const gate = useFeatureGate('voice_create');
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // ── Upcoming long-press → EventActionSheet ────────────────────
+  const [sheetEvent,       setSheetEvent]       = useState<CalEvent | null>(null);
+  const [editEvent,        setEditEvent]        = useState<CalEvent | null>(null);
+  const [editTitleVisible, setEditTitleVisible] = useState(false);
+  const [editTimeVisible,  setEditTimeVisible]  = useState(false);
+  const [editNotifVisible, setEditNotifVisible] = useState(false);
 
   // ── Reanimated shared values ──────────────────────────────────
   const fabScaleV = useSharedValue(1);
@@ -337,6 +349,10 @@ export default function HomeScreen() {
     voice.cancelVoice();
   }, [voice]);
 
+  const handleLongPressUpcoming = useCallback((event: CalEvent) => {
+    setSheetEvent(event);
+  }, []);
+
   const handleConfirm = useCallback(async () => {
     ttsService.stop();
     if (voice.classifiedIntent?.events?.length) {
@@ -455,7 +471,7 @@ export default function HomeScreen() {
           isRefreshing={isRefreshing}
           listPaddingBottom={insets.bottom + 120}
           onReschedule={handleReschedule}
-          footerContent={<UpcomingSection allEvents={allEvents} />}
+          footerContent={<UpcomingSection allEvents={allEvents} onLongPress={handleLongPressUpcoming} />}
         />
       </ReAnimated.View>
 
@@ -582,6 +598,45 @@ export default function HomeScreen() {
         onConfirm={voice.confirmHybridInput}
         onRetryVoice={handleRetry}
         onDismiss={voice.dismissHybrid}
+      />
+
+      {/* ── 다가올 일정 long-press → EventActionSheet ────────────── */}
+      <EventActionSheet
+        event={sheetEvent}
+        onClose={() => setSheetEvent(null)}
+        onEditTitle={ev => {
+          setEditEvent(ev);
+          setSheetEvent(null);
+          setEditTitleVisible(true);
+        }}
+        onEditTime={ev => {
+          setEditEvent(ev);
+          setSheetEvent(null);
+          setEditTimeVisible(true);
+        }}
+        onEditNotification={ev => {
+          setEditEvent(ev);
+          setSheetEvent(null);
+          setEditNotifVisible(true);
+        }}
+      />
+      <EditTitleModal
+        visible={editTitleVisible}
+        event={editEvent}
+        onClose={() => { setEditTitleVisible(false); setEditEvent(null); }}
+        onSaved={() => { setEditTitleVisible(false); setEditEvent(null); reloadForDate().catch(() => {}); reloadSchedules().catch(() => {}); }}
+      />
+      <EditTimeModal
+        visible={editTimeVisible}
+        event={editEvent}
+        onClose={() => { setEditTimeVisible(false); setEditEvent(null); }}
+        onSaved={() => { setEditTimeVisible(false); setEditEvent(null); reloadForDate().catch(() => {}); reloadSchedules().catch(() => {}); }}
+      />
+      <EditNotificationModal
+        visible={editNotifVisible}
+        event={editEvent}
+        onClose={() => { setEditNotifVisible(false); setEditEvent(null); }}
+        onSaved={_updated => { setEditNotifVisible(false); setEditEvent(null); }}
       />
 
       {/* ── 업그레이드 모달 ───────────────────────────────────────── */}
