@@ -4,6 +4,8 @@ import { Database, Event } from '../types/database';
 import { ClassifiedIntent, VoiceCommand } from '../types';
 import { widgetService } from '../services/widget/WidgetService';
 import { expandRecurringEvent, EventException } from '../utils/recurrenceHelpers';
+import { scheduleEventNotification } from '../services/notifications';
+import { defaultOffset } from '../utils/notificationHelpers';
 
 type Schedule = Database['public']['Tables']['schedules']['Row'];
 
@@ -218,6 +220,7 @@ export function useSchedules(date: string, daysAhead = 0) {
         ? intent.startDateTime.recurrenceUntil.split('T')[0]
         : undefined;
 
+      const isAllDay = false; // 음성 생성은 항상 시간 일정
       const payload = {
         user_id: userId,
         title: intent.title ?? '새 일정',
@@ -229,10 +232,10 @@ export function useSchedules(date: string, daysAhead = 0) {
         category: intent.category ?? 'work',
         is_recurring: intent.startDateTime.isRecurring,
         recurrence_rule: intent.startDateTime.recurrenceRule ?? null,
-        // recurrence_end_date는 마이그레이션 적용 후 활성화 (없으면 생략)
         ...(recurrenceEndDate ? { recurrence_end_date: recurrenceEndDate } : {}),
         created_via: 'voice' as const,
         voice_transcript: intent.rawTranscript ?? null,
+        notification_offset_minutes: defaultOffset(isAllDay),
       };
 
       console.log('[Save] event:', payload);
@@ -250,13 +253,18 @@ export function useSchedules(date: string, daysAhead = 0) {
       }
 
       if (data) {
+        const savedEvent = data as Event;
         setEvents(prev =>
-          [...prev, data as Event].sort(
+          [...prev, savedEvent].sort(
             (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
           ),
         );
-        setLastCreatedId(data.id);
-        return data.id;
+        setLastCreatedId(savedEvent.id);
+        // 알림 예약 (fire-and-forget — 실패해도 저장은 유지)
+        scheduleEventNotification(savedEvent).catch(e =>
+          console.warn('[Notifications] 예약 실패:', e),
+        );
+        return savedEvent.id;
       }
     }
 
