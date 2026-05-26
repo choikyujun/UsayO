@@ -39,6 +39,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const { device_id } = await req.json() as { device_id?: string };
+    console.log('[device-auth] received device_id:', device_id);
+
     if (!device_id || typeof device_id !== 'string' || device_id.length < 4) {
       return json({ error: 'invalid device_id' }, 400);
     }
@@ -53,6 +55,7 @@ Deno.serve(async (req: Request) => {
 
     // ── 1. Look up or create user ────────────────────────────────────────
     let userId: string;
+    let isNewMapping = false;
 
     const { data: mapping, error: lookupErr } = await admin
       .from('device_user_mapping')
@@ -60,27 +63,35 @@ Deno.serve(async (req: Request) => {
       .eq('device_id', device_id)
       .maybeSingle();
 
+    console.log('[device-auth] existing mapping lookup:', JSON.stringify(mapping), '| error:', lookupErr?.message ?? null);
+
     if (lookupErr) throw new Error(`lookup: ${lookupErr.message}`);
 
     if (mapping?.user_id) {
       userId = mapping.user_id;
+      console.log('[device-auth] action: returned existing | user_id:', userId);
       await admin
         .from('device_user_mapping')
         .update({ last_login: new Date().toISOString() })
         .eq('device_id', device_id);
     } else {
+      console.log('[device-auth] action: creating new user for device_id:', device_id);
       const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
         email_confirm: true,
         app_metadata:  { provider: 'device', device_id },
       });
       if (createErr || !newUser.user) throw new Error(`createUser: ${createErr?.message}`);
       userId = newUser.user.id;
+      isNewMapping = true;
 
       const { error: insertErr } = await admin.from('device_user_mapping').insert({
         device_id, user_id: userId,
       });
       if (insertErr) throw new Error(`insert mapping: ${insertErr.message}`);
+      console.log('[device-auth] action: created new | user_id:', userId);
     }
+
+    console.log('[device-auth] final user_id:', userId, '| is_new_mapping:', isNewMapping);
 
     // ── 2. Issue tokens (30-day access + 30-day refresh) ─────────────────
     const now     = Math.floor(Date.now() / 1000);
@@ -99,7 +110,7 @@ Deno.serve(async (req: Request) => {
       signJWT({ ...baseClaims, exp: exp30d, type: 'refresh' }, jwtSecret),
     ]);
 
-    return json({ access_token: accessToken, refresh_token: refreshToken, user_id: userId });
+    return json({ access_token: accessToken, refresh_token: refreshToken, user_id: userId, is_new_mapping: isNewMapping });
   } catch (err) {
     console.error('[device-auth]', err);
     return json({ error: (err as Error).message }, 500);

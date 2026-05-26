@@ -71,8 +71,8 @@ function AppRoot() {
     (async () => {
       // 0. Log device ID unconditionally (needed to build device_user_mapping)
       import('../services/auth/deviceAuth').then(m => m.getDeviceId())
-        .then(id  => console.log('[Auth] deviceId:', id))
-        .catch(e  => console.log('[Auth] deviceId unavailable:', e));
+        .then(({ id, source }) => console.log('[Auth] deviceId pre-check:', source, id))
+        .catch(e => console.log('[Auth] deviceId unavailable:', e));
 
       // Supabase autoRefreshToken이 이전 세션의 refresh token을 재사용하려다
       // "Already Used" 에러를 내는 것을 막기 위해 로컬 세션을 먼저 제거.
