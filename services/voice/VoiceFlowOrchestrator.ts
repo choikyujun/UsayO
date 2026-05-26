@@ -70,6 +70,8 @@ export async function runVoiceFlow(
     return { success: false, sttResult, error: { type: errorType, message } };
   }
 
+  console.log('[VoiceFlow] handling intent:', intent.intent, '| confidence:', intent.confidence);
+
   if (intent.intent === 'UNKNOWN' || intent.confidence < CONFIDENCE_THRESHOLD) {
     if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('lowConfidence'));
     return { success: false, sttResult, intent, error: { type: 'lowConfidence', sttResult } };

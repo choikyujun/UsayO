@@ -184,6 +184,16 @@ export class IntentClassifierService {
       const jsonText = rawText.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(jsonText) as ClassifiedIntent;
       parsed.rawTranscript = transcript;
+      console.log('[Intent] classified:', JSON.stringify({
+        intent: parsed.intent,
+        title: parsed.title,
+        targetEventQuery: parsed.targetEventQuery,
+        deleteTargetQuery: parsed.deleteTargetQuery,
+        updateFields: parsed.updateFields,
+        startDateTime: parsed.startDateTime?.date,
+        events: parsed.events?.length,
+        confidence: parsed.confidence,
+      }));
       return parsed;
 
     } catch (e) {
