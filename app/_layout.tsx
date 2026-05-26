@@ -108,6 +108,7 @@ function AppStack() {
       <Stack.Screen name="day"      options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="week"     options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="month"    options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="year"     options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }

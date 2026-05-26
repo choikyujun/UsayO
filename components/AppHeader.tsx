@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '../constants/colors';
 import VoiceHintRotator from './VoiceHintRotator';
@@ -60,9 +60,9 @@ export default function AppHeader({ currentTab }: Props) {
       router.push('/month');
       return;
     }
-    // year — 준비 중
-    if (Platform.OS === 'android') {
-      ToastAndroid.show('준비 중', ToastAndroid.SHORT);
+    if (tab === 'year') {
+      router.push('/year');
+      return;
     }
   }
 

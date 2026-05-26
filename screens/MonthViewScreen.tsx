@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import ReAnimated, {
@@ -33,8 +34,9 @@ export default function MonthViewScreen() {
   const { ttsEnabled } = useTheme();
 
   const { today } = useCurrentDate();
-  const [year,  setYear]  = useState(() => new Date().getFullYear());
-  const [month, setMonth] = useState(() => new Date().getMonth() + 1);
+  const params = useLocalSearchParams<{ year?: string; month?: string }>();
+  const [year,  setYear]  = useState(() => params.year  ? Number(params.year)  : new Date().getFullYear());
+  const [month, setMonth] = useState(() => params.month ? Number(params.month) : new Date().getMonth() + 1);
 
   const cells        = useMemo(() => getMonthGrid(year, month), [year, month]);
   const { eventsByDate, reload } = useMonthEvents(year, month);
