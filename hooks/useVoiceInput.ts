@@ -40,14 +40,20 @@ export function useVoiceInput(ttsEnabled: boolean) {
     onAutoSave: OnAutoSave,
     onUndo:     OnUndo,
   ) => {
+    console.log('[Voice] long-press triggered, prefill:', { date: prefill.dateStr, ttsLabel: prefill.ttsLabel, hour: prefill.hour });
+
     // 오버레이 즉시 표시 — 시각적 피드백 < 200ms
     setOverlayVisible(true);
 
     if (ttsEnabled && !isTTSRef.current) {
       isTTSRef.current = true;
+      console.log('[Voice] TTS start:', prefill.ttsLabel);
       try {
         await speakPrefillLabel(prefill.ttsLabel);
-      } catch { /* TTS 실패해도 계속 */ } finally {
+        console.log('[Voice] TTS end (onDone)');
+      } catch (e) {
+        console.warn('[Voice] TTS error:', e);
+      } finally {
         stopPrefillTTS();
         isTTSRef.current = false;
         await audioSessionService.releasePlaybackSession();
@@ -56,6 +62,7 @@ export function useVoiceInput(ttsEnabled: boolean) {
       await new Promise<void>(resolve => setTimeout(resolve, 300));
     }
 
+    console.log('[Voice] STT start (startVoice called)');
     const prefillContext = buildPrefillContext(prefill);
     voice.startVoice(onAutoSave, onUndo, prefillContext);
   }, [voice, ttsEnabled]);

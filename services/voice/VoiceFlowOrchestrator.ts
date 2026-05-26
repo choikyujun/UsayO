@@ -48,9 +48,12 @@ export async function runVoiceFlow(
 
   // 2. 무음 / 낮은 신뢰도 처리
   if (!sttResult.transcript.trim()) {
+    console.log('[Voice] STT error or empty (no transcript)');
     if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('noSpeech'));
     return { success: false, error: { type: 'noSpeech', message: '음성이 감지되지 않았어요.' } };
   }
+
+  console.log('[Voice] STT result:', JSON.stringify({ transcript: sttResult.transcript, confidence: sttResult.confidence }));
 
   if (sttResult.confidence < CONFIDENCE_THRESHOLD) {
     if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('lowConfidence'));
@@ -58,6 +61,7 @@ export async function runVoiceFlow(
   }
 
   // 3. LLM 인텐트 분류
+  console.log('[Voice] LLM classifying...');
   let intent: ClassifiedIntent;
   try {
     intent = await intentService.classify(sttResult.transcript, language, timezone, prefillContext);
@@ -70,7 +74,7 @@ export async function runVoiceFlow(
     return { success: false, sttResult, error: { type: errorType, message } };
   }
 
-  console.log('[VoiceFlow] handling intent:', intent.intent, '| confidence:', intent.confidence);
+  console.log('[Voice] LLM result:', JSON.stringify({ intent: intent.intent, confidence: intent.confidence, title: intent.title, deleteTargetQuery: intent.deleteTargetQuery, targetEventQuery: intent.targetEventQuery }));
 
   if (intent.intent === 'UNKNOWN' || intent.confidence < CONFIDENCE_THRESHOLD) {
     if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage('lowConfidence'));
