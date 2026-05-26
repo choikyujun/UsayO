@@ -33,6 +33,14 @@ export class TTSService {
     switch (intent.intent) {
       case 'CREATE': {
         const title = intent.title ?? '일정';
+        if (intent.ambiguous && intent.startDateTime) {
+          const dt     = intent.startDateTime;
+          const d      = new Date(dt.date);
+          const h12    = d.getHours() % 12 || 12;
+          const minStr = d.getMinutes() > 0 ? ` ${d.getMinutes()}분` : '';
+          const guess  = intent.suggestedMeridiem === 'PM' ? '오후' : '오전';
+          return `${h12}시${minStr}이 ${guess}인가요, 오전인가요? 확인 후 저장할게요.`;
+        }
         const dateStr = intent.startDateTime
           ? this.formatDateTime(intent.startDateTime.date, intent.startDateTime.originalText)
           : '';

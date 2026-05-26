@@ -125,11 +125,13 @@ export function useVoiceFlow() {
     const confidence = result.intent.confidence;
 
     // DELETE/UPDATE/COMPLETE는 항상 확인 필요, 멀티 일정도 항상 카드 표시 (outer intent에 startDateTime 없음)
+    // ambiguous: true이면 AM/PM 확인 전까지 저장 불가
     const requiresConfirm =
       result.intent.intent === 'DELETE' ||
       result.intent.intent === 'UPDATE' ||
       result.intent.intent === 'COMPLETE' ||
-      (result.intent.events?.length ?? 0) > 0;
+      (result.intent.events?.length ?? 0) > 0 ||
+      result.intent.ambiguous === true;
 
     // ── confidence >= 0.85: 즉시 자동 저장 ──────────────────────
     if (confidence >= 0.85 && onAutoSave && !requiresConfirm) {
@@ -151,11 +153,12 @@ export function useVoiceFlow() {
     }
 
     // ── 0.6 <= confidence < 0.85: InlineConfirmCard 표시 ────────
+    // ambiguous 시간이면 AM/PM 토글이 있는 ConfirmCard (hybrid 소스)로 강제
     isProcessingRef.current = false;
     store.setTranscript(result.sttResult?.transcript ?? null);
     store.setClassifiedIntent(result.intent);
     store.setConfirmMessage(result.confirmMessage ?? null);
-    store.setConfirmSource('voice');
+    store.setConfirmSource(result.intent.ambiguous ? 'hybrid' : 'voice');
     if (result.confirmMessage) ttsService.speak(result.confirmMessage).catch(() => {});
     store.setPhase('confirming');
   }, [store, recorder]);

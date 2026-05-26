@@ -32,14 +32,20 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 - "다음 주 {요일}" → 다음 주 해당 요일
 - "이번 주 {요일}" → 이번 주 해당 요일
 - "{N}일 후" → 오늘 + N일
-- "오전" = AM, "오후" = PM
-- "아침" = 08:00, "점심" = 12:00, "퇴근 후" = 18:00, "저녁" = 18:00, "밤" = 21:00
-- 오전/오후 미지정 시간 ("11시", "3시" 등) 해석 규칙:
-  * 7~11 → 기본 오전(AM). 12~6 → 기본 오후(PM, 즉 12:00~18:00)
-  * 해석한 시각이 현재({currentDateTime}) 기준으로 이미 지났으면 다음 날 같은 시간으로 이월
-  * 예: 22:16에 "11시 약속" → 오늘 11:00 이미 지남 → 내일 오전 11:00
-  * 예: 10:30에 "3시 미팅" → 오후로 해석 → 오늘 15:00 (아직 안 지남)
-- 시간 미지정 → 해당 날 09:00, confidence 0.6
+- 명시적 AM/PM 키워드 → ambiguous: false
+  * "오전/아침/새벽 N시" → AM, ambiguous: false
+  * "오후/저녁/밤 N시" → PM, ambiguous: false
+  * "낮 12시" → 12:00, ambiguous: false
+  * "밤 12시" / "자정" → 00:00, ambiguous: false
+  * "점심" = 12:00, "퇴근 후" = 18:00, "아침" = 08:00 → 모두 ambiguous: false
+- 단독 숫자만 ("6시", "3시", "11시" 등, AM/PM 명시어 전혀 없음) → 반드시 ambiguous: true
+  * 1~6시 → suggestedMeridiem: "PM" (오후 추정), date는 해당 PM 시각으로 설정
+  * 7~12시 → suggestedMeridiem: "AM" (오전 추정), date는 해당 AM 시각으로 설정
+  * 단, 추정 시각이 현재({currentDateTime}) 기준으로 이미 지났으면 ambiguous: false로 처리 후 다음 날로 이월
+  * 예: "6시 회의" → 18:00 추정, ambiguous: true, suggestedMeridiem: "PM"
+  * 예: "11시 약속" → 11:00 추정, ambiguous: true, suggestedMeridiem: "AM"
+  * 예: 22:30에 "11시 약속" → 이미 지남 → 내일 11:00, ambiguous: false
+- 시간 미지정 → 해당 날 09:00, confidence 0.6, ambiguous: false
 - 날짜 미지정 → 오늘, confidence 0.5
 - 반복 일정 인식 (isRecurring: true, recurrenceRule에 RRULE 형식 반환):
   * "매일" → FREQ=DAILY
