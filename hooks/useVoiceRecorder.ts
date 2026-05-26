@@ -61,6 +61,8 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
     const rec = recordingRef.current;
     if (!rec) return lastUriRef.current; // auto-stop이 이미 실행 → 캐시 반환
 
+    // 동시 호출 방지: ref를 즉시 null로 — 100ms 타이머가 다시 진입해도 위 guard에서 차단
+    recordingRef.current = null;
     clearTimers();
     setStatus('processing');
     setSilenceProgress(0);
@@ -70,7 +72,6 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       await audioSessionService.cleanup();
       const uri = rec.getURI() ?? null;
       console.log('[Recorder] stopRecording URI:', uri);
-      recordingRef.current = null;
       lastUriRef.current = uri;
       return uri;
     } catch (e) {
@@ -182,9 +183,9 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
   const cancelRecording = useCallback(() => {
     clearTimers();
     const rec = recordingRef.current;
+    recordingRef.current = null; // 즉시 null — stopRecording 동시 진입 차단
     if (rec) {
       rec.stopAndUnloadAsync().catch(() => {});
-      recordingRef.current = null;
     }
     lastUriRef.current = null;
     silenceStartRef.current = null;
