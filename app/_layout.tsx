@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabase';
 import { signInWithDevice } from '../services/auth/deviceAuth';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
+import { requestNotificationPermission } from '../services/notifications';
 
 // Valid onboarding step → route segment map
 const STEP_ROUTES: Record<string, string> = {
@@ -39,6 +40,7 @@ function AppRoot() {
 
   useEffect(() => {
     audioSessionService.preinit().catch(() => {});
+    requestNotificationPermission().catch(() => {});
   }, []);
 
   useEffect(() => {

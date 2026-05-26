@@ -34,6 +34,7 @@ function makeEvent(overrides: Partial<Event>): Event {
     attendees: null,
     recurrence_end_date: null,
     completed_at: null,
+    notification_offset_minutes: null,
     deleted_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
