@@ -8,13 +8,13 @@ const MAX_DURATION_MS = 30_000;
 const WARMUP_MS       = 1_000;   // 녹음 시작 후 첫 1초는 무음 감지 제외
 const SILENCE_DB      = -40;     // dB 기준값 (이하면 무음)
 const SILENCE_LEVEL   = 0.01;    // 정규화 기준값 (이하면 무음)
-const SILENCE_MS      = 3_000;   // 무음 지속 3초 → 자동 종료
+const SILENCE_MS      = 1_500;   // 무음 지속 1.5초 → 자동 종료
 const LEVEL_INTERVAL  = 100;     // 측정 인터벌 (ms)
 
 export interface VoiceRecorderState {
   status: MicStatus;
   audioLevel: number;      // 0~1 (정규화)
-  silenceProgress: number; // 0~1 (0=소리 있음, 1=3초 무음 → 자동 종료 직전)
+  silenceProgress: number; // 0~1 (0=소리 있음, 1=1.5초 무음 → 자동 종료 직전)
   duration: number;        // ms
   error: string | null;
 }
