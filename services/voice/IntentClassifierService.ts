@@ -132,12 +132,16 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 발화에 1~12 사이 숫자만 ("6시", "3시") → 아래 기본 규칙으로 해석하되 ambiguous: true + suggestedMeridiem 설정:
   * 1~6 → suggestedMeridiem: "PM" (오후로 추정)
   * 7~12 → suggestedMeridiem: "AM" (오전으로 추정)
-  * 단, 이미 지난 시간이면 PM/다음날 AM으로 이월하고 ambiguous: false
+  * **절대 금지**: 현재 시간 기준으로 "이미 지난 시간이니까 PM" 또는 "이미 지났으니 내일"로 ambiguous: false 처리 금지. 날짜 키워드(오늘/내일/요일 등) 유무와 무관하게, 단독 N시는 무조건 ambiguous: true.
+  * "오늘 6시 운동" → 현재 시간이 오후여도 ambiguous: true, suggestedMeridiem: "PM" ← 절대 ambiguous: false 금지
+  * "내일 6시 운동" → ambiguous: true, suggestedMeridiem: "PM"
+  * "6시 운동" (날짜 미명시) → ambiguous: true, suggestedMeridiem: "PM"
 ambiguous: true이면 사용자가 AM/PM을 UI에서 선택하므로 date는 suggestedMeridiem에 맞게 설정
 
 **중요 — 제목 단어로 시간 추론 절대 금지**: 숫자 시간('N시') 뒤에 오는 단어('밥집', '저녁식사', '저녁', '운동', '회의', '약속', '식사' 등)는 제목이지 시간 수식어가 아닙니다. 이 단어들이 있어도 명시적 AM/PM 표현(숫자 앞에 위치)이 없으면 무조건 ambiguous: true.
   * "6시 밥집" → 6시 단독 → ambiguous: true, suggestedMeridiem: "PM"
   * "6시 운동" → 6시 단독 → ambiguous: true, suggestedMeridiem: "PM"
+  * "오늘 6시 운동" → 6시 단독 (오늘은 날짜, 수식어 아님) → ambiguous: true, suggestedMeridiem: "PM"
   * "7시 저녁 약속" → 7시 단독 → ambiguous: true, suggestedMeridiem: "AM"
   * "저녁 7시 약속" → 저녁이 숫자 앞 → PM, ambiguous: false ✓
 
@@ -386,34 +390,61 @@ export class IntentClassifierService {
 
   // LLM 무관하게 N시(1-12) + 수식어 없으면 ambiguous: true 강제
   private postProcessAmbiguous(parsed: ClassifiedIntent, transcript: string): ClassifiedIntent {
-    if (parsed.intent !== 'CREATE' || !parsed.startDateTime) return parsed;
-    if (parsed.ambiguous === true) return parsed; // 이미 ambiguous → 그대로
+    console.log('[Intent] postProcess 진입 — intent:', parsed.intent, '| ambiguous:', parsed.ambiguous, '| transcript:', transcript);
+
+    if (parsed.intent !== 'CREATE' || !parsed.startDateTime) {
+      console.log('[Intent] postProcess bail: CREATE 아님 or startDateTime 없음');
+      return parsed;
+    }
+    if (parsed.ambiguous === true) {
+      console.log('[Intent] postProcess bail: LLM이 이미 ambiguous:true 반환');
+      return parsed;
+    }
 
     // 발화에 N시 (1-12) 패턴 있는지 확인
     const timeMatch = transcript.match(/(\d{1,2})\s*시/);
-    if (!timeMatch) return parsed;
+    if (!timeMatch) {
+      console.log('[Intent] postProcess bail: 숫자+시 패턴 없음 (STT에 한글 숫자?)');
+      return parsed;
+    }
     const hourNum = parseInt(timeMatch[1]);
-    if (hourNum < 1 || hourNum > 12) return parsed; // 13시+ 명확
+    if (hourNum < 1 || hourNum > 12) {
+      console.log('[Intent] postProcess bail: hourNum 범위 밖 —', hourNum);
+      return parsed;
+    }
 
     // 명시적 수식어가 시간 앞에 있으면 신뢰 ("오후 6시", "저녁 6시" 등)
-    if (/(오전|오후|새벽|밤|아침|저녁)\s*\d{1,2}\s*시/.test(transcript)) return parsed;
+    if (/(오전|오후|새벽|밤|아침|저녁)\s*\d{1,2}\s*시/.test(transcript)) {
+      console.log('[Intent] postProcess bail: 수식어+숫자 패턴 (명시적 AM/PM)');
+      return parsed;
+    }
 
     // 독립 시간 키워드 ("점심", "퇴근", "정오", "자정")
-    if (/(점심|퇴근|정오|자정)/.test(transcript)) return parsed;
+    if (/(점심|퇴근|정오|자정)/.test(transcript)) {
+      console.log('[Intent] postProcess bail: 독립 시간 키워드');
+      return parsed;
+    }
 
     // 1~6 → PM 추정, 7~12 → AM 추정
     const suggested: 'AM' | 'PM' = hourNum <= 6 ? 'PM' : 'AM';
 
-    // 날짜 명시 없는 발화: 추정 시각이 이미 지났으면 LLM 롤오버 판단 신뢰
-    const hasDate = /(내일|모레|오늘|다음\s*주|이번\s*주|\d+일\s*후|월요일|화요일|수요일|목요일|금요일|토요일|일요일)/.test(transcript);
-    if (!hasDate) {
+    // 날짜 키워드 있으면 (오늘/내일/요일 등) 과거 여부 무관하게 무조건 ambiguous
+    const hasDateKeyword = /(내일|모레|오늘|다음\s*주|이번\s*주|\d+일\s*후|월요일|화요일|수요일|목요일|금요일|토요일|일요일)/.test(transcript);
+    console.log('[Intent] postProcess hasDateKeyword:', hasDateKeyword, '| hourNum:', hourNum, '| suggested:', suggested);
+
+    if (!hasDateKeyword) {
+      // 날짜 미명시: 추정 시각이 이미 지났으면 LLM 롤오버 판단 신뢰
       const now = new Date();
       const h24 = suggested === 'PM'
         ? (hourNum === 12 ? 12 : hourNum + 12)
         : (hourNum === 12 ? 0 : hourNum);
       const todayEst = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h24, 0, 0, 0);
-      if (todayEst <= now) return parsed; // 이미 지남 → 롤오버 신뢰
+      if (todayEst <= now) {
+        console.log('[Intent] postProcess bail: 날짜 미명시 + 추정 시각 이미 지남 (todayEst:', todayEst.toISOString(), ')');
+        return parsed;
+      }
     }
+    // 날짜 키워드 있으면 과거여도 ambiguous — 사용자가 명시한 날짜이므로 반드시 확인
 
     console.log('[Intent] postProcess: ambiguous 강제 —', transcript, '→ suggestedMeridiem:', suggested);
     return { ...parsed, ambiguous: true, suggestedMeridiem: suggested };

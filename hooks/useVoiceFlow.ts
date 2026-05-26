@@ -257,7 +257,10 @@ export function useVoiceFlow() {
   const confirmAction = useCallback(async (
     onSave: (intent: ClassifiedIntent) => Promise<void>,
   ) => {
-    const intent = store.classifiedIntent;
+    // getState()로 읽어야 함: onAmPmChange 직후 React re-render 전에 호출되므로
+    // store.classifiedIntent (hook 스냅샷)는 stale → PM이 그대로 남는 버그
+    const intent = useVoiceStore.getState().classifiedIntent;
+    console.log('[VoiceFlow] confirmAction intent:', intent?.ambiguous, '| time:', intent?.startDateTime?.date ?? 'none');
     if (!intent) return;
     store.setPhase('processing');
     ttsService.stop();
@@ -271,7 +274,6 @@ export function useVoiceFlow() {
       console.error('[VoiceFlow] save error:', e);
       store.setPhase('fail');
       store.setError({ type: 'unknown', message: msg });
-      // 사용자 친화적 오류 메시지는 그대로 읽어줌 (찾을 수 없어요, 여러 개 등)
       ttsService.speak(msg).catch(() => {});
     }
   }, [store]);
@@ -279,7 +281,7 @@ export function useVoiceFlow() {
   const confirmMultiAction = useCallback(async (
     onSave: (intents: ClassifiedIntent[]) => Promise<void>,
   ) => {
-    const intent = store.classifiedIntent;
+    const intent = useVoiceStore.getState().classifiedIntent;
     const events = intent?.events;
     if (!events?.length) return;
     store.setPhase('processing');
