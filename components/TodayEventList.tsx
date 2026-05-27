@@ -201,6 +201,7 @@ export default function TodayEventList({
         onClose={() => setSheetEvent(null)}
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
+        onDeleted={onRefresh}
       />
       <EditTitleModal
         visible={editTitleVisible}

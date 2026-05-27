@@ -395,6 +395,7 @@ export default function DayViewScreen() {
           setSheetEvent(null);
           setEditNotifVisible(true);
         }}
+        onDeleted={reload}
       />
       <EditTitleModal
         visible={editTitleVisible}

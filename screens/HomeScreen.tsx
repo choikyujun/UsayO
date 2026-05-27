@@ -665,6 +665,7 @@ export default function HomeScreen() {
           setSheetEvent(null);
           setEditNotifVisible(true);
         }}
+        onDeleted={() => { reloadForDate().catch(() => {}); reloadSchedules().catch(() => {}); }}
       />
       <EditTitleModal
         visible={editTitleVisible}

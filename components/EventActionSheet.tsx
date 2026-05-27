@@ -1,14 +1,17 @@
 import { Bell, Clock, Pencil, Share2, Trash2 } from 'lucide-react-native';
 
 import type { LucideIcon } from 'lucide-react-native';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   Animated, Modal, Pressable, Share, StyleSheet, Text, View,
 } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
+import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { formatTimeKo } from '../utils/timeHelpers';
-import { isVirtualInstance } from '../utils/recurrenceHelpers';
+import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { haptic } from '../utils/haptics';
+import { useUndoToast } from '../contexts/UndoToastContext';
 import { Spacing } from '../constants/spacing';
 
 // 다른 파일에서 여전히 사용 중인 타입은 그대로 export 유지
@@ -20,11 +23,12 @@ interface Props {
   onEditTitle?: (event: Event) => void;
   onEditTime?: (event: Event) => void;
   onEditNotification?: (event: Event) => void;
-  onDeleteAll?: (event: Event) => void;
+  onDeleted?: () => void;
 }
 
-export default function EventActionSheet({ event, onClose, onEditTitle, onEditTime, onEditNotification, onDeleteAll }: Props) {
-  const colors = useColors();
+export default function EventActionSheet({ event, onClose, onEditTitle, onEditTime, onEditNotification, onDeleted }: Props) {
+  const colors    = useColors();
+  const { showUndo } = useUndoToast();
   const slideY = useRef(new Animated.Value(320)).current;
   const bgOp   = useRef(new Animated.Value(0)).current;
 
@@ -43,6 +47,39 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
       ]).start();
     }
   }, [visible]);
+
+  const handleDeleteAll = useCallback(async (ev: Event) => {
+    haptic.warning();
+    const parentId = isVirtualInstance(ev.id)
+      ? (parseInstanceId(ev.id)?.parentId ?? ev.id)
+      : ev.id;
+
+    const [eventsRes, exceptionsRes] = await Promise.all([
+      supabase.from('events').select('*').or(`id.eq.${parentId},parent_event_id.eq.${parentId}`),
+      supabase.from('event_exceptions').select('*').eq('parent_id', parentId),
+    ]);
+    const backupExceptions = (exceptionsRes.data ?? []) as any[];
+
+    const now = new Date().toISOString();
+    await Promise.all([
+      supabase.from('events')
+        .update({ deleted_at: now })
+        .or(`id.eq.${parentId},parent_event_id.eq.${parentId}`),
+      supabase.from('event_exceptions').delete().eq('parent_id', parentId),
+    ]);
+
+    onDeleted?.();
+
+    showUndo('반복 일정 전체 삭제됨', async () => {
+      await supabase.from('events')
+        .update({ deleted_at: null })
+        .or(`id.eq.${parentId},parent_event_id.eq.${parentId}`);
+      if (backupExceptions.length > 0) {
+        await supabase.from('event_exceptions').insert(backupExceptions);
+      }
+      onDeleted?.();
+    });
+  }, [showUndo, onDeleted]);
 
   if (!event) return null;
   const ev = event;
@@ -88,7 +125,7 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
         </View>
 
         {/* 전체 반복 일정 삭제 (반복 일정인 경우에만) */}
-        {isRecurringEvent && onDeleteAll && (
+        {isRecurringEvent && (
           <Pressable
             style={({ pressed }) => [
               styles.deleteAllRow,
@@ -97,7 +134,7 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
                 borderColor: colors.error + '4D',
               },
             ]}
-            onPress={() => { onClose(); onDeleteAll(ev); }}
+            onPress={() => { onClose(); handleDeleteAll(ev); }}
           >
             <Trash2 size={24} color={colors.error} strokeWidth={1.8} />
             <View style={styles.deleteAllTextCol}>

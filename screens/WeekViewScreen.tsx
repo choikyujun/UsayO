@@ -289,6 +289,7 @@ export default function WeekViewScreen() {
         onClose={() => setSheetEvent(null)}
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
+        onDeleted={reload}
       />
       <EditTitleModal
         visible={editTitleVisible}
