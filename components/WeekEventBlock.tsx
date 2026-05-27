@@ -103,11 +103,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize:   9,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     lineHeight: 12,
   },
   titleShort: {
     fontSize:   9,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     lineHeight: 11,
   },

@@ -94,6 +94,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     },
     title: {
       fontSize: 15,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
       color: c.textPrimary,
     },
@@ -118,6 +119,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     nextBadgeText: {
       fontSize: 10,
       color: c.accent,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       letterSpacing: 0.3,
     },

@@ -63,6 +63,7 @@ const styles = StyleSheet.create({
   lockedText: {
     fontSize: 13,
     color: Colors.accent,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
   },
 });

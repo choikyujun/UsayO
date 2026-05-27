@@ -205,6 +205,7 @@ function makeStyles(c: AppTheme) {
       lineHeight: 20,
     },
     titleNext: {
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
     },
     titleCompleted: {
@@ -228,7 +229,7 @@ function makeStyles(c: AppTheme) {
       gap: 2,
     },
     actionLeftIcon:  { fontSize: 18, color: '#fff' },
-    actionLeftLabel: { fontSize: 10, color: '#fff', fontWeight: '700' },
+    actionLeftLabel: { fontSize: 10, color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     actionRight: {
       backgroundColor: c.error,
       alignItems: 'center',
@@ -237,7 +238,7 @@ function makeStyles(c: AppTheme) {
       gap: 2,
     },
     actionRightIcon:  { fontSize: 16 },
-    actionRightLabel: { fontSize: 10, color: '#fff', fontWeight: '700' },
+    actionRightLabel: { fontSize: 10, color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     // ── Expanded ─────────────────────────────────────────────────
     expanded: {
       paddingLeft: 74,   // time-col width + gap

@@ -119,10 +119,12 @@ function makeStyles(c: AppTheme) {
     },
     pillText: {
       fontSize: 13,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
     },
     chevron: {
       fontSize: 11,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
     },
     list: {

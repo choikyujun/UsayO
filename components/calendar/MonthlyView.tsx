@@ -186,6 +186,7 @@ function makeStyles(c: AppTheme) {
       flex: 1,
       textAlign: 'center',
       fontSize: 12,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
       color: c.textMuted,
     },
@@ -213,10 +214,11 @@ function makeStyles(c: AppTheme) {
     dateText: {
       fontSize: 14,
       color: c.textPrimary,
+      fontFamily: 'Pretendard-Regular',
       fontWeight: '400',
     },
-    todayText: { color: c.accent, fontWeight: '700' },
-    selText:   { color: '#fff', fontWeight: '700' },
+    todayText: { color: c.accent, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
+    selText:   { color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     sun: { color: '#E05252' },
     sat: { color: '#5279E0' },
     dotRow: { flexDirection: 'row', gap: 2, marginTop: 2, height: 6, alignItems: 'center' },
@@ -255,6 +257,7 @@ function makeStyles(c: AppTheme) {
     },
     sheetTitle: {
       fontSize: 17,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       color: c.textPrimary,
     },
@@ -262,7 +265,7 @@ function makeStyles(c: AppTheme) {
     sheetSwitch: { fontSize: 13 },
     sheetScroll: { flex: 1 },
     emptyDay: { alignItems: 'center', paddingVertical: 32, gap: 8 },
-    emptyText: { fontSize: 16, fontWeight: '600', color: c.textMuted },
+    emptyText: { fontSize: 16, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textMuted },
     emptyHint: { fontSize: 13, color: c.accent },
     eventRow: {
       flexDirection: 'row',
@@ -274,7 +277,7 @@ function makeStyles(c: AppTheme) {
     eventBar: { width: 3 },
     eventBody: { flex: 1, paddingHorizontal: 12, paddingVertical: 10 },
     eventTime: { fontSize: 11, color: c.textMuted, marginBottom: 2 },
-    eventTitle: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
+    eventTitle: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textPrimary },
     eventLoc: { fontSize: 12, color: c.textMuted, marginTop: 2 },
   });
 }

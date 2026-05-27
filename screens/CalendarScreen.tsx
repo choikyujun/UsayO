@@ -240,6 +240,7 @@ function makeStyles(c: AppTheme) {
     arrow: { padding: 10 },
     headerTitle: {
       fontSize: 17,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       color: c.textPrimary,
       flex: 1,
@@ -265,7 +266,7 @@ function makeStyles(c: AppTheme) {
       backgroundColor: c.primary,
       borderColor: c.primary,
     },
-    tabText: { fontSize: 14, color: c.textMuted, fontWeight: '600' },
+    tabText: { fontSize: 14, color: c.textMuted, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     tabTextActive: { color: '#fff' },
     content: { flex: 1, paddingHorizontal: 8, paddingTop: 8 },
     skeleton: { gap: 10, paddingHorizontal: 8, paddingTop: 12 },

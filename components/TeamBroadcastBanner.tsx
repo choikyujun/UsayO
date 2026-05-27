@@ -72,6 +72,7 @@ const styles = StyleSheet.create({
   },
   scopeLabel: {
     fontSize: 10,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: Colors.accent,
     letterSpacing: 0.3,
@@ -85,6 +86,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     color: Colors.textPrimary,
   },

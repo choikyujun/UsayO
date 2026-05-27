@@ -191,6 +191,7 @@ function makeStyles(c: AppTheme) {
     title: {
       fontSize:   14,
       color:      c.textSecondary,
+      fontFamily: 'Pretendard-Regular',
       fontWeight: '400',
       flex:       1,
     },
@@ -226,7 +227,7 @@ function makeStyles(c: AppTheme) {
       backgroundColor: c.primary,
     },
     actionIcon:          { fontSize: 16 },
-    actionDeleteLabel:   { fontSize: 10, color: '#fff', fontWeight: '700' },
-    actionCompleteLabel: { fontSize: 10, color: '#fff', fontWeight: '700' },
+    actionDeleteLabel:   { fontSize: 10, color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
+    actionCompleteLabel: { fontSize: 10, color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
   });
 }

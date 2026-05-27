@@ -464,6 +464,7 @@ const nowRowStyles = StyleSheet.create({
   time: {
     width:      TIME_W,
     fontSize:   11,
+    fontFamily: 'Pretendard-Medium',
     fontWeight: '500',
     textAlign:  'right',
   },
@@ -484,6 +485,7 @@ const nowRowStyles = StyleSheet.create({
   },
   label: {
     fontSize:      9,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight:    '600',
     letterSpacing: 0.8,
     marginLeft:    6,
@@ -525,6 +527,6 @@ function makeContainerStyles(c: AppTheme) {
       elevation:         6,
     },
     toastText: { fontSize: 14, color: c.textPrimary, flex: 1 },
-    toastUndo: { fontSize: 14, color: c.accent, fontWeight: '700', marginLeft: 12 },
+    toastUndo: { fontSize: 14, color: c.accent, fontFamily: 'Pretendard-Bold', fontWeight: '700', marginLeft: 12 },
   });
 }

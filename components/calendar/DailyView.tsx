@@ -168,7 +168,7 @@ const chipStyles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  text: { fontSize: 11, fontWeight: '600' },
+  text: { fontSize: 11, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
 });
 
 function formatHour(h: number): string {
@@ -205,6 +205,7 @@ function makeStyles(c: AppTheme) {
     },
     headerDate: {
       fontSize: 17,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       color: c.textPrimary,
       marginBottom: 8,
@@ -252,7 +253,7 @@ function makeStyles(c: AppTheme) {
       overflow: 'hidden',
     },
     eventTime: { fontSize: 10, color: c.textMuted, marginBottom: 1 },
-    eventTitle: { fontSize: 13, fontWeight: '600', color: c.textPrimary },
+    eventTitle: { fontSize: 13, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textPrimary },
     eventLoc: { fontSize: 11, color: c.textMuted, marginTop: 2 },
     nowLine: {
       position: 'absolute',
@@ -278,7 +279,7 @@ function makeStyles(c: AppTheme) {
       paddingBottom: 60,
       gap: 8,
     },
-    emptyTitle: { fontSize: 16, fontWeight: '600', color: c.textMuted },
+    emptyTitle: { fontSize: 16, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textMuted },
     emptyHint:  { fontSize: 13, color: c.accent },
     scrollHidden: { display: 'none' },
   });

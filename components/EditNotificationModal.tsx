@@ -161,7 +161,7 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
                   <Text style={[
                     styles.optionLabel,
                     { color: selected ? colors.primary : colors.textPrimary },
-                    selected && { fontWeight: '600' },
+                    selected && { fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
                   ]}>
                     {opt.label}
                   </Text>
@@ -213,7 +213,7 @@ function makeStyles(c: AppTheme) {
       alignItems: 'center',
       marginBottom: 8,
     },
-    heading:    { fontSize: 18, fontWeight: '600' },
+    heading:    { fontSize: 18, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     eventInfo:  { fontSize: 14, marginBottom: 16 },
     listWrap:   { maxHeight: 360 },
     optionRow: {
@@ -230,6 +230,6 @@ function makeStyles(c: AppTheme) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    cancelText: { fontSize: 16, fontWeight: '500' },
+    cancelText: { fontSize: 16, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
   });
 }

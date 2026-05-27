@@ -219,6 +219,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     emptyText: {
       fontSize: 15,
       color: c.textMuted,
+      fontFamily: 'Pretendard-Medium',
       fontWeight: '500',
     },
     emptyHint: {
@@ -239,6 +240,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
 
     sectionHeader: {
       fontSize: 11,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
       color: c.textTertiary,
       letterSpacing: 0.4,

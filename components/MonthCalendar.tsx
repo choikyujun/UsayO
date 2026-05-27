@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   arrow: { padding: 8 },
-  title: { fontSize: 17, fontWeight: '700', color: Colors.text },
+  title: { fontSize: 17, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: Colors.text },
   row: {
     flexDirection: 'row',
     marginBottom: 2,
@@ -143,6 +143,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: 12,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     color: Colors.textMuted,
     paddingVertical: 4,
@@ -169,14 +170,17 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 14,
     color: Colors.text,
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
   },
   selectedText: {
     color: '#fff',
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },
   todayText: {
     color: Colors.primary,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },
   dot: {

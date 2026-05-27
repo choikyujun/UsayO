@@ -368,7 +368,7 @@ function makeStyles(c: AppTheme) {
       alignItems: 'center',
       marginBottom: 20,
     },
-    heading: { fontSize: 18, fontWeight: '600' },
+    heading: { fontSize: 18, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
 
     dateRow: {
       flexDirection: 'row',
@@ -380,7 +380,7 @@ function makeStyles(c: AppTheme) {
       paddingVertical: 10,
       marginBottom: 20,
     },
-    dateLabel: { fontSize: 15, fontWeight: '500' },
+    dateLabel: { fontSize: 15, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
 
     timePicker: {
       flexDirection: 'row',
@@ -406,7 +406,7 @@ function makeStyles(c: AppTheme) {
       margin: 12, borderRadius: 12,
       alignItems: 'center', paddingVertical: 12,
     },
-    iosPickerDoneText: { fontSize: 15, fontWeight: '600', color: '#fff' },
+    iosPickerDoneText: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: '#fff' },
 
     btnRow: {
       flexDirection: 'row',
@@ -415,9 +415,9 @@ function makeStyles(c: AppTheme) {
       gap: 12,
     },
     cancelBtn:   { height: 48, paddingHorizontal: 8, justifyContent: 'center' },
-    cancelText:  { fontSize: 16, fontWeight: '500' },
+    cancelText:  { fontSize: 16, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     saveBtn:     { height: 48, paddingHorizontal: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-    saveBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+    saveBtnText: { fontSize: 16, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: '#fff' },
     scopeList:   { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, marginBottom: 16, overflow: 'hidden' },
     scopeItem:   { paddingVertical: 15, paddingHorizontal: 16 },
     scopeText:   { fontSize: 16 },

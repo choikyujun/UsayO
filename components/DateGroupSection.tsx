@@ -74,6 +74,7 @@ function makeStyles(c: AppTheme) {
     },
     label: {
       fontSize:      11,
+      fontFamily: 'Pretendard-Medium',
       fontWeight:    '500',
       letterSpacing: 0.2,
     },

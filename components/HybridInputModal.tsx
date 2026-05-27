@@ -168,6 +168,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: Colors.textPrimary,
     fontSize: 16,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },
   headerSubtitle: {
@@ -178,6 +179,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     color: Colors.accent,
     fontSize: 11,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
@@ -220,6 +222,7 @@ const styles = StyleSheet.create({
   retryText: {
     color: Colors.accent,
     fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
   },
   confirmBtn: {
@@ -235,6 +238,7 @@ const styles = StyleSheet.create({
   confirmText: {
     color: Colors.textPrimary,
     fontSize: 15,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },
 });

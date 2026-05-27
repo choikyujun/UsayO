@@ -219,6 +219,7 @@ function makeStyles(c: AppTheme) {
     },
     monthLabel: {
       fontSize: 15,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       color: c.textPrimary,
       letterSpacing: 0.2,
@@ -232,6 +233,7 @@ function makeStyles(c: AppTheme) {
       flex: 1,
       textAlign: 'center',
       fontSize: 11,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
       color: c.textMuted,
       lineHeight: LABELS_H,

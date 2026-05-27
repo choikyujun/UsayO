@@ -120,10 +120,10 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       paddingHorizontal: 16,
       paddingVertical:   10,
     },
-    yearLabel: { fontSize: 24, fontWeight: '600' },
+    yearLabel: { fontSize: 24, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     todayWrap: { flex: 1, alignItems: 'flex-end' },
     todayBtn:  { paddingHorizontal: 8, paddingVertical: 4 },
-    todayText: { fontSize: 13, fontWeight: '600' },
+    todayText: { fontSize: 13, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     gridWrap:  { flex: 1, paddingBottom: 12 },
   });
 }

@@ -179,6 +179,7 @@ function makeStyles(c: AppTheme) {
     },
     title: {
       fontSize:     18,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight:   '600',
       marginBottom: 8,
       paddingRight: 32,

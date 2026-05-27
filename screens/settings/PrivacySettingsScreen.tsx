@@ -166,7 +166,7 @@ function Row({
       <View style={{ width: 24, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ fontSize: 15, color: colors.textPrimary, fontWeight: '500' }}>{label}</Text>
+          <Text style={{ fontSize: 15, color: colors.textPrimary, fontFamily: 'Pretendard-Medium', fontWeight: '500' }}>{label}</Text>
           {badge && (
             <View style={{
               backgroundColor: colors.warning + '20',
@@ -176,7 +176,7 @@ function Row({
               borderWidth: 1,
               borderColor: colors.warning + '50',
             }}>
-              <Text style={{ fontSize: 10, color: colors.warning, fontWeight: '700' }}>{badge}</Text>
+              <Text style={{ fontSize: 10, color: colors.warning, fontFamily: 'Pretendard-Bold', fontWeight: '700' }}>{badge}</Text>
             </View>
           )}
         </View>
@@ -206,7 +206,7 @@ function makeStyles(c: AppTheme) {
     root:        { flex: 1, backgroundColor: c.bg },
     scroll:      { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 48, gap: 16 },
     section:     { gap: 8 },
-    sectionTitle: { fontSize: 13, fontWeight: '700', color: c.accent, paddingLeft: 4 },
+    sectionTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.accent, paddingLeft: 4 },
     card: {
       backgroundColor: c.card,
       borderRadius: 12,
@@ -221,7 +221,7 @@ function makeStyles(c: AppTheme) {
       paddingVertical: 14,
       justifyContent: 'space-between',
     },
-    linkLabel: { fontSize: 15, color: c.textPrimary, fontWeight: '500' },
+    linkLabel: { fontSize: 15, color: c.textPrimary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     border: { borderTopWidth: 0.5, borderTopColor: c.border },
     deleteBtn: {
       backgroundColor: c.error + '15',
@@ -231,7 +231,7 @@ function makeStyles(c: AppTheme) {
       paddingVertical: 14,
       alignItems: 'center',
     },
-    deleteBtnText: { fontSize: 15, color: c.error, fontWeight: '700' },
+    deleteBtnText: { fontSize: 15, color: c.error, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     deleteHint: { fontSize: 11, color: c.textMuted, textAlign: 'center', lineHeight: 16 },
   });
 }

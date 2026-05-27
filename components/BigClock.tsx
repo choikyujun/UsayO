@@ -37,6 +37,7 @@ function makeStyles(c: AppTheme) {
     wrapCompact: { paddingTop: 6, paddingBottom: 3 },
     time: {
       fontSize: 52,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       color: c.textPrimary,
       letterSpacing: 2,

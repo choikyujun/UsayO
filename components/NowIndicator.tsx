@@ -22,6 +22,6 @@ function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     row:   { flexDirection: 'row', alignItems: 'center', marginVertical: 6, paddingHorizontal: 20 },
     line:  { flex: 1, height: 1, backgroundColor: c.primary + '45' },
-    label: { fontSize: 11, color: c.accent, fontWeight: '500', marginHorizontal: 10, letterSpacing: 0.2 },
+    label: { fontSize: 11, color: c.accent, fontFamily: 'Pretendard-Medium', fontWeight: '500', marginHorizontal: 10, letterSpacing: 0.2 },
   });
 }

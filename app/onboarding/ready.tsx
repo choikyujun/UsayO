@@ -107,6 +107,7 @@ const rowStyles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: Colors.textPrimary,
+    fontFamily: 'Pretendard-Medium',
     fontWeight: '500',
   },
   okBadge: {
@@ -120,6 +121,7 @@ const rowStyles = StyleSheet.create({
   okText: {
     fontSize: 11,
     color: Colors.success,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },
   skipLabel: {
@@ -201,12 +203,14 @@ const styles = StyleSheet.create({
   suggestionLabel: {
     fontSize: 12,
     color: Colors.accent,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     letterSpacing: 0.3,
   },
   suggestionSample: {
     fontSize: 17,
     color: Colors.textPrimary,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     letterSpacing: -0.3,
   },
@@ -226,6 +230,7 @@ const styles = StyleSheet.create({
   },
   startBtnText: {
     fontSize: 16,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: '#fff',
   },

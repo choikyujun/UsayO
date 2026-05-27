@@ -2,14 +2,23 @@ import 'react-native-url-polyfill/auto';
 import '../global.css';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFonts } from 'expo-font';
 import { router, Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
-import { LogBox, Platform, useColorScheme } from 'react-native';
+import { LogBox, Platform, Text, TextInput, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // 개발 빌드에서 노란 배너 완전 억제 (console.error는 여전히 터미널에 출력됨)
 LogBox.ignoreAllLogs();
+SplashScreen.preventAutoHideAsync();
+
+// Apply Pretendard as the global default for all Text and TextInput components
+(Text as any).defaultProps = (Text as any).defaultProps ?? {};
+(Text as any).defaultProps.style = [{ fontFamily: 'Pretendard-Regular' }];
+(TextInput as any).defaultProps = (TextInput as any).defaultProps ?? {};
+(TextInput as any).defaultProps.style = [{ fontFamily: 'Pretendard-Regular' }];
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { useColors } from '../constants/colors';
 import { ThemeProvider } from '../contexts/ThemeContext';
@@ -30,6 +39,19 @@ const STEP_ROUTES: Record<string, string> = {
 };
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    'Pretendard-Regular':  require('../assets/fonts/Pretendard-Regular.ttf'),
+    'Pretendard-Medium':   require('../assets/fonts/Pretendard-Medium.ttf'),
+    'Pretendard-SemiBold': require('../assets/fonts/Pretendard-SemiBold.ttf'),
+    'Pretendard-Bold':     require('../assets/fonts/Pretendard-Bold.ttf'),
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync();
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
+
   return (
     <ThemeProvider>
       <AppRoot />

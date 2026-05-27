@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   },
   rowBorder: { borderTopWidth: 0.5, borderTopColor: Colors.darkBorder },
   rowLabel: { fontSize: 14, color: Colors.textMuted },
-  rowValue: { fontSize: 14, color: Colors.textPrimary, fontWeight: '600' },
+  rowValue: { fontSize: 14, color: Colors.textPrimary, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
   copyright: {
     textAlign: 'center',
     fontSize: 11,

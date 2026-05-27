@@ -102,6 +102,7 @@ const styles = StyleSheet.create({
   },
   monthName: {
     fontSize:      11,
+    fontFamily: 'Pretendard-Medium',
     fontWeight:    '500',
     textAlign:     'center',
     marginBottom:  4,
@@ -113,6 +114,7 @@ const styles = StyleSheet.create({
   dowLabel: {
     fontSize:   5,
     textAlign:  'center',
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
   },
   weekRow: {
@@ -131,6 +133,7 @@ const styles = StyleSheet.create({
   },
   dayNum: {
     fontSize:   6.5,
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
     lineHeight: 8,
   },

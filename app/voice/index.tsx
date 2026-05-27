@@ -263,11 +263,13 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 13,
     color: Colors.textMuted,
+    fontFamily: 'Pretendard-Medium',
     fontWeight: '500',
   },
   example: {
     fontSize: 16,
     color: Colors.text,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     textAlign: 'center',
     fontStyle: 'italic',
@@ -320,6 +322,7 @@ const styles = StyleSheet.create({
   },
   listeningLabel: {
     fontSize: 18,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: Colors.primary,
   },
@@ -352,6 +355,7 @@ const styles = StyleSheet.create({
   },
   stopText: {
     fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     color: Colors.primary,
   },

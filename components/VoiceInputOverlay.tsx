@@ -193,6 +193,7 @@ const styles = StyleSheet.create({
   listenText: {
     color:        '#FFFFFF',
     fontSize:     18,
+    fontFamily: 'Pretendard-Medium',
     fontWeight:   '500',
     marginBottom: 8,
   },

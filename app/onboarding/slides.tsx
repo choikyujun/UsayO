@@ -224,6 +224,7 @@ const illus = StyleSheet.create({
   },
   actionLabel: {
     fontSize: 13,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },
   exRow: {
@@ -240,6 +241,7 @@ const illus = StyleSheet.create({
   exInput: {
     fontSize: 14,
     color: Colors.textPrimary,
+    fontFamily: 'Pretendard-Medium',
     fontWeight: '500',
   },
   exArrow: {
@@ -250,6 +252,7 @@ const illus = StyleSheet.create({
     marginLeft: 'auto',
     fontSize: 14,
     color: Colors.success,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },
 });
@@ -285,6 +288,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     color: Colors.accent,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -336,6 +340,7 @@ const styles = StyleSheet.create({
   },
   nextBtnText: {
     fontSize: 16,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: '#fff',
   },

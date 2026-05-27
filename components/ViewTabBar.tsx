@@ -80,9 +80,11 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize:   13,
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
   },
   labelActive: {
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
   },
 });

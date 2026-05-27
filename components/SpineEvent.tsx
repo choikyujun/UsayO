@@ -300,7 +300,7 @@ function makeStyles(c: AppTheme, state: EventState) {
       textDecorationLine: 'line-through',
       color:              c.textMuted,
     },
-    badge:         { fontSize: 10, color: c.accent, fontWeight: '500' },
+    badge:         { fontSize: 10, color: c.accent, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     expandedArea:  { paddingTop: 6, gap: 3 },
     expandedLine:  { fontSize: 12, color: c.textSecondary, lineHeight: 17 },
     expandedEmpty: { fontSize: 12, color: c.textMuted, fontStyle: 'italic' },
@@ -319,6 +319,6 @@ function makeStyles(c: AppTheme, state: EventState) {
       gap:               2,
     },
     actionUndo:  { backgroundColor: c.primary },
-    actionLabel: { fontSize: 10, color: '#fff', fontWeight: '700' },
+    actionLabel: { fontSize: 10, color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
   });
 }

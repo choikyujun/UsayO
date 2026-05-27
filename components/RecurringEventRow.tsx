@@ -107,11 +107,13 @@ function makeStyles(c: AppTheme) {
     label: {
       fontSize: 11,
       color: c.textMuted,
+      fontFamily: 'Pretendard-Medium',
       fontWeight: '500',
     },
     title: {
       fontSize: 14,
       color: c.textPrimary,
+      fontFamily: 'Pretendard-Medium',
       fontWeight: '500',
     },
     actions: {
@@ -135,6 +137,7 @@ function makeStyles(c: AppTheme) {
     actionLabel: {
       fontSize: 11,
       color: '#fff',
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
     },
   });

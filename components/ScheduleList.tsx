@@ -80,6 +80,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     marginTop: 8,
     fontSize: 17,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     color: Colors.text,
   },
@@ -106,6 +107,7 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 13,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     color: Colors.primary,
   },
@@ -122,6 +124,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     color: Colors.text,
   },

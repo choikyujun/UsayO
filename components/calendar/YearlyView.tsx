@@ -148,6 +148,7 @@ function makeStyles(c: AppTheme) {
     },
     monthName: {
       fontSize: 11,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       color: c.textMuted,
     },

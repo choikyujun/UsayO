@@ -129,7 +129,7 @@ function makeStyles(c: AppTheme) {
     root:         { flex: 1, backgroundColor: c.bg },
     scroll:       { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 20 },
     section:      { gap: 8 },
-    sectionTitle: { fontSize: 13, fontWeight: '700', color: c.accent, paddingLeft: 4 },
+    sectionTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.accent, paddingLeft: 4 },
     card: {
       backgroundColor: c.card,
       borderRadius: 12,
@@ -146,7 +146,7 @@ function makeStyles(c: AppTheme) {
     },
     langRowBorder: { borderTopWidth: 0.5, borderTopColor: c.border },
     langFlag:      { fontSize: 22 },
-    langLabel:     { flex: 1, fontSize: 15, color: c.textPrimary, fontWeight: '500' },
+    langLabel:     { flex: 1, fontSize: 15, color: c.textPrimary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     checkDot: {
       width: 8, height: 8,
       borderRadius: 4,
@@ -173,7 +173,7 @@ function makeStyles(c: AppTheme) {
     },
     speedStepActive:     { backgroundColor: c.primary, borderColor: c.primary },
     speedStepText:       { fontSize: 9, color: c.textMuted },
-    speedStepTextActive: { color: '#fff', fontWeight: '700' },
+    speedStepTextActive: { color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     testBtn: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -187,7 +187,7 @@ function makeStyles(c: AppTheme) {
       borderWidth: 1,
       borderColor: c.border,
     },
-    testBtnText: { fontSize: 14, color: c.accent, fontWeight: '600' },
+    testBtnText: { fontSize: 14, color: c.accent, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     testSample: {
       textAlign: 'center',
       fontSize: 11,

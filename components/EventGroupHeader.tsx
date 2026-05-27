@@ -17,6 +17,6 @@ export default function EventGroupHeader({ label }: Props) {
 function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     wrap:  { paddingTop: 18, paddingBottom: 4, paddingHorizontal: 20 },
-    label: { fontSize: 11, fontWeight: '700', color: c.textMuted, letterSpacing: 0.8 },
+    label: { fontSize: 11, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textMuted, letterSpacing: 0.8 },
   });
 }

@@ -133,9 +133,11 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize:   13,
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
   },
   tabLabelActive: {
+    fontFamily: 'Pretendard-Medium',
     fontWeight: '500',
   },
   dateRow: {
@@ -147,14 +149,17 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize:   20,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
   },
   sep: {
     fontSize:   20,
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
   },
   timeText: {
     fontSize:   20,
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
   },
 });

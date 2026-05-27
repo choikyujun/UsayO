@@ -93,6 +93,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize:   12,
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
   },
   close: {

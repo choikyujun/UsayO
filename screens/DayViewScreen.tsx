@@ -436,9 +436,9 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
-    dateLabel: { fontSize: 15, fontWeight: '600' },
+    dateLabel: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     todayBtn:  { paddingHorizontal: 8, paddingVertical: 4 },
-    todayText: { fontSize: 13, fontWeight: '600' },
+    todayText: { fontSize: 13, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
 
     // Voice overlays
     listenOverlay: {
@@ -448,7 +448,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       gap:             20,
       backgroundColor: 'rgba(0,0,0,0.3)',
     },
-    listenLabel: { fontSize: 22, fontWeight: '700' },
+    listenLabel: { fontSize: 22, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     cancelBtn: {
       paddingHorizontal: 24,
       paddingVertical:   10,
@@ -456,7 +456,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderWidth:       1,
       backgroundColor:   c.card,
     },
-    cancelText: { fontSize: 15, fontWeight: '600' },
+    cancelText: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
 
     processOverlay: {
       ...StyleSheet.absoluteFillObject,

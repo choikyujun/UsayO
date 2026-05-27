@@ -129,6 +129,7 @@ const styles = StyleSheet.create({
   intentLabel: {
     color: Colors.primary,
     fontSize: 12,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
   },
   rawText: {
@@ -148,12 +149,14 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 17,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     color: Colors.text,
     flex: 1,
   },
   detailMuted: {
     fontSize: 14,
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
     color: Colors.textMuted,
   },
@@ -172,6 +175,7 @@ const styles = StyleSheet.create({
   retryText: {
     color: Colors.primary,
     fontSize: 15,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
   },
   confirmBtn: {
@@ -187,6 +191,7 @@ const styles = StyleSheet.create({
   confirmText: {
     color: '#fff',
     fontSize: 15,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },
 });

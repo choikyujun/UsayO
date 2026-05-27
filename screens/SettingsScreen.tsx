@@ -208,7 +208,7 @@ function makeStyles(c: AppTheme) {
     },
     avatarText: { fontSize: 20, fontWeight: '800', color: '#fff' },
     profileInfo: { flex: 1 },
-    profileName: { fontSize: 16, fontWeight: '700', color: c.textPrimary, marginBottom: 2 },
+    profileName: { fontSize: 16, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textPrimary, marginBottom: 2 },
     profileEmail: { fontSize: 12, color: c.textMuted },
     planBadge: {
       paddingHorizontal: 10,
@@ -230,13 +230,14 @@ function makeStyles(c: AppTheme) {
     upgradeBannerLeft: { flex: 1 },
     upgradeBannerTitle: {
       fontSize: 14,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       color: c.textPrimary,
       marginBottom: 2,
     },
     upgradeBannerSub: { fontSize: 11, color: c.textMuted },
     upgradeBannerRight: { alignItems: 'flex-end', gap: 4 },
-    upgradeBannerPrice: { fontSize: 13, fontWeight: '700', color: c.accent },
+    upgradeBannerPrice: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.accent },
     section: {
       backgroundColor: c.card,
       borderRadius: 14,
@@ -253,7 +254,7 @@ function makeStyles(c: AppTheme) {
       paddingTop: 14,
       paddingBottom: 10,
     },
-    colorPickerLabel: { fontSize: 15, color: c.textPrimary, fontWeight: '500' },
+    colorPickerLabel: { fontSize: 15, color: c.textPrimary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     colorPickerSub: { fontSize: 12, color: c.textMuted },
     colorRow: {
       flexDirection: 'row',
@@ -286,7 +287,7 @@ function makeStyles(c: AppTheme) {
       paddingVertical: 14,
     },
     toggleRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
-    toggleLabel: { fontSize: 15, color: c.textPrimary, fontWeight: '500' },
+    toggleLabel: { fontSize: 15, color: c.textPrimary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     menuRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -298,7 +299,7 @@ function makeStyles(c: AppTheme) {
       borderTopWidth: 0.5,
       borderTopColor: c.border,
     },
-    menuLabel: { flex: 1, fontSize: 15, color: c.textPrimary, fontWeight: '500' },
+    menuLabel: { flex: 1, fontSize: 15, color: c.textPrimary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     logoutRow: {
       backgroundColor: c.card,
       borderRadius: 14,
@@ -307,7 +308,7 @@ function makeStyles(c: AppTheme) {
       paddingVertical: 14,
       alignItems: 'center',
     },
-    logoutText: { fontSize: 15, color: c.error, fontWeight: '600' },
+    logoutText: { fontSize: 15, color: c.error, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     version: {
       textAlign: 'center',
       fontSize: 11,

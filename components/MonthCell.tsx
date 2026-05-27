@@ -83,6 +83,7 @@ const styles = StyleSheet.create({
   },
   num: {
     fontSize:   13,
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
   },
   dotsRow: {

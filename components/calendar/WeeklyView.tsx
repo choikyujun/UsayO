@@ -200,7 +200,7 @@ function makeStyles(c: AppTheme) {
       paddingVertical: 4,
     },
     dayHeaderToday: {},
-    dayName: { fontSize: 11, color: c.textMuted, fontWeight: '600' },
+    dayName: { fontSize: 11, color: c.textMuted, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     dayNameToday: { color: c.accent },
     dayNumCircle: {
       width: 28,
@@ -212,7 +212,7 @@ function makeStyles(c: AppTheme) {
     },
     dayNumToday: { backgroundColor: c.primary },
     dayNum: { fontSize: 14, color: c.textMuted },
-    dayNumTextToday: { color: '#fff', fontWeight: '700' },
+    dayNumTextToday: { color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     body: { flexDirection: 'row', flex: 1 },
     timeCol: { width: TIME_COL_W, alignItems: 'flex-end', paddingRight: 6 },
     timeLabel: { fontSize: 10, color: c.textMuted, marginTop: -6 },
@@ -260,7 +260,7 @@ function makeStyles(c: AppTheme) {
       paddingTop: 2,
       overflow: 'hidden',
     },
-    eventTitle: { fontSize: 9, color: c.textPrimary, fontWeight: '600', lineHeight: 12 },
+    eventTitle: { fontSize: 9, color: c.textPrimary, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', lineHeight: 12 },
     nowLine: {
       position: 'absolute',
       left: 0,

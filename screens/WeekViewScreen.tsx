@@ -367,8 +367,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
-    rangeLabel: { fontSize: 14, fontWeight: '600' },
+    rangeLabel: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     todayBtn:   { paddingHorizontal: 8, paddingVertical: 4 },
-    todayText:  { fontSize: 13, fontWeight: '600' },
+    todayText:  { fontSize: 13, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
   });
 }

@@ -399,7 +399,7 @@ function makeStyles(c: AppTheme) {
       borderColor: c.warning + '60',
     },
     ddayNum: { fontSize: 12, color: c.warning, fontWeight: '800' },
-    ddayTitle: { flex: 1, fontSize: 13, color: c.textPrimary, fontWeight: '600' },
+    ddayTitle: { flex: 1, fontSize: 13, color: c.textPrimary, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     ddayDate: { fontSize: 11, color: c.textMuted },
     tabs: {
       flexDirection: 'row',
@@ -418,7 +418,7 @@ function makeStyles(c: AppTheme) {
       borderColor: c.border,
     },
     tabActive: { backgroundColor: c.primary, borderColor: c.primary },
-    tabText: { fontSize: 13, color: c.textMuted, fontWeight: '600' },
+    tabText: { fontSize: 13, color: c.textMuted, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     tabTextActive: { color: '#fff' },
     content: { flex: 1 },
     weekScroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32, gap: 4 },
@@ -430,7 +430,7 @@ function makeStyles(c: AppTheme) {
       marginBottom: 8,
     },
     dayGroupHeaderToday: {},
-    dayGroupTitle: { fontSize: 13, fontWeight: '700', color: c.textMuted },
+    dayGroupTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textMuted },
     dayGroupTitleToday: { color: c.success },
     todayDot: {
       width: 6, height: 6, borderRadius: 3, backgroundColor: c.success,
@@ -448,7 +448,7 @@ function makeStyles(c: AppTheme) {
     eventBar: { width: 3, alignSelf: 'stretch' },
     eventBody: { flex: 1, paddingHorizontal: 12, paddingVertical: 10 },
     eventTime: { fontSize: 10, color: c.textMuted, marginBottom: 2 },
-    eventTitle: { fontSize: 14, fontWeight: '600', color: c.textPrimary },
+    eventTitle: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textPrimary },
     eventLoc: { fontSize: 11, color: c.textMuted, marginTop: 2 },
     soonBadge: {
       backgroundColor: c.success + '25',
@@ -459,7 +459,7 @@ function makeStyles(c: AppTheme) {
       borderWidth: 1,
       borderColor: c.success + '50',
     },
-    soonText: { fontSize: 11, color: c.success, fontWeight: '700' },
+    soonText: { fontSize: 11, color: c.success, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     ddaySmallBadge: {
       backgroundColor: c.warning + '20',
       paddingHorizontal: 8,
@@ -469,10 +469,10 @@ function makeStyles(c: AppTheme) {
       borderWidth: 1,
       borderColor: c.warning + '50',
     },
-    ddaySmallText: { fontSize: 11, color: c.warning, fontWeight: '700' },
+    ddaySmallText: { fontSize: 11, color: c.warning, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     weekGroup: { marginBottom: 20 },
     weekHeader: { marginBottom: 8, gap: 4 },
-    weekTitle: { fontSize: 13, fontWeight: '700', color: c.accent },
+    weekTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.accent },
     weekUnderline: {
       height: 1.5,
       width: 40,
@@ -492,7 +492,7 @@ function makeStyles(c: AppTheme) {
       marginBottom: 16,
     },
     insightIcon: { fontSize: 22 },
-    insightTitle: { fontSize: 13, fontWeight: '700', color: c.textPrimary, marginBottom: 3 },
+    insightTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textPrimary, marginBottom: 3 },
     insightSub: { fontSize: 11, color: c.textMuted },
     aiSlotHint: {
       fontSize: 12,
@@ -509,7 +509,7 @@ function makeStyles(c: AppTheme) {
       marginBottom: 10,
     },
     slotCardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    slotRank: { fontSize: 12, color: c.accent, fontWeight: '600' },
+    slotRank: { fontSize: 12, color: c.accent, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     slotDurBadge: {
       backgroundColor: c.success + '20',
       paddingHorizontal: 8,
@@ -518,8 +518,8 @@ function makeStyles(c: AppTheme) {
       borderWidth: 1,
       borderColor: c.success + '40',
     },
-    slotDur: { fontSize: 11, color: c.success, fontWeight: '700' },
-    slotDate: { fontSize: 14, fontWeight: '700', color: c.textPrimary, marginBottom: 3 },
+    slotDur: { fontSize: 11, color: c.success, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
+    slotDate: { fontSize: 14, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textPrimary, marginBottom: 3 },
     slotTime: { fontSize: 12, color: c.textMuted, marginBottom: 12 },
     slotCta: {
       flexDirection: 'row',
@@ -530,9 +530,9 @@ function makeStyles(c: AppTheme) {
       borderRadius: 10,
       paddingVertical: 10,
     },
-    slotCtaText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+    slotCtaText: { fontSize: 14, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: '#fff' },
     empty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
-    emptyText: { fontSize: 15, color: c.textMuted, fontWeight: '500' },
+    emptyText: { fontSize: 15, color: c.textMuted, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     emptyHint: { fontSize: 12, color: c.accent },
   });
 }

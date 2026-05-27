@@ -139,6 +139,7 @@ const styles = StyleSheet.create({
   benefitText: {
     fontSize: 15,
     color: Colors.textPrimary,
+    fontFamily: 'Pretendard-Medium',
     fontWeight: '500',
   },
   footer: {
@@ -158,6 +159,7 @@ const styles = StyleSheet.create({
   },
   allowBtnText: {
     fontSize: 16,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: '#fff',
   },

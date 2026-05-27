@@ -196,6 +196,7 @@ function makeStyles(c: AppTheme) {
     },
     dayLabel: {
       fontSize:   18,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
     },
     emptyText: {

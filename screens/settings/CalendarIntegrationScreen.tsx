@@ -119,7 +119,7 @@ function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     root:        { flex: 1, backgroundColor: c.bg },
     scroll:      { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 10 },
-    sectionTitle: { fontSize: 20, fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
+    sectionTitle: { fontSize: 20, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
     sectionDesc:  { fontSize: 13, color: c.textMuted, marginBottom: 8, lineHeight: 18 },
     card: {
       flexDirection: 'row',
@@ -134,7 +134,7 @@ function makeStyles(c: AppTheme) {
     cardDisabled:       { opacity: 0.45 },
     cardLeft:           { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
     providerIcon:       { fontSize: 26 },
-    providerName:       { fontSize: 15, fontWeight: '600', color: c.textPrimary, marginBottom: 3 },
+    providerName:       { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textPrimary, marginBottom: 3 },
     textDisabled:       { color: c.textMuted },
     comingSoon:         { fontSize: 11, color: c.textMuted },
     connectedLabel:     { fontSize: 11, color: c.success },
@@ -146,7 +146,7 @@ function makeStyles(c: AppTheme) {
       borderRadius: 8,
     },
     btnDisconnect:     { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.border },
-    btnText:           { fontSize: 13, fontWeight: '700', color: '#fff' },
+    btnText:           { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: '#fff' },
     btnTextDisconnect: { color: c.textMuted },
     infoBox: {
       flexDirection: 'row',

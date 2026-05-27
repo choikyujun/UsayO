@@ -168,12 +168,14 @@ function makeStyles(c: AppTheme) {
     blockTitle: {
       fontSize:   13,
       color:      '#fff',
+      fontFamily: 'Pretendard-Medium',
       fontWeight: '500',
       lineHeight: 18,
     },
     blockTime: {
       fontSize:   11,
       color:      'rgba(255,255,255,0.75)',
+      fontFamily: 'Pretendard-Regular',
       fontWeight: '400',
       marginTop:  2,
     },
@@ -184,6 +186,7 @@ function makeStyles(c: AppTheme) {
     compactTitle: {
       fontSize:   11,
       color:      '#fff',
+      fontFamily: 'Pretendard-Medium',
       fontWeight: '500',
     },
     expandedArea: {
@@ -211,6 +214,6 @@ function makeStyles(c: AppTheme) {
       gap:             2,
     },
     actionIcon:  { fontSize: 18, color: '#fff' },
-    actionLabel: { fontSize: 11, color: '#fff', fontWeight: '600' },
+    actionLabel: { fontSize: 11, color: '#fff', fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
   });
 }

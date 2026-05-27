@@ -700,10 +700,12 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       fontSize: 18,
       lineHeight: 28,
       color: c.textPrimary,
+      fontFamily: 'Pretendard-Regular',
       fontWeight: '400',
     },
     conversationalSecondary: {
       color: c.accent,
+      fontFamily: 'Pretendard-Medium',
       fontWeight: '500',
     },
     divider: {
@@ -724,6 +726,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     },
     listeningLabel: {
       fontSize: 22,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       color: c.textPrimary,
       letterSpacing: 0.3,
@@ -852,6 +855,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     toastUndo: {
       fontSize:   14,
       color:      c.accent,
+      fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       marginLeft: 12,
     },

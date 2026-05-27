@@ -110,7 +110,7 @@ function makeStyles(c: AppTheme) {
     },
     left:        { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
     warningIcon: { fontSize: 18 },
-    title:       { color: c.warning, fontSize: 13, fontWeight: '700' },
+    title:       { color: c.warning, fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     sub:         { color: c.textMuted, fontSize: 11, marginTop: 1 },
     right:       { flexDirection: 'row', alignItems: 'center', gap: 10 },
     upgradeBtn: {
@@ -119,7 +119,7 @@ function makeStyles(c: AppTheme) {
       paddingVertical: 6,
       borderRadius: 8,
     },
-    upgradeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    upgradeText: { color: '#fff', fontSize: 12, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     closeBtn:    { color: c.textMuted, fontSize: 14, paddingHorizontal: 4 },
     progressBar: { height: 3, backgroundColor: c.border },
     progressFill: { height: '100%', backgroundColor: c.warning },

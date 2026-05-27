@@ -296,6 +296,7 @@ function makeStyles(c: AppTheme) {
     intentLabel: {
       color: c.primary,
       fontSize: 12,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
     },
     rawText: {
@@ -315,12 +316,14 @@ function makeStyles(c: AppTheme) {
     },
     detailText: {
       fontSize: 17,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
       color: c.textPrimary,
       flex: 1,
     },
     detailMuted: {
       fontSize: 14,
+      fontFamily: 'Pretendard-Regular',
       fontWeight: '400',
       color: c.textMuted,
     },

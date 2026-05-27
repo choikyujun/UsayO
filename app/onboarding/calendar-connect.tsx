@@ -170,6 +170,7 @@ const styles = StyleSheet.create({
   providerInfo: { flex: 1 },
   providerName: {
     fontSize: 15,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: Colors.textPrimary,
     marginBottom: 2,
@@ -199,6 +200,7 @@ const styles = StyleSheet.create({
   },
   connectBtnText: {
     fontSize: 16,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: '#fff',
   },
@@ -220,6 +222,7 @@ const styles = StyleSheet.create({
   },
   skipBtnTextPrimary: {
     color: '#fff',
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     fontSize: 16,
   },

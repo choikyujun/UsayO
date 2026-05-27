@@ -248,6 +248,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     color: Colors.textPrimary,
     fontSize: 20,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     marginBottom: 8,
   },
@@ -283,6 +284,7 @@ const styles = StyleSheet.create({
   trialBadgeText: {
     color: Colors.accent,
     fontSize: 13,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
   },
   // Usage gate
@@ -305,6 +307,7 @@ const styles = StyleSheet.create({
   },
   usageHighlight: {
     color: Colors.textPrimary,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },
   // CTA
@@ -322,6 +325,7 @@ const styles = StyleSheet.create({
   ctaText: {
     color: Colors.textPrimary,
     fontSize: 16,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },
   ctaCaption: {

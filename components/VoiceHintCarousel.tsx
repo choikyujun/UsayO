@@ -126,6 +126,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     fontSize: 14,
+    fontFamily: 'Pretendard-Medium',
     fontWeight: '500',
     letterSpacing: 0.1,
   },

@@ -127,13 +127,13 @@ const styles = StyleSheet.create({
   titleRow: {
     paddingHorizontal: 24, paddingBottom: 16, gap: 4,
   },
-  eventTitle: { fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+  eventTitle: { fontSize: 17, fontFamily: 'Pretendard-Bold', fontWeight: '700', letterSpacing: -0.3 },
   metaRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
   eventTime:  { fontSize: 13 },
   recurTag: {
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6,
   },
-  recurTagText: { fontSize: 11, fontWeight: '600' },
+  recurTagText: { fontSize: 11, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
   gridRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -146,10 +146,10 @@ const styles = StyleSheet.create({
     width: 52, height: 52, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
   },
-  gridLabel: { fontSize: 11, fontWeight: '500' },
+  gridLabel: { fontSize: 11, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
   cancelBtn: {
     marginHorizontal: 20, marginTop: 12,
     paddingVertical: 15, borderRadius: 14, alignItems: 'center',
   },
-  cancelBtnText: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  cancelBtnText: { fontSize: 16, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', textAlign: 'center' },
 });

@@ -179,6 +179,7 @@ function makeStyles(c: AppTheme) {
     },
     badgeText: {
       fontSize: 12,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
     },
     rawText: {
@@ -197,6 +198,7 @@ function makeStyles(c: AppTheme) {
     },
     eventTitle: {
       fontSize: 16,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
     },
     eventDate: {
@@ -220,6 +222,7 @@ function makeStyles(c: AppTheme) {
     confirmBtn: {},
     btnText: {
       fontSize: 15,
+      fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
     },
   });

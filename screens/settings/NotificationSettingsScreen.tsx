@@ -112,7 +112,7 @@ export default function NotificationSettingsScreen() {
 function Section({ title, children, colors }: { title: string; children: React.ReactNode; colors: AppTheme }) {
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.accent, paddingLeft: 4 }}>
+      <Text style={{ fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: colors.accent, paddingLeft: 4 }}>
         {title}
       </Text>
       <View style={{
@@ -137,7 +137,7 @@ function NotifRow({
       bordered && { borderTopWidth: 0.5, borderTopColor: colors.border },
     ]}>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontSize: 15, color: colors.textPrimary, fontWeight: '500' }}>{item.label}</Text>
+        <Text style={{ fontSize: 15, color: colors.textPrimary, fontFamily: 'Pretendard-Medium', fontWeight: '500' }}>{item.label}</Text>
         {item.sub ? <Text style={{ fontSize: 11, color: colors.textMuted }}>{item.sub}</Text> : null}
       </View>
       <Switch

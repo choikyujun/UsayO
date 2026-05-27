@@ -9,7 +9,7 @@ export default function SettingsLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: Colors.darkBg },
         headerTintColor: Colors.textPrimary,
-        headerTitleStyle: { fontWeight: '700', fontSize: 16, color: Colors.textPrimary },
+        headerTitleStyle: { fontFamily: 'Pretendard-Bold', fontWeight: '700', fontSize: 16, color: Colors.textPrimary },
         headerShadowVisible: false,
         headerLeft: () => (
           <Pressable onPress={() => router.back()} style={styles.back}>

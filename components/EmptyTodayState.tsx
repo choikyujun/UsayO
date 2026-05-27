@@ -21,7 +21,7 @@ export default function EmptyTodayState({ isToday = true }: Props) {
 function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     wrap: { paddingVertical: 40, alignItems: 'center', gap: 6 },
-    main: { fontSize: 15, color: c.textMuted, fontWeight: '500' },
+    main: { fontSize: 15, color: c.textMuted, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     hint: { fontSize: 12, color: c.accent },
   });
 }

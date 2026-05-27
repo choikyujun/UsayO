@@ -47,6 +47,7 @@ const styles = StyleSheet.create({
   pillText: {
     color:       '#fff',
     fontSize:    8,
+    fontFamily: 'Pretendard-Bold',
     fontWeight:  '700',
     letterSpacing: 0.5,
   },

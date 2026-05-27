@@ -38,6 +38,7 @@ const styles = StyleSheet.create({
     left:      4,
     width:     TIME_LABEL_W - 4,
     fontSize:  LABEL_FONT,
+    fontFamily: 'Pretendard-Regular',
     fontWeight:'400',
     textAlign: 'right',
     paddingRight: 6,

@@ -237,7 +237,7 @@ function DateHeader({ label, colors }: { label: string; colors: AppTheme }) {
       borderTopColor: colors.border,
       marginTop: 8,
     }}>
-      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.4 }}>
+      <Text style={{ fontSize: 12, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: colors.textMuted, letterSpacing: 0.4 }}>
         {label}
       </Text>
     </View>
@@ -273,6 +273,6 @@ function makeStyles(c: AppTheme) {
       elevation: 6,
     },
     toastText: { fontSize: 14, color: c.textPrimary, flex: 1 },
-    toastUndo: { fontSize: 14, color: c.accent, fontWeight: '700', marginLeft: 12 },
+    toastUndo: { fontSize: 14, color: c.accent, fontFamily: 'Pretendard-Bold', fontWeight: '700', marginLeft: 12 },
   });
 }

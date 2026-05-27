@@ -32,7 +32,7 @@ export default function WeekHeader({ days, colors }: Props) {
               <Text style={[
                 styles.numText,
                 { color: isToday ? '#fff' : colors.textPrimary },
-                isToday && { fontWeight: '700' },
+                isToday && { fontFamily: 'Pretendard-Bold', fontWeight: '700' },
               ]}>
                 {num}
               </Text>
@@ -56,6 +56,7 @@ const styles = StyleSheet.create({
   },
   dayText: {
     fontSize:   11,
+    fontFamily: 'Pretendard-Medium',
     fontWeight: '500',
   },
   numWrap: {
@@ -66,6 +67,7 @@ const styles = StyleSheet.create({
   },
   numText: {
     fontSize:   14,
+    fontFamily: 'Pretendard-Regular',
     fontWeight: '400',
   },
 });

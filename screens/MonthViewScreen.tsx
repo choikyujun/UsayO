@@ -212,10 +212,10 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       paddingHorizontal: 16,
       paddingVertical:   10,
     },
-    monthLabel: { fontSize: 24, fontWeight: '600' },
+    monthLabel: { fontSize: 24, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     todayWrap:  { flex: 1, alignItems: 'flex-end' },
     todayBtn:   { paddingHorizontal: 8, paddingVertical: 4 },
-    todayText:  { fontSize: 13, fontWeight: '600' },
+    todayText:  { fontSize: 13, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     dowRow: {
       flexDirection:     'row',
       borderBottomWidth: StyleSheet.hairlineWidth,
@@ -225,6 +225,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       flex:       1,
       textAlign:  'center',
       fontSize:   12,
+      fontFamily: 'Pretendard-Medium',
       fontWeight: '500',
     },
   });

@@ -114,6 +114,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 11,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: Colors.accent,
   },
@@ -123,6 +124,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 17,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: Colors.textPrimary,
     marginBottom: 10,
@@ -168,6 +170,7 @@ const styles = StyleSheet.create({
   },
   rejectText: {
     fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
     fontWeight: '600',
     color: Colors.textMuted,
   },
@@ -176,6 +179,7 @@ const styles = StyleSheet.create({
   },
   approveText: {
     fontSize: 14,
+    fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
     color: '#fff',
   },
