@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const STORAGE_KEY_ACCENT = 'accent_color';
 const STORAGE_KEY_HINT  = 'hint_enabled';
 const STORAGE_KEY_TTS   = 'voice_tts_enabled';
+const STORAGE_KEY_LUNAR = 'lunar_enabled';
 
 // Per-mode color variant for each theme
 interface ThemeVariant {
@@ -53,37 +54,44 @@ export const ACCENT_PALETTES: AccentPalette[] = [
 ];
 
 interface ThemeContextValue {
-  accentId:    string;
-  setAccentId: (id: string) => void;
-  hintEnabled: boolean;
-  toggleHint:  () => void;
-  ttsEnabled:  boolean;
-  toggleTTS:   () => void;
+  accentId:     string;
+  setAccentId:  (id: string) => void;
+  hintEnabled:  boolean;
+  toggleHint:   () => void;
+  ttsEnabled:   boolean;
+  toggleTTS:    () => void;
+  lunarEnabled: boolean;
+  toggleLunar:  () => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  accentId:    'purple',
-  setAccentId: () => {},
-  hintEnabled: true,
-  toggleHint:  () => {},
-  ttsEnabled:  true,
-  toggleTTS:   () => {},
+  accentId:     'purple',
+  setAccentId:  () => {},
+  hintEnabled:  true,
+  toggleHint:   () => {},
+  ttsEnabled:   true,
+  toggleTTS:    () => {},
+  lunarEnabled: true,
+  toggleLunar:  () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [accentId, setAccentIdState]         = useState('purple');
-  const [hintEnabled, setHintEnabledState]   = useState(true);
-  const [ttsEnabled,  setTTSEnabledState]    = useState(true);
+  const [accentId,     setAccentIdState]    = useState('purple');
+  const [hintEnabled,  setHintEnabledState] = useState(true);
+  const [ttsEnabled,   setTTSEnabledState]  = useState(true);
+  const [lunarEnabled, setLunarEnabledState] = useState(true);
 
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(STORAGE_KEY_ACCENT),
       AsyncStorage.getItem(STORAGE_KEY_HINT),
       AsyncStorage.getItem(STORAGE_KEY_TTS),
-    ]).then(([accent, hint, tts]) => {
+      AsyncStorage.getItem(STORAGE_KEY_LUNAR),
+    ]).then(([accent, hint, tts, lunar]) => {
       if (accent && ACCENT_PALETTES.some(p => p.id === accent)) setAccentIdState(accent);
-      if (hint !== null) setHintEnabledState(hint === 'true');
-      if (tts  !== null) setTTSEnabledState(tts === 'true');
+      if (hint  !== null) setHintEnabledState(hint  === 'true');
+      if (tts   !== null) setTTSEnabledState(tts   === 'true');
+      if (lunar !== null) setLunarEnabledState(lunar === 'true');
     }).catch(() => {});
   }, []);
 
@@ -108,8 +116,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
+  function toggleLunar() {
+    setLunarEnabledState(prev => {
+      const next = !prev;
+      AsyncStorage.setItem(STORAGE_KEY_LUNAR, String(next)).catch(() => {});
+      return next;
+    });
+  }
+
   return (
-    <ThemeContext.Provider value={{ accentId, setAccentId, hintEnabled, toggleHint, ttsEnabled, toggleTTS }}>
+    <ThemeContext.Provider value={{ accentId, setAccentId, hintEnabled, toggleHint, ttsEnabled, toggleTTS, lunarEnabled, toggleLunar }}>
       {children}
     </ThemeContext.Provider>
   );

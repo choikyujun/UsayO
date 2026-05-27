@@ -50,22 +50,26 @@ import {
 import { localDateStr } from '../utils/timeHelpers';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
 import { computeOverlapLayout } from '../utils/eventOverlapLayout';
+import { formatLunarShort } from '../utils/lunarHelpers';
 import { useCurrentDate } from '../hooks/useCurrentDate';
 import { Spacing } from '../constants/spacing';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
 const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
-function formatDayLabel(dateStr: string): string {
+function formatDayLabel(dateStr: string, showLunar: boolean): string {
   const d = new Date(dateStr + 'T00:00:00');
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${KO_DAYS[d.getDay()]}요일`;
+  const base = `${d.getMonth() + 1}월 ${d.getDate()}일 ${KO_DAYS[d.getDay()]}요일`;
+  if (!showLunar) return base;
+  const lunar = formatLunarShort(d);
+  return lunar ? `${base} · ${lunar}` : base;
 }
 
 export default function DayViewScreen() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { ttsEnabled } = useTheme();
+  const { ttsEnabled, lunarEnabled } = useTheme();
 
   // ── Date state ──────────────────────────────────────────────────────
   const { todayStr } = useCurrentDate();
@@ -259,7 +263,7 @@ export default function DayViewScreen() {
       {/* ── 날짜 + 오늘로 행 ─────────────────────────────────────── */}
       <View style={styles.subHeader}>
         <Text style={[styles.dateLabel, { color: colors.textPrimary }]}>
-          {formatDayLabel(dateStr)}
+          {formatDayLabel(dateStr, lunarEnabled)}
         </Text>
         {!isToday && (
           <Pressable onPress={goToToday} hitSlop={12} style={styles.todayBtn}>

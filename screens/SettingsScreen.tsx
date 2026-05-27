@@ -42,7 +42,7 @@ const MENU_ITEMS: MenuItem[] = [
 export default function SettingsScreen() {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { accentId, setAccentId, hintEnabled, toggleHint, ttsEnabled, toggleTTS } = useTheme();
+  const { accentId, setAccentId, hintEnabled, toggleHint, ttsEnabled, toggleTTS, lunarEnabled, toggleLunar } = useTheme();
   const { plan } = useSubscriptionStore();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
 
@@ -149,6 +149,15 @@ export default function SettingsScreen() {
             onValueChange={toggleTTS}
             trackColor={{ false: colors.border, true: colors.primary + '80' }}
             thumbColor={ttsEnabled ? colors.primary : colors.textMuted}
+          />
+        </View>
+        <View style={[styles.toggleRow, styles.toggleRowBorder]}>
+          <Text style={styles.toggleLabel}>음력 날짜 표시</Text>
+          <Switch
+            value={lunarEnabled}
+            onValueChange={toggleLunar}
+            trackColor={{ false: colors.border, true: colors.primary + '80' }}
+            thumbColor={lunarEnabled ? colors.primary : colors.textMuted}
           />
         </View>
       </View>
