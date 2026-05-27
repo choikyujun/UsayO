@@ -25,7 +25,8 @@ const INTENT_LABEL: Record<string, string> = {
   UNKNOWN: '알 수 없음',
 };
 
-const RECORD_MS = 2500; // 음성 응답 최대 녹음 시간
+const RECORD_MS       = 5000; // 음성 응답 최대 녹음 시간
+const POST_TTS_GAP_MS = 600;  // TTS 종료 후 마이크 전환 대기 (iOS audio session switch)
 
 export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, onAmPmChange }: Props) {
   const slideY = useRef(new Animated.Value(80)).current;
@@ -95,7 +96,7 @@ export default function ConfirmCard({ intent, transcript, onConfirm, onRetry, on
       await ttsService.waitForSpeech();
       console.log('[Ambig] TTS 완료, STT 재개 시도');
       if (!active || confirmedRef.current) return;
-      await new Promise<void>(r => setTimeout(r, 200));
+      await new Promise<void>(r => setTimeout(r, POST_TTS_GAP_MS));
       if (!active || confirmedRef.current) return;
 
       await voiceRecorder.startRecording();
