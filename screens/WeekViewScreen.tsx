@@ -68,6 +68,17 @@ export default function WeekViewScreen() {
   const days = useMemo(() => getWeekDays(anchorDate), [anchorDate]);
   const { eventsByDate, loading, reload } = useWeekEvents(days);
   const { applyClassifiedIntent } = useSchedules(days[0] ?? todayDateStr(), 0);
+  // Compute per-day overlap layouts once when data changes
+  const overlapMapsByDate = useMemo(
+    () => {
+      const result: Record<string, ReturnType<typeof computeOverlapLayout>> = {};
+      for (const dateStr of days) {
+        result[dateStr] = computeOverlapLayout(eventsByDate[dateStr] ?? []);
+      }
+      return result;
+    },
+    [days, eventsByDate],
+  );
   const voice = useVoiceInput(ttsEnabled);
 
   // ── Voice success → reload week grid ────────────────────────────────
@@ -247,10 +258,10 @@ export default function WeekViewScreen() {
 
                 {/* Event blocks per column — overlap layout per day */}
                 {days.map((dateStr, colIndex) => {
-                  const evs = eventsByDate[dateStr] ?? [];
-                  const overlapMap = computeOverlapLayout(evs);
+                  const evs        = eventsByDate[dateStr] ?? [];
+                  const overlapMap = overlapMapsByDate[dateStr];
                   return evs.map(ev => {
-                    const layout = overlapMap.get(ev.id);
+                    const layout = overlapMap?.get(ev.id);
                     return (
                       <WeekEventBlock
                         key={ev.id}

@@ -74,6 +74,7 @@ export default function DayViewScreen() {
   // ── Data ────────────────────────────────────────────────────────────
   const { events, loading, reload } = useDayEvents(dateStr);
   const { applyClassifiedIntent } = useSchedules(dateStr, 0);
+  const overlapMapDay = useMemo(() => computeOverlapLayout(events), [events]);
 
   // ── NOW tick ────────────────────────────────────────────────────────
   const [tick, setTick] = useState(0);
@@ -285,24 +286,21 @@ export default function DayViewScreen() {
                 <DinnerHint colors={colors} />
                 <HourGrid   colors={colors} />
 
-                {(() => {
-                  const overlapMap = computeOverlapLayout(events);
-                  return events.map(ev => {
-                    const layout = overlapMap.get(ev.id);
-                    return (
-                      <DayEventBlock
-                        key={ev.id}
-                        event={ev}
-                        colors={colors}
-                        onLongPress={e => setSheetEvent(e)}
-                        onDelete={handleDeleteEvent}
-                        onComplete={handleCompleteEvent}
-                        widthRatio={layout?.widthRatio}
-                        xRatio={layout?.xRatio}
-                      />
-                    );
-                  });
-                })()}
+                {events.map(ev => {
+                  const layout = overlapMapDay.get(ev.id);
+                  return (
+                    <DayEventBlock
+                      key={ev.id}
+                      event={ev}
+                      colors={colors}
+                      onLongPress={e => setSheetEvent(e)}
+                      onDelete={handleDeleteEvent}
+                      onComplete={handleCompleteEvent}
+                      widthRatio={layout?.widthRatio}
+                      xRatio={layout?.xRatio}
+                    />
+                  );
+                })}
 
                 {isToday && <DayNowMarker tick={tick} />}
               </View>
