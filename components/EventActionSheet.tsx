@@ -54,7 +54,7 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
       ? (parseInstanceId(ev.id)?.parentId ?? ev.id)
       : ev.id;
 
-    const [eventsRes, exceptionsRes] = await Promise.all([
+    const [, exceptionsRes] = await Promise.all([
       supabase.from('events').select('*').or(`id.eq.${parentId},parent_event_id.eq.${parentId}`),
       supabase.from('event_exceptions').select('*').eq('parent_id', parentId),
     ]);
@@ -85,7 +85,6 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
   const ev = event;
 
   const isRecurringEvent = ev.is_recurring || !!ev.recurrence_rule || isVirtualInstance(ev.id);
-  console.log('[ActionSheet] id:', ev.id, '| is_recurring:', ev.is_recurring, '| rule:', ev.recurrence_rule, '| isRecurringEvent:', isRecurringEvent);
   const startStr = formatTimeKo(new Date(ev.start_at));
 
   async function handleShare() {
@@ -132,14 +131,14 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
             <Pressable
               style={({ pressed }) => [
                 styles.deleteAllRow,
-                { backgroundColor: colors.error, borderColor: colors.error, opacity: pressed ? 0.7 : 1 },
+                { backgroundColor: colors.error, opacity: pressed ? 0.7 : 1 },
               ]}
               onPress={() => { onClose(); handleDeleteAll(ev); }}
             >
-              <Trash2 size={20} color="#ffffff" strokeWidth={2} />
+              <Trash2 size={18} color="#ffffff" strokeWidth={2} />
               <View style={styles.deleteAllTextCol}>
                 <Text style={[styles.deleteAllLabel, { color: '#ffffff' }]}>전체 반복 일정 삭제</Text>
-                <Text style={[styles.deleteAllSub, { color: 'rgba(255,255,255,0.75)' }]}>지난 일정도 모두 삭제됩니다</Text>
+                <Text style={[styles.deleteAllSub, { color: 'rgba(255,255,255,0.8)' }]}>지난 일정도 모두 삭제됩니다</Text>
               </View>
             </Pressable>
           </>
@@ -214,16 +213,16 @@ const styles = StyleSheet.create({
   deleteAllRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
+    justifyContent: 'center',
+    marginHorizontal: 20,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
     borderRadius: 14,
-    borderWidth: 1,
-    gap: 14,
+    gap: 12,
   },
-  deleteAllTextCol: { flex: 1, gap: 3 },
+  deleteAllTextCol: { gap: 3 },
   deleteAllLabel: { fontSize: 15, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
   deleteAllSub:   { fontSize: 12, fontFamily: 'Pretendard-Regular', fontWeight: '400' },
   cancelBtn: {
