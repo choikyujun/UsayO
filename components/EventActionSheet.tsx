@@ -91,18 +91,18 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
         {isRecurringEvent && onDeleteAll && (
           <>
             <View style={[styles.sectionDivider, { backgroundColor: colors.border }]} />
-            <Pressable
-              style={({ pressed }) => [
-                styles.deleteAllRow,
-                { backgroundColor: pressed ? colors.error + '1A' : colors.error + '0C' },
-              ]}
-              onPress={() => { onClose(); onDeleteAll(ev); }}
-            >
-              <View style={[styles.deleteAllIconWrap, { backgroundColor: colors.error + '22' }]}>
-                <Trash2 size={20} color={colors.error} strokeWidth={1.8} />
-              </View>
-              <Text style={[styles.deleteAllTitle, { color: colors.error }]}>전체 반복 일정 삭제</Text>
-            </Pressable>
+            <View style={styles.deleteAllSection}>
+              <Pressable
+                style={({ pressed }) => [styles.deleteAllBtn, { opacity: pressed ? 0.55 : 1 }]}
+                onPress={() => { onClose(); onDeleteAll(ev); }}
+              >
+                <View style={[styles.deleteAllIconWrap, { backgroundColor: colors.error + '18' }]}>
+                  <Trash2 size={20} color={colors.error} strokeWidth={1.8} />
+                </View>
+                <Text style={[styles.deleteAllLabel, { color: colors.error }]}>전체 반복 일정 삭제</Text>
+              </Pressable>
+              <Text style={[styles.deleteAllSub, { color: colors.textMuted }]}>지난 일정도 모두 삭제됩니다</Text>
+            </View>
           </>
         )}
 
@@ -173,22 +173,22 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: Spacing.md,
   },
-  deleteAllRow: {
-    flexDirection: 'row',
+  deleteAllSection: {
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    gap: 14,
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  deleteAllBtn: {
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   deleteAllIconWrap: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 52, height: 52, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
   },
-  deleteAllTitle: { flex: 1, fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
+  deleteAllLabel: { fontSize: 11, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
+  deleteAllSub:   { fontSize: 11, fontFamily: 'Pretendard-Regular', fontWeight: '400', textAlign: 'center' },
   cancelBtn: {
     marginHorizontal: 20, marginTop: Spacing.md,
     paddingVertical: 15, borderRadius: 14, alignItems: 'center',
