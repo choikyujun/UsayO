@@ -1,20 +1,21 @@
 import { router, Stack } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Colors } from '../../constants/colors';
+import { useColors } from '../../constants/colors';
 
 export default function SettingsLayout() {
+  const colors = useColors();
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: Colors.darkBg },
-        headerTintColor: Colors.textPrimary,
-        headerTitleStyle: { fontFamily: 'Pretendard-Bold', fontWeight: '700', fontSize: 16, color: Colors.textPrimary },
+        headerStyle: { backgroundColor: colors.nav },
+        headerTintColor: colors.textPrimary,
+        headerTitleStyle: { fontFamily: 'Pretendard-Bold', fontWeight: '700', fontSize: 16, color: colors.textPrimary },
         headerShadowVisible: false,
         headerLeft: () => (
           <Pressable onPress={() => router.back()} style={styles.back}>
             <View style={styles.backInner}>
-              <ChevronLeft size={20} color={Colors.accent} />
+              <ChevronLeft size={20} color={colors.accent} />
             </View>
           </Pressable>
         ),
