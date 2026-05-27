@@ -396,11 +396,6 @@ export class IntentClassifierService {
       console.log('[Intent] postProcess bail: CREATE 아님 or startDateTime 없음');
       return parsed;
     }
-    if (parsed.ambiguous === true) {
-      console.log('[Intent] postProcess bail: LLM이 이미 ambiguous:true 반환');
-      return parsed;
-    }
-
     // 발화에 N시 (1-12) 패턴 있는지 확인
     const timeMatch = transcript.match(/(\d{1,2})\s*시/);
     if (!timeMatch) {
@@ -425,10 +420,22 @@ export class IntentClassifierService {
       return parsed;
     }
 
-    // 1~6 → PM 추정, 7~12 → AM 추정
+    // 1~6 → PM 추정, 7~12 → AM 추정 (JS 규칙 — LLM 무관)
     const suggested: 'AM' | 'PM' = hourNum <= 6 ? 'PM' : 'AM';
 
-    // 날짜 키워드 있으면 (오늘/내일/요일 등) 과거 여부 무관하게 무조건 ambiguous
+    // LLM이 이미 ambiguous:true 반환 → ambiguous 플래그는 신뢰하되,
+    // suggestedMeridiem은 JS 규칙으로 교정 (LLM이 11시→PM 같이 틀리게 줄 수 있음)
+    if (parsed.ambiguous === true) {
+      if (parsed.suggestedMeridiem !== suggested) {
+        console.log('[Intent] postProcess: LLM suggestedMeridiem 교정',
+          parsed.suggestedMeridiem, '→', suggested, '(hourNum:', hourNum, ')');
+        return { ...parsed, suggestedMeridiem: suggested };
+      }
+      console.log('[Intent] postProcess bail: LLM ambiguous:true + suggestedMeridiem 일치 —', suggested);
+      return parsed;
+    }
+
+    // LLM이 ambiguous:false 반환 → JS 규칙으로 강제 여부 판단
     const hasDateKeyword = /(내일|모레|오늘|다음\s*주|이번\s*주|\d+일\s*후|월요일|화요일|수요일|목요일|금요일|토요일|일요일)/.test(transcript);
     console.log('[Intent] postProcess hasDateKeyword:', hasDateKeyword, '| hourNum:', hourNum, '| suggested:', suggested);
 
@@ -444,7 +451,6 @@ export class IntentClassifierService {
         return parsed;
       }
     }
-    // 날짜 키워드 있으면 과거여도 ambiguous — 사용자가 명시한 날짜이므로 반드시 확인
 
     console.log('[Intent] postProcess: ambiguous 강제 —', transcript, '→ suggestedMeridiem:', suggested);
     return { ...parsed, ambiguous: true, suggestedMeridiem: suggested };
