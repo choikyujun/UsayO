@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import { router } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { useColors } from '../constants/colors';
@@ -27,7 +27,7 @@ export default function ViewTabBar({ currentView, onSelect }: Props) {
 
   function handlePress(view: CalendarView) {
     if (view === currentView) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.light();
     if (view === 'week') {
       router.push('/week');
       return;

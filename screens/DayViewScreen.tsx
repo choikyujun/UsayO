@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -41,6 +41,7 @@ import { cancelEventNotification, rescheduleEventNotification } from '../service
 import { Event } from '../types/database';
 import { ttsService } from '../services/voice/TTSService';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUndoToast } from '../contexts/UndoToastContext';
 import {
   GRID_TOTAL_H,
   getNowY,
@@ -70,6 +71,7 @@ export default function DayViewScreen() {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { ttsEnabled, lunarEnabled } = useTheme();
+  const { showUndo } = useUndoToast();
 
   // ── Date state ──────────────────────────────────────────────────────
   const { todayStr } = useCurrentDate();
@@ -114,7 +116,13 @@ export default function DayViewScreen() {
     supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', realId)
       .then(({ error }) => {
         if (error) console.error('[DayView] delete failed:', error.message);
-        else reload();
+        else {
+          reload();
+          showUndo('일정이 삭제됐어요', () => {
+            supabase.from('events').update({ deleted_at: null }).eq('id', realId)
+              .then(() => reload());
+          });
+        }
       });
   }
 
@@ -167,6 +175,7 @@ export default function DayViewScreen() {
   // Success → reload + reset
   useEffect(() => {
     if (voice.phase === 'success') {
+      haptic.success();
       reload();
       const t = setTimeout(() => voice.retryVoice(), 1800);
       return () => clearTimeout(t);
@@ -174,7 +183,7 @@ export default function DayViewScreen() {
   }, [voice.phase]);
 
   function handleGridLongPress(y: number) {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    haptic.medium();
     const { hours, minutes: rawMin } = yToTime(y);
     const snappedMin  = Math.round(rawMin / 30) * 30;
     const finalHour   = snappedMin === 60 ? (hours + 1) % 24 : hours;

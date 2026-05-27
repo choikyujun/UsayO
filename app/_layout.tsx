@@ -22,6 +22,8 @@ SplashScreen.preventAutoHideAsync();
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { useColors } from '../constants/colors';
 import { ThemeProvider } from '../contexts/ThemeContext';
+import { UndoToastProvider } from '../contexts/UndoToastContext';
+import UndoToast from '../components/UndoToast';
 import { supabase } from '../lib/supabase';
 import { signInWithDevice } from '../services/auth/deviceAuth';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
@@ -54,7 +56,9 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <AppRoot />
+      <UndoToastProvider>
+        <AppRoot />
+      </UndoToastProvider>
     </ThemeProvider>
   );
 }
@@ -146,6 +150,7 @@ function AppRoot() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <AppStack />
+      <UndoToast />
     </GestureHandlerRootView>
   );
 }
@@ -158,7 +163,7 @@ function AppStack() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
       <Stack.Screen name="voice"    options={{ presentation: 'modal' }} />
-      <Stack.Screen name="settings" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
       <Stack.Screen name="day"      options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="week"     options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="month"    options={{ animation: 'slide_from_right' }} />

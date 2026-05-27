@@ -1,9 +1,9 @@
-import * as Haptics from 'expo-haptics';
 import { CheckCircle, RotateCcw, Trash2 } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated as RNAnimated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { haptic } from '../utils/haptics';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -69,7 +69,7 @@ export default function SpineEvent({
   }));
 
   function triggerHaptic() {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    haptic.medium();
   }
 
   function clearPreview() {
@@ -144,26 +144,34 @@ export default function SpineEvent({
       >
         <Swipeable
           ref={swipeRef}
-          renderLeftActions={() => (
-            <View style={[styles.actionLeft, isCompleted && styles.actionUndo]}>
+          renderLeftActions={(progress) => (
+            <RNAnimated.View style={[
+              styles.actionLeft,
+              isCompleted && styles.actionUndo,
+              { opacity: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 0.65, 1], extrapolate: 'clamp' }) },
+            ]}>
               {isCompleted
                 ? <RotateCcw  size={18} color="#fff" />
                 : <CheckCircle size={18} color="#fff" />
               }
               <Text style={styles.actionLabel}>{isCompleted ? '완료취소' : '완료'}</Text>
-            </View>
+            </RNAnimated.View>
           )}
-          renderRightActions={() => (
-            <View style={styles.actionRight}>
+          renderRightActions={(progress) => (
+            <RNAnimated.View style={[
+              styles.actionRight,
+              { opacity: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 0.65, 1], extrapolate: 'clamp' }) },
+            ]}>
               <Trash2 size={18} color="#fff" />
               <Text style={styles.actionLabel}>삭제</Text>
-            </View>
+            </RNAnimated.View>
           )}
+          onSwipeableWillOpen={(dir) => {
+            if (dir === 'right') haptic.warning();
+            else                 haptic.success();
+          }}
           onSwipeableOpen={dir => {
             pendingAction.current = dir === 'left' ? 'complete' : 'delete';
-            Haptics.impactAsync(
-              dir === 'left' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Heavy,
-            ).catch(() => {});
             swipeRef.current?.close();
           }}
           onSwipeableClose={() => {
@@ -173,8 +181,8 @@ export default function SpineEvent({
             else if (action === 'delete') handleSwipeDelete();
           }}
           friction={2}
-          leftThreshold={60}
-          rightThreshold={60}
+          leftThreshold={80}
+          rightThreshold={80}
           overshootLeft={false}
           overshootRight={false}
         >

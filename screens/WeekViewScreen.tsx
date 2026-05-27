@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -185,7 +185,7 @@ export default function WeekViewScreen() {
 
   // ── Grid long-press → voice with date+time prefill ──────────────────
   function handleGridLongPress(x: number, y: number) {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    haptic.medium();
     const colIndex  = Math.max(0, Math.min(6, Math.floor((x - TIME_LABEL_W) / COL_W)));
     const dateStr   = days[colIndex] ?? todayDateStr();
 

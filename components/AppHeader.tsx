@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -45,7 +45,7 @@ export default function AppHeader({ currentTab }: Props) {
 
   function handleTab(tab: AppTab) {
     if (tab === currentTab) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.light();
 
     if (tab === 'home') {
       router.dismissAll();

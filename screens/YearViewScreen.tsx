@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -68,12 +68,12 @@ export default function YearViewScreen() {
   }));
 
   function handleMonthPress(y: number, m: number) {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.light();
     router.push({ pathname: '/month', params: { year: String(y), month: String(m) } } as never);
   }
 
   function goToToday() {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.light();
     setYear(today.getFullYear());
   }
 

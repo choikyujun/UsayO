@@ -1,8 +1,8 @@
-import * as Haptics from 'expo-haptics';
 import { Check } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { haptic } from '../utils/haptics';
 import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
 import { formatTimeRow } from '../utils/timeHelpers';
@@ -52,14 +52,14 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
 
   function handleSwipeComplete() {
     swipeRef.current?.close();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    haptic.success();
     setIsCompleted(c => !c);
     onComplete(event);
   }
 
   function handleSwipeDelete() {
     swipeRef.current?.close();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    haptic.warning();
     onDelete(event);
   }
 
@@ -69,22 +69,32 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
         ref={swipeRef}
         containerStyle={{ flex: 1 }}
         friction={2}
-        leftThreshold={60}
-        rightThreshold={60}
+        leftThreshold={80}
+        rightThreshold={80}
         overshootLeft={false}
         overshootRight={false}
-        renderLeftActions={() => (
-          <View style={styles.actionLeft}>
-            <Text style={styles.actionIcon}>✓</Text>
+        renderLeftActions={(progress) => (
+          <Animated.View style={[
+            styles.actionLeft,
+            { opacity: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 0.65, 1], extrapolate: 'clamp' }) },
+          ]}>
+            <Check size={14} color="#fff" strokeWidth={2.5} />
             {!isShort && <Text style={styles.actionLabel}>완료</Text>}
-          </View>
+          </Animated.View>
         )}
-        renderRightActions={() => (
-          <View style={styles.actionRight}>
+        renderRightActions={(progress) => (
+          <Animated.View style={[
+            styles.actionRight,
+            { opacity: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 0.65, 1], extrapolate: 'clamp' }) },
+          ]}>
             <Text style={styles.actionIcon}>🗑️</Text>
             {!isShort && <Text style={styles.actionLabel}>삭제</Text>}
-          </View>
+          </Animated.View>
         )}
+        onSwipeableWillOpen={(dir) => {
+          if (dir === 'left') haptic.success();
+          else                haptic.warning();
+        }}
         onSwipeableOpen={dir => {
           if (dir === 'left') handleSwipeComplete();
           else handleSwipeDelete();

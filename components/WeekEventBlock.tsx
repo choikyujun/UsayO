@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import { Check } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme } from '../constants/colors';
@@ -48,7 +48,7 @@ export default function WeekEventBlock({ event, colIndex, colors, onPress, onLon
     : colors.primary;
 
   function handleLongPress() {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    haptic.medium();
     onLongPress(event);
   }
 

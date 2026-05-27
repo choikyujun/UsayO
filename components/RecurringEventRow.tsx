@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import { useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -28,7 +28,7 @@ export default function RecurringEventRow({ event, onLongPress }: Props) {
   }
 
   async function handleSkipToday() {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.light();
     swipeRef.current?.close();
     const today = todayDateStr();
     const parentId = getParentId();
@@ -39,7 +39,7 @@ export default function RecurringEventRow({ event, onLongPress }: Props) {
   }
 
   async function handleStopAfterToday() {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    haptic.medium();
     swipeRef.current?.close();
     const today = todayDateStr();
     const parentId = getParentId();

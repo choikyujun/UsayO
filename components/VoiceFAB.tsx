@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import { Mic } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -29,7 +29,7 @@ export default function VoiceFAB({ disabled, onVoiceOpen }: Props) {
   }, []);
 
   async function handlePress() {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    haptic.medium();
 
     if (!gate.isAllowed) {
       setModalVisible(true);

@@ -1,9 +1,9 @@
-import * as Haptics from 'expo-haptics';
-import { CheckCircle, RotateCcw } from 'lucide-react-native';
+import { CheckCircle, RotateCcw, Trash2 } from 'lucide-react-native';
 import { useMemo, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { AppTheme } from '../constants/colors';
+import { haptic } from '../utils/haptics';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
@@ -30,68 +30,59 @@ export default function UpcomingEventRow({
   const styles        = useMemo(() => makeStyles(colors), [colors]);
   const swipeRef      = useRef<Swipeable>(null);
   const pendingAction = useRef<'complete' | 'delete' | null>(null);
-  const startTime = formatTimeRow(new Date(event.start_at));
+  const startTime   = formatTimeRow(new Date(event.start_at));
   const isCompleted = !!event.completed_at;
 
   async function handleLongPress() {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    await haptic.medium();
     onLongPress?.();
   }
 
-  function handleSwipeDelete() {
-    onDelete?.();
-  }
-
-  function handleSwipeComplete() {
-    onComplete?.();
-  }
-
-  // renderRightActions: right panel revealed when row slides LEFT (left swipe) → delete
-  function renderDeleteAction() {
+  function renderDeleteAction(progress: Animated.AnimatedInterpolation<number>) {
+    const opacity = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 0.65, 1], extrapolate: 'clamp' });
     return (
-      <View style={styles.actionDelete}>
-        <Text style={styles.actionIcon}>🗑️</Text>
+      <Animated.View style={[styles.actionDelete, { opacity }]}>
+        <Trash2 size={16} color="#fff" />
         <Text style={styles.actionDeleteLabel}>삭제</Text>
-      </View>
+      </Animated.View>
     );
   }
 
-  // renderLeftActions: left panel revealed when row slides RIGHT (right swipe) → complete / undo
-  function renderCompleteAction() {
+  function renderCompleteAction(progress: Animated.AnimatedInterpolation<number>) {
+    const opacity = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 0.65, 1], extrapolate: 'clamp' });
     return (
-      <View style={[styles.actionComplete, isCompleted && styles.actionUndo]}>
+      <Animated.View style={[styles.actionComplete, isCompleted && styles.actionUndo, { opacity }]}>
         {isCompleted
-          ? <RotateCcw size={16} color="#fff" />
+          ? <RotateCcw  size={16} color="#fff" />
           : <CheckCircle size={16} color="#fff" />
         }
         <Text style={styles.actionCompleteLabel}>{isCompleted ? '완료취소' : '완료'}</Text>
-      </View>
+      </Animated.View>
     );
   }
 
   return (
     <Swipeable
       ref={swipeRef}
-      renderRightActions={onDelete ? renderDeleteAction : undefined}
-      renderLeftActions={onComplete ? renderCompleteAction : undefined}
+      renderRightActions={onDelete   ? renderDeleteAction   : undefined}
+      renderLeftActions={onComplete  ? renderCompleteAction : undefined}
+      onSwipeableWillOpen={(direction) => {
+        if (direction === 'right') haptic.warning();
+        else                       haptic.success();
+      }}
       onSwipeableOpen={(direction) => {
         pendingAction.current = direction === 'right' ? 'delete' : 'complete';
-        Haptics.notificationAsync(
-          direction === 'right'
-            ? Haptics.NotificationFeedbackType.Warning
-            : Haptics.NotificationFeedbackType.Success,
-        ).catch(() => {});
         swipeRef.current?.close();
       }}
       onSwipeableClose={() => {
         const action = pendingAction.current;
         pendingAction.current = null;
-        if (action === 'delete') handleSwipeDelete();
-        else if (action === 'complete') handleSwipeComplete();
+        if (action === 'delete')   onDelete?.();
+        else if (action === 'complete') onComplete?.();
       }}
       friction={2}
-      leftThreshold={60}
-      rightThreshold={60}
+      leftThreshold={80}
+      rightThreshold={80}
       overshootLeft={false}
       overshootRight={false}
     >
@@ -101,10 +92,8 @@ export default function UpcomingEventRow({
         delayLongPress={500}
         style={[styles.row, isCompleted && styles.rowCompleted]}
       >
-        {/* Time */}
         <Text style={[styles.time, isCompleted && styles.textCompleted]}>{startTime}</Text>
 
-        {/* Dot + content */}
         <View style={styles.dotCol}>
           {isCompleted
             ? <CheckCircle size={DOT_SIZE + 4} color={colors.success} />
@@ -134,7 +123,7 @@ export default function UpcomingEventRow({
                   {formatTimeRow(new Date(event.start_at))} – {formatTimeRow(new Date(event.end_at))}
                 </Text>
               )}
-              {event.location ? <Text style={styles.meta}>📍 {event.location}</Text> : null}
+              {event.location   ? <Text style={styles.meta}>📍 {event.location}</Text>   : null}
               {event.description ? <Text style={styles.meta}>💭 {event.description}</Text> : null}
               {event.attendees?.length ? (
                 <Text style={styles.meta}>👥 {event.attendees.join(', ')}</Text>
@@ -153,13 +142,11 @@ function makeStyles(c: AppTheme) {
       flexDirection:     'row',
       alignItems:        'center',
       paddingHorizontal: PADDING_H,
-      paddingVertical: Spacing.sm,
+      paddingVertical:   Spacing.sm,
       gap:               DOT_GAP,
       backgroundColor:   'transparent',
     },
-    rowCompleted: {
-      opacity: 0.5,
-    },
+    rowCompleted: { opacity: 0.5 },
     time: {
       width:      TIME_W,
       fontSize:   11,
@@ -167,9 +154,7 @@ function makeStyles(c: AppTheme) {
       color:      c.textMuted,
       textAlign:  'right',
     },
-    textCompleted: {
-      textDecorationLine: 'line-through',
-    },
+    textCompleted:   { textDecorationLine: 'line-through' },
     dotCol: {
       width:          DOT_SIZE + 4,
       alignItems:     'center',
@@ -181,14 +166,8 @@ function makeStyles(c: AppTheme) {
       borderRadius:    DOT_SIZE / 2,
       backgroundColor: c.border,
     },
-    content: {
-      flex: 1,
-    },
-    titleRow: {
-      flexDirection: 'row',
-      alignItems:    'center',
-      gap: Spacing.xs,
-    },
+    content:  { flex: 1 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
     title: {
       fontSize:   14,
       color:      c.textSecondary,
@@ -196,20 +175,10 @@ function makeStyles(c: AppTheme) {
       fontWeight: '400',
       flex:       1,
     },
-    titleCompleted: {
-      textDecorationLine: 'line-through',
-      color:              c.textMuted,
-    },
-    recurIcon: { fontSize: 10 },
-    expandedArea: {
-      marginTop: Spacing.xs,
-      gap: 2,
-    },
-    meta: {
-      fontSize:   12,
-      color:      c.textMuted,
-      fontFamily: MONO,
-    },
+    titleCompleted: { textDecorationLine: 'line-through', color: c.textMuted },
+    recurIcon:   { fontSize: 10 },
+    expandedArea: { marginTop: Spacing.xs, gap: 2 },
+    meta: { fontSize: 12, color: c.textMuted, fontFamily: MONO },
     actionDelete: {
       backgroundColor:   c.error,
       alignItems:        'center',
@@ -224,10 +193,7 @@ function makeStyles(c: AppTheme) {
       paddingHorizontal: Spacing.lg,
       gap:               2,
     },
-    actionUndo: {
-      backgroundColor: c.primary,
-    },
-    actionIcon:          { fontSize: 16 },
+    actionUndo:          { backgroundColor: c.primary },
     actionDeleteLabel:   { fontSize: 10, color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     actionCompleteLabel: { fontSize: 10, color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
   });

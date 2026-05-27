@@ -1,9 +1,10 @@
-import { Mic } from 'lucide-react-native';
+import { Check, Mic } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import ReAnimated, {
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
@@ -30,6 +31,7 @@ interface Props {
 
 const ROTATE_MS = 1500;
 const FADE_MS   = 200;
+const RING_PERIOD = 1400;
 
 function useRotatingMessage(messages: string[], active: boolean): string {
   const [idx, setIdx]   = useState(0);
@@ -52,32 +54,143 @@ function useRotatingMessage(messages: string[], active: boolean): string {
   return text;
 }
 
+// Single concentric pulse ring
+function PulseRing({ color, delayMs, active }: { color: string; delayMs: number; active: boolean }) {
+  const scale   = useSharedValue(0.6);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (active) {
+      scale.value = withDelay(
+        delayMs,
+        withRepeat(
+          withSequence(
+            withTiming(0.6, { duration: 0 }),
+            withTiming(2.2, { duration: RING_PERIOD }),
+          ),
+          -1,
+          false,
+        ),
+      );
+      opacity.value = withDelay(
+        delayMs,
+        withRepeat(
+          withSequence(
+            withTiming(0.55, { duration: 0 }),
+            withTiming(0, { duration: RING_PERIOD }),
+          ),
+          -1,
+          false,
+        ),
+      );
+    } else {
+      scale.value   = withTiming(0.6, { duration: 200 });
+      opacity.value = withTiming(0, { duration: 200 });
+    }
+  }, [active]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity:   opacity.value,
+  }));
+
+  return (
+    <ReAnimated.View
+      pointerEvents="none"
+      style={[styles.ring, { borderColor: color }, style]}
+    />
+  );
+}
+
+// Dot indicator for analyzing state
+function AnalyzingDots({ color }: { color: string }) {
+  const dots = [0, 1, 2];
+  return (
+    <View style={styles.dotsRow}>
+      {dots.map(i => (
+        <_Dot key={i} color={color} delay={i * 180} />
+      ))}
+    </View>
+  );
+}
+
+function _Dot({ color, delay }: { color: string; delay: number }) {
+  const scale = useSharedValue(0.5);
+
+  useEffect(() => {
+    scale.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1.3, { duration: 360 }),
+          withTiming(0.5, { duration: 360 }),
+        ),
+        -1,
+        false,
+      ),
+    );
+    return () => { scale.value = 0.5; };
+  }, []);
+
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <ReAnimated.View
+      style={[styles.dot, { backgroundColor: color }, style]}
+    />
+  );
+}
+
+// Check icon with scale + fade for saving state
+function SaveCheckMark({ color, active }: { color: string; active: boolean }) {
+  const scale   = useSharedValue(0.4);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (active) {
+      scale.value   = withTiming(1, { duration: 220 });
+      opacity.value = withTiming(1, { duration: 220 });
+    } else {
+      scale.value   = withTiming(0.4, { duration: 150 });
+      opacity.value = withTiming(0, { duration: 150 });
+    }
+  }, [active]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity:   opacity.value,
+  }));
+
+  return (
+    <ReAnimated.View style={[styles.saveCheck, style]}>
+      <Check size={36} color={color} strokeWidth={2.5} />
+    </ReAnimated.View>
+  );
+}
+
 export default function VoiceInputOverlay({
   visible, onCancel, onComplete, micStatus, isProcessing, loadingStage,
 }: Props) {
-  const colors = useColors();
+  const colors      = useColors();
   const isRecording = micStatus === 'recording';
-  const scale = useSharedValue(1);
+  const isSaving    = !!isProcessing && loadingStage === 'saving';
+  const isAnalyzing = !!isProcessing && !isSaving;
 
-  // Fade animation for the message text
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  // Rotating messages per stage
-  const listeningMsg  = useRotatingMessage(LISTENING_MESSAGES, isRecording && !isProcessing);
-  const analyzingMsg  = useRotatingMessage(ANALYZING_MESSAGES, !!isProcessing && loadingStage !== 'saving');
-  const savingMsg     = useRotatingMessage(SAVING_MESSAGES,    !!isProcessing && loadingStage === 'saving');
+  const listeningMsg  = useRotatingMessage(LISTENING_MESSAGES,  isRecording && !isProcessing);
+  const analyzingMsg  = useRotatingMessage(ANALYZING_MESSAGES,  isAnalyzing);
+  const savingMsg     = useRotatingMessage(SAVING_MESSAGES,      isSaving);
 
-  // Current message
   let currentMsg: string;
   if (isProcessing) {
-    currentMsg = loadingStage === 'saving' ? savingMsg : analyzingMsg;
+    currentMsg = isSaving ? savingMsg : analyzingMsg;
   } else if (isRecording) {
     currentMsg = listeningMsg;
   } else {
     currentMsg = '준비 중...';
   }
 
-  // Fade in/out when message changes
   const prevMsg = useRef(currentMsg);
   useEffect(() => {
     if (prevMsg.current === currentMsg) return;
@@ -87,26 +200,6 @@ export default function VoiceInputOverlay({
       Animated.timing(fadeAnim, { toValue: 1, duration: FADE_MS, useNativeDriver: true }),
     ]).start();
   }, [currentMsg]);
-
-  useEffect(() => {
-    if (visible && isRecording) {
-      scale.value = withRepeat(
-        withSequence(
-          withTiming(1.4, { duration: 800 }),
-          withTiming(1.0, { duration: 800 }),
-        ),
-        -1,
-        false,
-      );
-    } else {
-      scale.value = withTiming(1.0, { duration: 200 });
-    }
-  }, [visible, isRecording]);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity:   Math.max(0, 1.4 - scale.value) * 0.6 + 0.1,
-  }));
 
   return (
     <Modal
@@ -121,21 +214,13 @@ export default function VoiceInputOverlay({
         onPress={isProcessing ? undefined : onCancel}
       >
         <View style={styles.center} pointerEvents="box-none">
-          {isProcessing ? (
+          {isRecording && !isProcessing && (
             <>
-              <View style={[styles.micCircle, { backgroundColor: colors.primary + '22' }]}>
-                <Mic size={48} color={colors.primary + '88'} strokeWidth={1.5} />
-              </View>
-              <Animated.Text style={[styles.listenText, { opacity: fadeAnim }]}>
-                {currentMsg}
-              </Animated.Text>
-            </>
-          ) : isRecording ? (
-            <>
-              <ReAnimated.View
-                pointerEvents="none"
-                style={[styles.pulseRing, { borderColor: colors.primary }, pulseStyle]}
-              />
+              {/* Concentric pulse rings */}
+              <PulseRing color={colors.primary} delayMs={0}    active={isRecording} />
+              <PulseRing color={colors.primary} delayMs={460}  active={isRecording} />
+              <PulseRing color={colors.primary} delayMs={920}  active={isRecording} />
+
               <Pressable
                 onPress={onComplete ?? onCancel}
                 hitSlop={20}
@@ -152,7 +237,32 @@ export default function VoiceInputOverlay({
                 </Text>
               )}
             </>
-          ) : (
+          )}
+
+          {isAnalyzing && (
+            <>
+              <View style={[styles.micCircle, { backgroundColor: colors.primary + '22' }]}>
+                <Mic size={48} color={colors.primary + '88'} strokeWidth={1.5} />
+              </View>
+              <AnalyzingDots color={colors.primary} />
+              <Animated.Text style={[styles.listenText, { opacity: fadeAnim }]}>
+                {currentMsg}
+              </Animated.Text>
+            </>
+          )}
+
+          {isSaving && (
+            <>
+              <View style={[styles.micCircle, { backgroundColor: colors.primary + '22' }]}>
+                <SaveCheckMark color={colors.primary} active={isSaving} />
+              </View>
+              <Animated.Text style={[styles.listenText, { opacity: fadeAnim }]}>
+                {currentMsg}
+              </Animated.Text>
+            </>
+          )}
+
+          {!isRecording && !isProcessing && (
             <>
               <View style={[styles.micCircle, { backgroundColor: colors.primary + '11' }]}>
                 <Mic size={48} color={colors.primary + '66'} strokeWidth={1.5} />
@@ -176,12 +286,12 @@ const styles = StyleSheet.create({
   center: {
     alignItems: 'center',
   },
-  pulseRing: {
+  ring: {
     position:     'absolute',
     width:        80,
     height:       80,
     borderRadius: 40,
-    borderWidth:  2,
+    borderWidth:  1.5,
   },
   micCircle: {
     width:          80,
@@ -189,17 +299,32 @@ const styles = StyleSheet.create({
     borderRadius:   40,
     alignItems:     'center',
     justifyContent: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom:   Spacing.lg,
   },
   listenText: {
     color:        '#FFFFFF',
     fontSize:     18,
-    fontFamily: 'Pretendard-Medium',
+    fontFamily:   'Pretendard-Medium',
     fontWeight:   '500',
     marginBottom: Spacing.sm,
   },
   hintText: {
     fontSize:  12,
     textAlign: 'center',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    gap:           10,
+    marginBottom:  Spacing.lg,
+  },
+  dot: {
+    width:        8,
+    height:       8,
+    borderRadius: 4,
+  },
+  saveCheck: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

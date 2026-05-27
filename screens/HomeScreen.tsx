@@ -1,4 +1,6 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
+import { useUndoToast } from '../contexts/UndoToastContext';
+import { supabase } from '../lib/supabase';
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Mic, Settings2 } from 'lucide-react-native';
@@ -77,6 +79,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { showUndo } = useUndoToast();
   const voice = useVoiceFlow();
 
   // ── Selected date ─────────────────────────────────────────────
@@ -284,6 +287,7 @@ export default function HomeScreen() {
   // ── Success: reload events, auto-reset ───────────────────────
   useEffect(() => {
     if (voice.phase === 'success') {
+      haptic.success();
       reloadForDate().catch(() => {});
       reloadSchedules().catch(() => {});
       const t = setTimeout(() => voice.retryVoice(), SUCCESS_AUTO_RESET_MS);
@@ -319,7 +323,7 @@ export default function HomeScreen() {
 
   // ── Handlers ─────────────────────────────────────────────────
   const handleFabPress = useCallback(async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    haptic.medium();
     if (!gate.isAllowed) { setUpgradeVisible(true); return; }
     const ok = await quotaTracker.checkQuota('create');
     if (!ok) { setUpgradeVisible(true); return; }
@@ -362,8 +366,13 @@ export default function HomeScreen() {
   }, []);
 
   const handleDeleteUpcoming = useCallback((event: CalEvent) => {
-    deleteEventById(event.id).catch(() => {});
-  }, [deleteEventById]);
+    const eventId = event.id;
+    deleteEventById(eventId).catch(() => {});
+    showUndo('일정이 삭제됐어요', () => {
+      supabase.from('events').update({ deleted_at: null }).eq('id', eventId)
+        .then(() => reloadSchedules().catch(() => {}));
+    });
+  }, [deleteEventById, showUndo, reloadSchedules]);
 
   const handleCompleteUpcoming = useCallback((event: CalEvent) => {
     toggleEventComplete(event.id, !!event.completed_at).catch(() => {});

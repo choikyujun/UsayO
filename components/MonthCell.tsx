@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme } from '../constants/colors';
 import { useTheme } from '../contexts/ThemeContext';
@@ -42,11 +42,11 @@ export default function MonthCell({ dateStr, isOtherMonth, eventCount, completed
     <Pressable
       style={styles.cell}
       onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        haptic.light();
         onPress(dateStr);
       }}
       onLongPress={onLongPress ? () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        haptic.medium();
         onLongPress(dateStr);
       } : undefined}
       delayLongPress={500}

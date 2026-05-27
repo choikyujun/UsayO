@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import { useRef, useState } from 'react';
 import {
   LayoutAnimation,
@@ -59,7 +59,7 @@ export default function EventRow({
   }
 
   async function handleLongPress() {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptic.light();
     onLongPress(event);
   }
 
