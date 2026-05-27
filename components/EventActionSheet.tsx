@@ -126,22 +126,33 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
 
         {/* 전체 반복 일정 삭제 (반복 일정인 경우에만) */}
         {isRecurringEvent && (
-          <>
-            <View style={[styles.deleteDivider, { backgroundColor: colors.border }]} />
-            <Pressable
-              style={({ pressed }) => [
-                styles.deleteAllRow,
-                { backgroundColor: colors.error, opacity: pressed ? 0.7 : 1 },
-              ]}
-              onPress={() => { onClose(); handleDeleteAll(ev); }}
-            >
-              <Trash2 size={18} color="#ffffff" strokeWidth={2} />
-              <View style={styles.deleteAllTextCol}>
-                <Text style={[styles.deleteAllLabel, { color: '#ffffff' }]}>전체 반복 일정 삭제</Text>
-                <Text style={[styles.deleteAllSub, { color: 'rgba(255,255,255,0.8)' }]}>지난 일정도 모두 삭제됩니다</Text>
-              </View>
-            </Pressable>
-          </>
+          <Pressable
+            style={({ pressed }) => ({
+              backgroundColor: `${colors.error}26`,
+              borderColor: `${colors.error}4D`,
+              borderWidth: 0.5,
+              borderRadius: 16,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 14,
+              marginTop: 12,
+              marginHorizontal: 20,
+              opacity: pressed ? 0.7 : 1,
+            })}
+            onPress={() => { onClose(); handleDeleteAll(ev); }}
+          >
+            <Trash2 size={24} color={colors.error} strokeWidth={1.75} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontSize: 15, fontWeight: '500', color: colors.error, marginBottom: 2 }}>
+                전체 반복 일정 삭제
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                지난 일정도 모두 삭제됩니다
+              </Text>
+            </View>
+          </Pressable>
         )}
 
         {/* 취소 */}
@@ -206,25 +217,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   gridLabel: { fontSize: 11, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
-  deleteDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginTop: Spacing.md,
-  },
-  deleteAllRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 20,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    gap: 12,
-  },
-  deleteAllTextCol: { gap: 3 },
-  deleteAllLabel: { fontSize: 15, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
-  deleteAllSub:   { fontSize: 12, fontFamily: 'Pretendard-Regular', fontWeight: '400' },
   cancelBtn: {
     marginHorizontal: 20, marginTop: Spacing.md,
     paddingVertical: 15, borderRadius: 14, alignItems: 'center',
