@@ -127,28 +127,28 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
         {/* 전체 반복 일정 삭제 (반복 일정인 경우에만) */}
         {isRecurringEvent && (
           <Pressable
+            onPress={() => { onClose(); handleDeleteAll(ev); }}
             style={({ pressed }) => ({
-              backgroundColor: `${colors.error}26`,
-              borderColor: `${colors.error}4D`,
+              width: '90%',
+              alignSelf: 'center',
+              backgroundColor: 'rgba(230, 57, 70, 0.15)',
+              borderColor: 'rgba(230, 57, 70, 0.4)',
               borderWidth: 0.5,
               borderRadius: 16,
               paddingVertical: 14,
               paddingHorizontal: 16,
               flexDirection: 'row',
               alignItems: 'center',
-              gap: 14,
               marginTop: 12,
-              marginHorizontal: 20,
               opacity: pressed ? 0.7 : 1,
             })}
-            onPress={() => { onClose(); handleDeleteAll(ev); }}
           >
-            <Trash2 size={24} color={colors.error} strokeWidth={1.75} />
+            <Trash2 size={24} color="#E63946" strokeWidth={1.75} style={{ marginRight: 14 }} />
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 15, fontWeight: '500', color: colors.error, marginBottom: 2 }}>
+              <Text style={{ fontSize: 15, fontWeight: '500', color: '#E63946', marginBottom: 2 }}>
                 전체 반복 일정 삭제
               </Text>
-              <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+              <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.55)' }}>
                 지난 일정도 모두 삭제됩니다
               </Text>
             </View>
