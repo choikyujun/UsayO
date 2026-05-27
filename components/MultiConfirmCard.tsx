@@ -1,8 +1,12 @@
 import { Calendar } from 'lucide-react-native';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import { speechService } from '../services/voice/SpeechRecognitionService';
+import { ttsService } from '../services/voice/TTSService';
 import { ClassifiedIntent } from '../types';
+import { matchMultiConfirmResponse } from '../utils/voiceResponseMatcher';
 
 interface Props {
   events:     ClassifiedIntent[];
@@ -30,6 +34,48 @@ export default function MultiConfirmCard({ events, transcript, onConfirm, onCanc
 
   const slideY  = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+
+  // ── Voice STT loop: TTS → record → match → confirm/cancel/restart ──
+  const isActiveRef      = useRef(true);
+  const startRecordRef   = useRef<() => Promise<void>>(() => Promise.resolve());
+
+  const handleAutoStop = useCallback(async (uri: string | null) => {
+    if (!isActiveRef.current) return;
+    try {
+      if (uri) {
+        const stt    = await speechService.transcribe(uri, 'ko');
+        const action = matchMultiConfirmResponse(stt.transcript);
+        if (!isActiveRef.current) return;
+        if (action === 'confirm') { onConfirm(); return; }
+        if (action === 'cancel')  { onCancel();  return; }
+      }
+      // unknown/no-audio → restart recording (keep waiting)
+      if (isActiveRef.current) await startRecordRef.current().catch(() => {});
+    } catch {
+      if (isActiveRef.current) await startRecordRef.current().catch(() => {});
+    }
+  }, [onConfirm, onCancel]);
+
+  const recorder = useVoiceRecorder({ onAutoStop: handleAutoStop });
+  startRecordRef.current = recorder.startRecording;
+
+  useEffect(() => {
+    isActiveRef.current = true;
+    (async () => {
+      try {
+        // TTS was already spoken by useVoiceFlow — just wait for it to finish
+        await ttsService.waitForSpeech(6000);
+        await new Promise<void>(r => setTimeout(r, 400));
+        if (isActiveRef.current) await recorder.startRecording();
+      } catch {
+        if (isActiveRef.current) await recorder.startRecording().catch(() => {});
+      }
+    })();
+    return () => {
+      isActiveRef.current = false;
+      recorder.cancelRecording();
+    };
+  }, []);
 
   useEffect(() => {
     Animated.parallel([
