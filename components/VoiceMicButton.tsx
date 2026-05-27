@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   buttonRecording: {
-    backgroundColor: '#E53935',
+    backgroundColor: Colors.error,
   },
   buttonProcessing: {
     backgroundColor: Colors.accent,

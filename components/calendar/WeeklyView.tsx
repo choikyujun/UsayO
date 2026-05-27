@@ -273,9 +273,9 @@ function makeStyles(c: AppTheme) {
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: '#E53935',
+      backgroundColor: c.error,
       marginLeft: -4,
     },
-    nowBar: { flex: 1, height: 1.5, backgroundColor: '#E53935' },
+    nowBar: { flex: 1, height: 1.5, backgroundColor: c.error },
   });
 }

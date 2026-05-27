@@ -120,7 +120,7 @@ export default function EventRow({
         <Text style={[
           styles.time,
           { fontFamily: MONO },
-          isHoliday && { color: '#DC2626' },
+          isHoliday && { color: colors.error },
           isEffectivelyPast && styles.fadedText,
         ]}>
           {formatTimeRow(startD)}

@@ -1,6 +1,7 @@
 import { Mic, RefreshCw } from 'lucide-react-native';
+import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../constants/colors';
+import { AppTheme, useColors } from '../constants/colors';
 import { Database } from '../types/database';
 
 type Schedule = Database['public']['Tables']['schedules']['Row'];
@@ -11,9 +12,12 @@ type Props = {
 };
 
 export default function ScheduleList({ schedules, loading }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   if (loading) {
     return (
-      <View style={styles.empty}>
+      <View style={staticStyles.empty}>
         <Text style={styles.emptyText}>불러오는 중...</Text>
       </View>
     );
@@ -21,8 +25,8 @@ export default function ScheduleList({ schedules, loading }: Props) {
 
   if (schedules.length === 0) {
     return (
-      <View style={styles.empty}>
-        <Mic size={48} color={Colors.accent} />
+      <View style={staticStyles.empty}>
+        <Mic size={48} color={colors.accent} />
         <Text style={styles.emptyTitle}>오늘 일정이 없어요</Text>
         <Text style={styles.emptyText}>버튼을 눌러 음성으로 일정을 추가해보세요</Text>
       </View>
@@ -30,7 +34,7 @@ export default function ScheduleList({ schedules, loading }: Props) {
   }
 
   return (
-    <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+    <ScrollView style={staticStyles.list} showsVerticalScrollIndicator={false}>
       {schedules.map((item) => (
         <ScheduleItem key={item.id} schedule={item} />
       ))}
@@ -39,6 +43,8 @@ export default function ScheduleList({ schedules, loading }: Props) {
 }
 
 function ScheduleItem({ schedule }: { schedule: Schedule }) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const start = new Date(schedule.start_at);
   const hour = start.getHours();
   const min = start.getMinutes();
@@ -56,7 +62,7 @@ function ScheduleItem({ schedule }: { schedule: Schedule }) {
         <Text style={styles.title}>{schedule.title}</Text>
         {schedule.is_recurring && (
           <View style={styles.badge}>
-            <RefreshCw size={11} color={Colors.textMuted} />
+            <RefreshCw size={11} color={colors.textMuted} />
             <Text style={styles.badgeText}>반복</Text>
           </View>
         )}
@@ -65,76 +71,56 @@ function ScheduleItem({ schedule }: { schedule: Schedule }) {
   );
 }
 
-const styles = StyleSheet.create({
-  list: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  empty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 60,
-    gap: 8,
-  },
-  emptyTitle: {
-    marginTop: 8,
-    fontSize: 17,
-    fontFamily: 'Pretendard-SemiBold',
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    textAlign: 'center',
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    shadowColor: Colors.deep,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  timeBlock: {
-    width: 72,
-  },
-  timeText: {
-    fontSize: 13,
-    fontFamily: 'Pretendard-SemiBold',
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  divider: {
-    width: 2,
-    height: 32,
-    backgroundColor: Colors.accent,
-    borderRadius: 1,
-    marginHorizontal: 14,
-  },
-  content: {
-    flex: 1,
-    gap: 4,
-  },
-  title: {
-    fontSize: 15,
-    fontFamily: 'Pretendard-SemiBold',
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  badgeText: {
-    fontSize: 12,
-    color: Colors.textMuted,
-  },
+const staticStyles = StyleSheet.create({
+  list:  { flex: 1, paddingHorizontal: 20 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60, gap: 8 },
 });
+
+function makeStyles(c: AppTheme) {
+  return StyleSheet.create({
+    emptyTitle: {
+      marginTop: 8,
+      fontSize: 17,
+      fontFamily: 'Pretendard-SemiBold',
+      fontWeight: '600',
+      color: c.textPrimary,
+    },
+    emptyText: { fontSize: 14, color: c.textMuted, textAlign: 'center' },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.card,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.07,
+      shadowRadius: 6,
+      elevation: 3,
+    },
+    timeBlock: { width: 72 },
+    timeText: {
+      fontSize: 13,
+      fontFamily: 'Pretendard-SemiBold',
+      fontWeight: '600',
+      color: c.primary,
+    },
+    divider: {
+      width: 2,
+      height: 32,
+      backgroundColor: c.accent,
+      borderRadius: 1,
+      marginHorizontal: 14,
+    },
+    content: { flex: 1, gap: 4 },
+    title: {
+      fontSize: 15,
+      fontFamily: 'Pretendard-SemiBold',
+      fontWeight: '600',
+      color: c.textPrimary,
+    },
+    badge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+    badgeText: { fontSize: 12, color: c.textMuted },
+  });
+}

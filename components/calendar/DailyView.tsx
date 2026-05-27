@@ -268,10 +268,10 @@ function makeStyles(c: AppTheme) {
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: '#E53935',
+      backgroundColor: c.error,
     },
-    nowBar: { flex: 1, height: 1.5, backgroundColor: '#E53935' },
-    nowTime: { fontSize: 9, color: '#E53935', marginLeft: 4 },
+    nowBar: { flex: 1, height: 1.5, backgroundColor: c.error },
+    nowTime: { fontSize: 9, color: c.error, marginLeft: 4 },
     emptyState: {
       flex: 1,
       alignItems: 'center',

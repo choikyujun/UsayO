@@ -277,7 +277,7 @@ function makeStyles(c: AppTheme, state: EventState) {
       paddingTop: 3,
       fontFamily: MONO,
     },
-    timeHoliday: { color: '#DC2626' },
+    timeHoliday: { color: c.error },
     dot: {
       width:           dotSize + dotBorderWidth * 2,
       height:          dotSize + dotBorderWidth * 2,

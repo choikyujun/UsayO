@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../constants/colors';
+import { AppTheme, useColors } from '../constants/colors';
 
 type Props = {
   year: number;
@@ -19,6 +20,8 @@ export default function MonthCalendar({
   year, month, markedDates = [], selectedDate,
   onSelectDate, onPrevMonth, onNextMonth,
 }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const today = toDateStr(new Date());
   const cells = buildCells(year, month);
 
@@ -27,11 +30,11 @@ export default function MonthCalendar({
       {/* 헤더 */}
       <View style={styles.header}>
         <Pressable onPress={onPrevMonth} style={styles.arrow}>
-          <ChevronLeft size={22} color={Colors.primary} />
+          <ChevronLeft size={22} color={colors.primary} />
         </Pressable>
         <Text style={styles.title}>{year}년 {MONTHS[month]}</Text>
         <Pressable onPress={onNextMonth} style={styles.arrow}>
-          <ChevronRight size={22} color={Colors.primary} />
+          <ChevronRight size={22} color={colors.primary} />
         </Pressable>
       </View>
 
@@ -114,82 +117,84 @@ function buildCells(year: number, month: number): (Date | null)[][] {
   return cells;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    marginHorizontal: 16,
-    shadowColor: Colors.deep,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  arrow: { padding: 8 },
-  title: { fontSize: 17, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: Colors.text },
-  row: {
-    flexDirection: 'row',
-    marginBottom: 2,
-  },
-  dayLabel: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 12,
-    fontFamily: 'Pretendard-SemiBold',
-    fontWeight: '600',
-    color: Colors.textMuted,
-    paddingVertical: 4,
-  },
-  cell: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  dateCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectedCircle: {
-    backgroundColor: Colors.primary,
-  },
-  todayCircle: {
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-  },
-  dateText: {
-    fontSize: 14,
-    color: Colors.text,
-    fontFamily: 'Pretendard-Regular',
-    fontWeight: '400',
-  },
-  selectedText: {
-    color: '#fff',
-    fontFamily: 'Pretendard-Bold',
-    fontWeight: '700',
-  },
-  todayText: {
-    color: Colors.primary,
-    fontFamily: 'Pretendard-Bold',
-    fontWeight: '700',
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.primary,
-    marginTop: 2,
-  },
-  sun: { color: '#E53935' },
-  sat: { color: '#1565C0' },
-});
+function makeStyles(c: AppTheme) {
+  return StyleSheet.create({
+    container: {
+      backgroundColor: c.card,
+      borderRadius: 20,
+      padding: 16,
+      marginHorizontal: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+      paddingHorizontal: 4,
+    },
+    arrow: { padding: 8 },
+    title: { fontSize: 17, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textPrimary },
+    row: {
+      flexDirection: 'row',
+      marginBottom: 2,
+    },
+    dayLabel: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: 12,
+      fontFamily: 'Pretendard-SemiBold',
+      fontWeight: '600',
+      color: c.textMuted,
+      paddingVertical: 4,
+    },
+    cell: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 2,
+    },
+    dateCircle: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    selectedCircle: {
+      backgroundColor: c.primary,
+    },
+    todayCircle: {
+      borderWidth: 1.5,
+      borderColor: c.primary,
+    },
+    dateText: {
+      fontSize: 14,
+      color: c.textPrimary,
+      fontFamily: 'Pretendard-Regular',
+      fontWeight: '400',
+    },
+    selectedText: {
+      color: '#fff',
+      fontFamily: 'Pretendard-Bold',
+      fontWeight: '700',
+    },
+    todayText: {
+      color: c.primary,
+      fontFamily: 'Pretendard-Bold',
+      fontWeight: '700',
+    },
+    dot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.primary,
+      marginTop: 2,
+    },
+    sun: { color: c.error },
+    sat: { color: c.accent },
+  });
+}

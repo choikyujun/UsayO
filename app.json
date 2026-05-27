@@ -45,7 +45,8 @@
     "plugins": [
       "expo-router",
       "./plugins/withYuSayWidgets",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-font"
     ],
     "jsEngine": "hermes"
   }

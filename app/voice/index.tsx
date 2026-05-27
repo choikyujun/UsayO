@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmCard from '../../components/ConfirmCard';
-import { Colors } from '../../constants/colors';
+import { Colors, useColors } from '../../constants/colors';
 import { useVoiceFlow } from '../../hooks/useVoiceFlow';
 import { useSchedules } from '../../hooks/useSchedules';
 import { ttsService } from '../../services/voice/TTSService';
@@ -21,6 +21,7 @@ const SUCCESS_BACK_DELAY_MS = 1500; // 성공 후 모달 닫힘 딜레이
 
 export default function VoiceModal() {
   const insets = useSafeAreaInsets();
+  const themeColors = useColors();
   const voice = useVoiceFlow();
   const { todayStr } = useCurrentDate();
   const { applyClassifiedIntent, reload } = useSchedules(todayStr);
@@ -132,7 +133,7 @@ export default function VoiceModal() {
   return (
     <View style={styles.overlay}>
       <Pressable style={StyleSheet.absoluteFill} onPress={handleBackdropPress} />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
+      <View style={[styles.sheet, { paddingBottom: insets.bottom + 24, backgroundColor: themeColors.card }]}>
 
         {/* ── LISTENING ── */}
         {voice.phase === 'listening' && (
@@ -248,7 +249,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   sheet: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 20,
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   micBtnActive: {
-    backgroundColor: '#E53E3E',
+    backgroundColor: Colors.error,
   },
   micIcon: {
     fontSize: 32,
