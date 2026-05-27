@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import { haptic } from '../utils/haptics';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -26,6 +26,8 @@ import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
 import SpineEvent from './SpineEvent';
 import type { EventState } from './SpineEvent';
 import EmptyTodayState from './EmptyTodayState';
+import SkeletonSpine from './SkeletonSpine';
+import { useSkeletonDelay } from './Skeleton';
 import EditTimeModal from './EditTimeModal';
 import EditTitleModal from './EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from './EventActionSheet';
@@ -312,13 +314,11 @@ export default function TimeSpine({
   }, [deletedItem]);
 
   // ── Loading / empty states ─────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.loadingText}>불러오는 중...</Text>
-      </View>
-    );
+  const showSkeleton = useSkeletonDelay(!!loading);
+  if (loading && showSkeleton) {
+    return <SkeletonSpine />;
   }
+  if (loading) return null; // brief load, avoid flash
 
   if (visibleEvents.length === 0) {
     return <EmptyTodayState isToday />;

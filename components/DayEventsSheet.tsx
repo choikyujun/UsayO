@@ -1,4 +1,5 @@
-import { MapPin, X } from 'lucide-react-native';
+import { Calendar, MapPin, X } from 'lucide-react-native';
+import EmptyState from './EmptyState';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View,
@@ -108,9 +109,7 @@ export default function DayEventsSheet({ dateStr, events, onClose }: Props) {
               {/* Event list */}
               <ScrollView showsVerticalScrollIndicator={false}>
                 {events.length === 0 ? (
-                  <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-                    일정이 없습니다
-                  </Text>
+                  <EmptyState Icon={Calendar} title="일정이 없어요" />
                 ) : (
                   events.map((ev, idx) => {
                     const isCompleted = !!ev.completed_at;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { Audio } from 'expo-av';
 import { MicStatus } from '../types';
 import { audioSessionService } from '../services/voice/AudioSessionService';
@@ -100,7 +100,14 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       const ready = await audioSessionService.prepareForRecording();
       console.log('[Mic] preparing→audioMode:', Date.now() - t0, 'ms');
       if (!ready) {
-        Alert.alert('마이크 권한이 필요해요', '설정 > YuSay > 마이크를 허용해주세요.', [{ text: '확인' }]);
+        Alert.alert(
+          '마이크 권한이 필요해요',
+          'Settings에서 YuSay의 마이크 권한을 켜주세요.',
+          [
+            { text: '취소', style: 'cancel' },
+            { text: 'Settings 열기', onPress: () => Linking.openSettings() },
+          ],
+        );
         setStatus('idle');
         return;
       }

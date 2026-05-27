@@ -54,6 +54,8 @@ import { computeOverlapLayout } from '../utils/eventOverlapLayout';
 import { formatLunarShort } from '../utils/lunarHelpers';
 import { useCurrentDate } from '../hooks/useCurrentDate';
 import { Spacing } from '../constants/spacing';
+import { useSkeletonDelay } from '../components/Skeleton';
+import SkeletonDayBlocks from '../components/SkeletonDayBlocks';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -80,6 +82,7 @@ export default function DayViewScreen() {
 
   // ── Data ────────────────────────────────────────────────────────────
   const { events, loading, reload } = useDayEvents(dateStr);
+  const showDaySkeleton = useSkeletonDelay(loading);
   const { applyClassifiedIntent } = useSchedules(dateStr, 0);
   const overlapMapDay = useMemo(() => computeOverlapLayout(events), [events]);
 
@@ -300,6 +303,7 @@ export default function DayViewScreen() {
                 <DinnerHint colors={colors} />
                 <HourGrid   colors={colors} />
 
+                {showDaySkeleton && events.length === 0 && <SkeletonDayBlocks />}
                 {events.map(ev => {
                   const layout = overlapMapDay.get(ev.id);
                   return (

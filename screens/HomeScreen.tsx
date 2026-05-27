@@ -68,11 +68,26 @@ const FALLBACK_HYBRID: HybridInputState = {
   fallbackReason: 'noise',
 };
 
-function errorMessage(error: unknown): string {
+import type { VoiceFlowError } from '../services/voice/VoiceFlowOrchestrator';
+
+function friendlyErrorMessage(error: VoiceFlowError | null): string {
   if (!error) return '처리에 실패했어요';
-  if (typeof error === 'object' && 'message' in error)
-    return (error as { message: string }).message;
-  return '처리에 실패했어요';
+  switch (error.type) {
+    case 'noSpeech':  return '잘 못 들었어요';
+    case 'network':   return '인터넷이 불안정해요';
+    case 'lowConfidence': return '이해하지 못했어요';
+    default:          return '처리에 실패했어요';
+  }
+}
+
+function friendlyErrorSubtitle(error: VoiceFlowError | null): string {
+  if (!error) return '다시 시도해주세요';
+  switch (error.type) {
+    case 'noSpeech':      return '조용한 곳에서 다시 말씀해주세요';
+    case 'network':       return '연결을 확인 후 다시 시도해주세요';
+    case 'lowConfidence': return '조금 다르게 말씀해주실래요?';
+    default:              return '다시 시도해주세요';
+  }
 }
 
 export default function HomeScreen() {
@@ -295,9 +310,11 @@ export default function HomeScreen() {
     }
   }, [voice.phase]);
 
-  // ── Fail: auto-reset so FAB becomes pressable again ──────────
+  // ── Fail: TTS 친절 피드백 + auto-reset ─────────────────────
   useEffect(() => {
     if (voice.phase === 'fail') {
+      const ttsMsg = friendlyErrorMessage(voice.error ?? null);
+      ttsService.speak(ttsMsg).catch(() => {});
       const t = setTimeout(() => voice.retryVoice(), 2500);
       return () => clearTimeout(t);
     }
