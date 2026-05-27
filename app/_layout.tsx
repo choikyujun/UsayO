@@ -27,7 +27,7 @@ import { signInWithDevice } from '../services/auth/deviceAuth';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { noiseDetector } from '../services/voice/NoiseDetectorService';
-import { requestNotificationPermission } from '../services/notifications';
+import { requestNotificationPermission, setupNotificationTapHandler } from '../services/notifications';
 
 // Valid onboarding step → route segment map
 const STEP_ROUTES: Record<string, string> = {
@@ -87,6 +87,7 @@ function AppRoot() {
       })
       .catch(() => {});
     requestNotificationPermission().catch(() => {});
+    return setupNotificationTapHandler();
   }, []);
 
   useEffect(() => {

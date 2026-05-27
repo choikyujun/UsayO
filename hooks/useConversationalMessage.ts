@@ -38,14 +38,18 @@ export function useConversationalMessage(
     const now   = new Date();
     const nowMs = now.getTime();
 
-    const past = events.filter(e => new Date(e.end_at).getTime() < nowMs);
+    // Exclude user-completed events from "what's next" and active tracking
+    const activeEvents   = events.filter(e => !e.completed_at);
+    const completedCount = events.filter(e => !!e.completed_at).length;
 
-    const current = events.find(e =>
+    const past = activeEvents.filter(e => new Date(e.end_at).getTime() < nowMs);
+
+    const current = activeEvents.find(e =>
       new Date(e.start_at).getTime() <= nowMs &&
       new Date(e.end_at).getTime()   >  nowMs,
     );
 
-    const future = events
+    const future = activeEvents
       .filter(e => new Date(e.start_at).getTime() > nowMs)
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
     const next = future[0];
@@ -66,7 +70,7 @@ export function useConversationalMessage(
       };
     }
 
-    // 2. 모두 완료
+    // 2. 모두 완료 (time-past + user-marked)
     if (!current && future.length === 0) {
       return {
         primary:   `오늘 일정 ${events.length}개 모두 마쳤어요.`,
@@ -92,10 +96,11 @@ export function useConversationalMessage(
       };
     }
 
-    // 5. 일부 완료, 다음 있음
-    if (past.length > 0) {
+    // 5. 일부 완료 (user-marked completed + time-past), 다음 있음
+    const totalDone = completedCount + past.length;
+    if (totalDone > 0) {
       return {
-        primary:   `오늘 일정 ${events.length}개 중 ${past.length}개 마쳤어요.`,
+        primary:   `오늘 일정 ${events.length}개 중 ${totalDone}개 마쳤어요.`,
         secondary: `다음은 ${formatTimeUntil(next.start_at, now)}, ${next.title}이에요.`,
       };
     }

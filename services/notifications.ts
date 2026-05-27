@@ -55,6 +55,11 @@ export async function getEnabledOffsets(): Promise<number[]> {
 // ── 알림 ID 인메모리 맵 (이벤트 1개 → 알림 N개) ─────────────
 const notifIdMap = new Map<string, string[]>();
 
+// ── 이벤트별 예약 직렬화 락 (중복 예약 방지) ─────────────────
+// 동일 이벤트에 대한 동시 scheduleEventNotification 호출을 직렬화해
+// cancel → schedule 사이에 끼어드는 경쟁 조건으로 인한 중복 알림을 방지.
+const schedulingQueue = new Map<string, Promise<string | null>>();
+
 // ── 권한 요청 ─────────────────────────────────────────────────
 
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -74,7 +79,18 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
 // ── 알림 예약 ─────────────────────────────────────────────────
 
-export async function scheduleEventNotification(event: Event): Promise<string | null> {
+export function scheduleEventNotification(event: Event): Promise<string | null> {
+  // 동일 이벤트의 이전 예약이 끝날 때까지 기다린 후 새 예약 시작 (중복 방지)
+  const prev = schedulingQueue.get(event.id) ?? Promise.resolve(null);
+  const next = prev.catch(() => null).then(() => _doSchedule(event));
+  schedulingQueue.set(event.id, next);
+  next.finally(() => {
+    if (schedulingQueue.get(event.id) === next) schedulingQueue.delete(event.id);
+  });
+  return next;
+}
+
+async function _doSchedule(event: Event): Promise<string | null> {
   console.log('[Notif] scheduleEventNotification called, N loaded:', !!N, 'isExpoGo:', isExpoGo);
   if (!N) {
     console.log('[Notif] N is null — expo-notifications not loaded (Expo Go?)');
@@ -177,4 +193,19 @@ export async function cancelEventNotification(eventId: string): Promise<void> {
 
 export async function rescheduleEventNotification(event: Event): Promise<string | null> {
   return scheduleEventNotification(event);
+}
+
+// ── 알림 탭 핸들러 등록 ───────────────────────────────────────
+// 알림 탭 시 홈 탭으로 이동. Expo Go에서는 N이 null이라 no-op.
+export function setupNotificationTapHandler(): (() => void) | undefined {
+  if (!N) return undefined;
+  const sub = N.addNotificationResponseReceivedListener(() => {
+    try {
+      const { router } = require('expo-router') as typeof import('expo-router');
+      router.replace('/(tabs)' as never);
+    } catch {
+      // 라우터 준비 전 탭 → 무시
+    }
+  });
+  return () => sub.remove();
 }

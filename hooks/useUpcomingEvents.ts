@@ -13,7 +13,9 @@ export function useUpcomingEvents(
     const d5 = addDays(todayStart, 5);
 
     const upcoming = allEvents.filter(ev => {
-      if (ev.is_recurring || ev.parent_event_id) return false;
+      // Exclude recurring parent templates (is_recurring=true) — these are abstract rules, not real events.
+      // Keep expanded instances (parent_event_id set, is_recurring=false) — they ARE real occurrences.
+      if (ev.is_recurring) return false;
       const start = new Date(ev.start_at);
       return start >= d1 && start <= addDays(d5, 1);
     }).sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());

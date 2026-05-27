@@ -123,7 +123,10 @@ export default function HomeScreen() {
     const d1 = addDays(todayStart, 1);
     const d6 = addDays(todayStart, 6);
     return allEvents
-      .filter(ev => { const s = new Date(ev.start_at); return s >= d1 && s < d6; })
+      .filter(ev => {
+        const s = new Date(ev.start_at);
+        return s >= d1 && s < d6 && !ev.completed_at;
+      })
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())[0];
   }, [allEvents]);
 
@@ -340,12 +343,14 @@ export default function HomeScreen() {
   }, [gate, voice, applyClassifiedIntent, allEvents]);
 
   // DB 반영 즉시 화면 갱신: useSchedules(CRUD)와 useEventsForDate(display)가 분리돼 있어
-  // applyClassifiedIntent 완료 후 바로 reloadForDate를 호출해야 이벤트가 즉시 표시됨
+  // applyClassifiedIntent 완료 후 바로 reloadForDate + reloadSchedules를 호출해야
+  // 오늘 일정(TimeSpine)과 다가올 일정(UpcomingSection) 모두 즉시 표시됨
   const handleApplyIntent = useCallback(async (intent: ClassifiedIntent) => {
     const id = await applyClassifiedIntent(intent);
     reloadForDate().catch(() => {});
+    reloadSchedules().catch(() => {});
     return id;
-  }, [applyClassifiedIntent, reloadForDate]);
+  }, [applyClassifiedIntent, reloadForDate, reloadSchedules]);
 
   const handleCancelVoice = useCallback(() => {
     ttsService.stop();
