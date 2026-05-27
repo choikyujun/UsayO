@@ -132,19 +132,14 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
             <Pressable
               style={({ pressed }) => [
                 styles.deleteAllRow,
-                {
-                  backgroundColor: pressed ? colors.error + '55' : colors.error + '33',
-                  borderColor: colors.error + 'CC',
-                },
+                { backgroundColor: colors.error, borderColor: colors.error, opacity: pressed ? 0.7 : 1 },
               ]}
               onPress={() => { onClose(); handleDeleteAll(ev); }}
             >
-              <View style={[styles.deleteAllIconWrap, { backgroundColor: colors.error + '44' }]}>
-                <Trash2 size={20} color={colors.error} strokeWidth={2} />
-              </View>
+              <Trash2 size={20} color="#ffffff" strokeWidth={2} />
               <View style={styles.deleteAllTextCol}>
-                <Text style={[styles.deleteAllLabel, { color: colors.error }]}>전체 반복 일정 삭제</Text>
-                <Text style={[styles.deleteAllSub, { color: colors.textSecondary }]}>지난 일정도 모두 삭제됩니다</Text>
+                <Text style={[styles.deleteAllLabel, { color: '#ffffff' }]}>전체 반복 일정 삭제</Text>
+                <Text style={[styles.deleteAllSub, { color: 'rgba(255,255,255,0.75)' }]}>지난 일정도 모두 삭제됩니다</Text>
               </View>
             </Pressable>
           </>
@@ -227,10 +222,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     gap: 14,
-  },
-  deleteAllIconWrap: {
-    width: 40, height: 40, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
   },
   deleteAllTextCol: { flex: 1, gap: 3 },
   deleteAllLabel: { fontSize: 15, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
