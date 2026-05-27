@@ -304,6 +304,7 @@ export default function WeekViewScreen() {
         visible={voice.overlayVisible}
         micStatus={voice.micStatus}
         isProcessing={voice.phase === 'processing'}
+        loadingStage={voice.loadingStage}
         onCancel={() => voice.cancelVoiceInput()}
         onComplete={() => voice.stopAndProcessStored()}
       />

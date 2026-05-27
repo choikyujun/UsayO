@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { CheckCircle, RotateCcw, Trash2 } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -144,13 +145,16 @@ export default function SpineEvent({
           ref={swipeRef}
           renderLeftActions={() => (
             <View style={[styles.actionLeft, isCompleted && styles.actionUndo]}>
-              <Text style={styles.actionIcon}>{isCompleted ? '↩' : '✓'}</Text>
+              {isCompleted
+                ? <RotateCcw  size={18} color="#fff" />
+                : <CheckCircle size={18} color="#fff" />
+              }
               <Text style={styles.actionLabel}>{isCompleted ? '완료취소' : '완료'}</Text>
             </View>
           )}
           renderRightActions={() => (
             <View style={styles.actionRight}>
-              <Text style={styles.actionIcon}>🗑️</Text>
+              <Trash2 size={18} color="#fff" />
               <Text style={styles.actionLabel}>삭제</Text>
             </View>
           )}
@@ -315,7 +319,6 @@ function makeStyles(c: AppTheme, state: EventState) {
       gap:               2,
     },
     actionUndo:  { backgroundColor: c.primary },
-    actionIcon:  { fontSize: 16, color: '#fff' },
     actionLabel: { fontSize: 10, color: '#fff', fontWeight: '700' },
   });
 }

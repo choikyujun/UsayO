@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { ClassifiedIntent, HybridInputState, NoiseAnalysis, VoicePhase } from '../types';
 import { VoiceFlowError } from '../services/voice/VoiceFlowOrchestrator';
+import type { VoiceLoadingStage } from '../components/VoiceInputOverlay';
 
 interface VoiceStore {
   phase: VoicePhase;
@@ -13,6 +14,7 @@ interface VoiceStore {
   isHybridMode: boolean;
   hybridInputState: HybridInputState | null;
   noiseAnalysis: NoiseAnalysis | null;
+  loadingStage: VoiceLoadingStage;
 
   setPhase: (phase: VoicePhase) => void;
   setTranscript: (t: string | null) => void;
@@ -24,6 +26,7 @@ interface VoiceStore {
   setHybridMode: (on: boolean) => void;
   setHybridInputState: (state: HybridInputState | null) => void;
   setNoiseAnalysis: (analysis: NoiseAnalysis | null) => void;
+  setLoadingStage: (stage: VoiceLoadingStage) => void;
   reset: () => void;
 }
 
@@ -38,6 +41,7 @@ const initialState = {
   isHybridMode: false,
   hybridInputState: null,
   noiseAnalysis: null,
+  loadingStage: null as VoiceLoadingStage,
 };
 
 export const useVoiceStore = create<VoiceStore>((set) => ({
@@ -52,5 +56,6 @@ export const useVoiceStore = create<VoiceStore>((set) => ({
   setHybridMode: (isHybridMode) => set({ isHybridMode }),
   setHybridInputState: (hybridInputState) => set({ hybridInputState }),
   setNoiseAnalysis: (noiseAnalysis) => set({ noiseAnalysis }),
+  setLoadingStage: (loadingStage) => set({ loadingStage }),
   reset: () => set(initialState),
 }));

@@ -5,15 +5,16 @@ import { isKoreanHoliday } from '../hooks/useHolidays';
 import { isToday } from '../utils/monthViewLayout';
 
 interface Props {
-  dateStr:       string;
-  isOtherMonth:  boolean;
-  eventCount:    number;
-  colors:        AppTheme;
-  onPress:       (dateStr: string) => void;
-  onLongPress?:  (dateStr: string) => void;
+  dateStr:        string;
+  isOtherMonth:   boolean;
+  eventCount:     number;
+  completedCount?: number;
+  colors:         AppTheme;
+  onPress:        (dateStr: string) => void;
+  onLongPress?:   (dateStr: string) => void;
 }
 
-export default function MonthCell({ dateStr, isOtherMonth, eventCount, colors, onPress, onLongPress }: Props) {
+export default function MonthCell({ dateStr, isOtherMonth, eventCount, completedCount = 0, colors, onPress, onLongPress }: Props) {
   const today      = isToday(dateStr);
   const d          = new Date(dateStr + 'T00:00:00');
   const dayOfWeek  = d.getDay();
@@ -30,7 +31,8 @@ export default function MonthCell({ dateStr, isOtherMonth, eventCount, colors, o
     numColor = colors.textPrimary;
   }
 
-  const dots = Math.min(eventCount, 3);
+  const dots    = Math.min(eventCount, 3);
+  const dimDots = Math.min(completedCount, dots);
 
   return (
     <Pressable
@@ -54,7 +56,10 @@ export default function MonthCell({ dateStr, isOtherMonth, eventCount, colors, o
       {dots > 0 && (
         <View style={styles.dotsRow}>
           {Array.from({ length: dots }).map((_, i) => (
-            <View key={i} style={[styles.dot, { backgroundColor: colors.primary }]} />
+            <View
+              key={i}
+              style={[styles.dot, { backgroundColor: colors.primary, opacity: i < dimDots ? 0.35 : 1 }]}
+            />
           ))}
         </View>
       )}

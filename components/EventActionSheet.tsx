@@ -1,4 +1,4 @@
-import { Bell, Clock, Pencil, Share2 } from 'lucide-react-native';
+import { Bell, CheckCircle, CircleSlash, Clock, Pencil, Share2 } from 'lucide-react-native';
 
 import type { LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
@@ -15,13 +15,15 @@ export type RecurringDeleteScope = 'this' | 'future' | 'all';
 
 interface Props {
   event: Event | null;
+  isCompleted?: boolean;
   onClose: () => void;
   onEditTitle?: (event: Event) => void;
   onEditTime?: (event: Event) => void;
   onEditNotification?: (event: Event) => void;
+  onComplete?: (event: Event) => void;
 }
 
-export default function EventActionSheet({ event, onClose, onEditTitle, onEditTime, onEditNotification }: Props) {
+export default function EventActionSheet({ event, isCompleted, onClose, onEditTitle, onEditTime, onEditNotification, onComplete }: Props) {
   const colors = useColors();
   const slideY = useRef(new Animated.Value(320)).current;
   const bgOp   = useRef(new Animated.Value(0)).current;
@@ -76,6 +78,25 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
             )}
           </View>
         </View>
+
+        {/* 완료 / 완료취소 */}
+        {onComplete && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.completeRow,
+              { borderTopColor: colors.border, borderBottomColor: colors.border, opacity: pressed ? 0.6 : 1 },
+            ]}
+            onPress={() => { onComplete(ev); onClose(); }}
+          >
+            {isCompleted
+              ? <CircleSlash size={20} color={colors.textSecondary} strokeWidth={1.5} />
+              : <CheckCircle size={20} color={colors.success}       strokeWidth={1.5} />
+            }
+            <Text style={[styles.completeText, { color: isCompleted ? colors.textSecondary : colors.success }]}>
+              {isCompleted ? '완료 취소' : '완료'}
+            </Text>
+          </Pressable>
+        )}
 
         {/* 4개 아이콘 그리드 */}
         <View style={[styles.gridRow, { borderTopColor: colors.border }]}>
@@ -147,6 +168,16 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   gridLabel: { fontSize: 11, fontWeight: '500' },
+  completeRow: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    paddingHorizontal: 24,
+    paddingVertical:  16,
+    gap:              12,
+    borderTopWidth:   StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  completeText: { fontSize: 15, fontWeight: '600' },
   cancelBtn: {
     marginHorizontal: 20, marginTop: 12,
     paddingVertical: 15, borderRadius: 14, alignItems: 'center',

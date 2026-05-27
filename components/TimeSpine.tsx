@@ -402,6 +402,10 @@ export default function TimeSpine({
       {/* ── Long-press action sheet ────────────────────────────────────── */}
       <EventActionSheet
         event={sheetEvent}
+        isCompleted={sheetEvent
+          ? (completedIds.has(sheetEvent.id) || !!sheetEvent.completed_at) && !uncompletedIds.has(sheetEvent.id)
+          : false}
+        onComplete={ev => { handleComplete(ev); setSheetEvent(null); }}
         onClose={() => setSheetEvent(null)}
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}

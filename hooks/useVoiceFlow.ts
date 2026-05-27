@@ -103,6 +103,7 @@ export function useVoiceFlow() {
     }
 
     console.log('[VoiceFlow] STT triggered:', uri);
+    store.setLoadingStage('analyzing');
     const result = await runVoiceFlow(uri, {
       prefillContext: prefillContextRef.current,
       nearbyEventsContext: nearbyEventsContextRef.current,
@@ -220,6 +221,7 @@ export function useVoiceFlow() {
       store.setPhase('processing');
 
       try {
+        store.setLoadingStage('saving');
         await onAutoSave(resolvedIntent);
         store.setPhase('success');
         const successMsg = ttsService.generateSuccessMessage(resolvedIntent);
@@ -384,6 +386,7 @@ export function useVoiceFlow() {
     noiseAnalysis: store.noiseAnalysis,
     error: store.error,
     micStatus: recorder.status,
+    loadingStage: store.loadingStage,
     startVoice,
     stopAndProcess,
     confirmHybridInput,

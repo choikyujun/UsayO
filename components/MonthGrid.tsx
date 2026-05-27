@@ -29,6 +29,7 @@ export default function MonthGrid({ cells, eventsByDate, colors, onCellPress, on
               dateStr={cell.dateStr}
               isOtherMonth={cell.isOtherMonth}
               eventCount={(eventsByDate[cell.dateStr] ?? []).length}
+              completedCount={(eventsByDate[cell.dateStr] ?? []).filter(e => !!e.completed_at).length}
               colors={colors}
               onPress={onCellPress}
               onLongPress={onCellLongPress}

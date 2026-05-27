@@ -111,30 +111,36 @@ export default function DayEventsSheet({ dateStr, events, onClose }: Props) {
                     일정이 없습니다
                   </Text>
                 ) : (
-                  events.map((ev, idx) => (
-                    <Pressable
-                      key={ev.id}
-                      style={[styles.eventRow, idx < events.length - 1 && { marginBottom: 12 }]}
-                      onPress={() => { setDetailEvent(ev); setDetailVisible(true); }}
-                    >
-                      <Text style={[styles.eventTime, { color: colors.textSecondary }]}>
-                        {formatEventTime(ev)}
-                      </Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.eventTitle, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {ev.title}
+                  events.map((ev, idx) => {
+                    const isCompleted = !!ev.completed_at;
+                    return (
+                      <Pressable
+                        key={ev.id}
+                        style={[styles.eventRow, idx < events.length - 1 && { marginBottom: 12 }, isCompleted && { opacity: 0.5 }]}
+                        onPress={() => { setDetailEvent(ev); setDetailVisible(true); }}
+                      >
+                        <Text style={[styles.eventTime, { color: colors.textSecondary }]}>
+                          {formatEventTime(ev)}
                         </Text>
-                        {ev.location ? (
-                          <View style={styles.locationRow}>
-                            <MapPin size={12} color={colors.textTertiary} strokeWidth={1.5} />
-                            <Text style={[styles.locationText, { color: colors.textTertiary }]} numberOfLines={1}>
-                              {ev.location}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  ))
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={[styles.eventTitle, { color: colors.textPrimary }, isCompleted && styles.strikethrough]}
+                            numberOfLines={1}
+                          >
+                            {ev.title}
+                          </Text>
+                          {ev.location ? (
+                            <View style={styles.locationRow}>
+                              <MapPin size={12} color={colors.textTertiary} strokeWidth={1.5} />
+                              <Text style={[styles.locationText, { color: colors.textTertiary }]} numberOfLines={1}>
+                                {ev.location}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      </Pressable>
+                    );
+                  })
                 )}
               </ScrollView>
             </Animated.View>
@@ -209,6 +215,9 @@ function makeStyles(c: AppTheme) {
     },
     eventTitle: {
       fontSize: 16,
+    },
+    strikethrough: {
+      textDecorationLine: 'line-through',
     },
     locationRow: {
       flexDirection: 'row',

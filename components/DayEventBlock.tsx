@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { Check } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -25,18 +26,18 @@ function timeRange(startAt: string, endAt: string | null | undefined): string {
 export default function DayEventBlock({ event, colors, onLongPress, onDelete, onComplete }: Props) {
   const swipeRef  = useRef<Swipeable>(null);
   const styles    = useMemo(() => makeStyles(colors), [colors]);
-  const [expanded,  setExpanded]  = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [expanded,   setExpanded]   = useState(false);
+  const [isCompleted, setIsCompleted] = useState(!!event.completed_at);
 
   const top    = getEventTop(event.start_at);
   const height = getEventHeight(event.start_at, event.end_at);
-  const isShort = height < 30; // < 30dp = under ~30min: single-line compact
+  const isShort = height < 30;
 
   function handleSwipeComplete() {
     swipeRef.current?.close();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setCompleted(true);
-    onComplete(event); // parent is currently a no-op; wired for future completed_at column
+    setIsCompleted(c => !c);
+    onComplete(event);
   }
 
   function handleSwipeDelete() {
@@ -46,7 +47,7 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
   }
 
   return (
-    <View style={[styles.absoluteWrap, { top, height, opacity: completed ? 0.45 : 1 }]}>
+    <View style={[styles.absoluteWrap, { top, height, opacity: isCompleted ? 0.45 : 1 }]}>
       <Swipeable
         ref={swipeRef}
         containerStyle={{ flex: 1 }}
@@ -78,13 +79,18 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
           onLongPress={() => onLongPress(event)}
           delayLongPress={500}
         >
+          {isCompleted && (
+            <View style={styles.checkBadge}>
+              <Check size={10} color="#fff" strokeWidth={3} />
+            </View>
+          )}
           {isShort ? (
-            <Text style={[styles.compactTitle, completed && styles.strikethrough]} numberOfLines={1}>
+            <Text style={[styles.compactTitle, isCompleted && styles.strikethrough]} numberOfLines={1}>
               {event.title} · {timeRange(event.start_at, event.end_at)}
             </Text>
           ) : (
             <>
-              <Text style={[styles.blockTitle, completed && styles.strikethrough]} numberOfLines={expanded ? undefined : 2}>
+              <Text style={[styles.blockTitle, isCompleted && styles.strikethrough]} numberOfLines={expanded ? undefined : 2}>
                 {event.title}
               </Text>
               <Text style={styles.blockTime}>
@@ -130,6 +136,18 @@ function makeStyles(c: AppTheme) {
       paddingHorizontal: 8,
       paddingVertical:   6,
       overflow:         'hidden',
+      position:         'relative',
+    },
+    checkBadge: {
+      position:         'absolute',
+      top:              4,
+      right:            4,
+      width:            16,
+      height:           16,
+      borderRadius:     8,
+      backgroundColor:  c.success,
+      alignItems:       'center',
+      justifyContent:   'center',
     },
     blockTitle: {
       fontSize:   13,

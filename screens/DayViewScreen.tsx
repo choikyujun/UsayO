@@ -139,9 +139,10 @@ export default function DayViewScreen() {
     }
   }
 
-  function handleCompleteEvent(_event: Event) {
-    // Visual completion state is handled locally inside DayEventBlock.
-    // DB write deferred until completed_at column is added.
+  function handleCompleteEvent(event: Event) {
+    const completed_at = event.completed_at ? null : new Date().toISOString();
+    supabase.from('events').update({ completed_at }).eq('id', event.id)
+      .then(({ error }) => { if (error) console.error('[DayView] complete failed:', error.message); });
   }
 
   // ── Voice flow ──────────────────────────────────────────────────────
@@ -306,6 +307,7 @@ export default function DayViewScreen() {
         visible={voice.overlayVisible}
         micStatus={voice.micStatus}
         isProcessing={voice.phase === 'processing'}
+        loadingStage={voice.loadingStage}
         onCancel={handleVoiceCancel}
         onComplete={() => voice.stopAndProcessStored()}
       />

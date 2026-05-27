@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { Check } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
@@ -39,21 +40,28 @@ export default function WeekEventBlock({ event, colIndex, colors, onPress, onLon
     onLongPress(event);
   }
 
+  const isCompleted = !!event.completed_at;
+
   return (
-    <View style={[styles.wrap, { top, height, left, width }]}>
+    <View style={[styles.wrap, { top, height, left, width, opacity: isCompleted ? 0.5 : 1 }]}>
       <Pressable
         style={[styles.block, { backgroundColor: accentColor + '22', borderLeftColor: accentColor }]}
         onPress={() => onPress(event)}
         onLongPress={handleLongPress}
         delayLongPress={400}
       >
+        {isCompleted && (
+          <View style={styles.checkBadge}>
+            <Check size={7} color={accentColor} strokeWidth={3} />
+          </View>
+        )}
         {isShort ? (
-          <Text style={[styles.titleShort, { color: accentColor }]} numberOfLines={1}>
+          <Text style={[styles.titleShort, { color: accentColor }, isCompleted && styles.strikethrough]} numberOfLines={1}>
             {event.title}
           </Text>
         ) : (
           <>
-            <Text style={[styles.title, { color: accentColor }]} numberOfLines={2}>
+            <Text style={[styles.title, { color: accentColor }, isCompleted && styles.strikethrough]} numberOfLines={2}>
               {event.title}
             </Text>
             <Text style={[styles.time, { color: accentColor + 'AA' }]} numberOfLines={1}>
@@ -92,5 +100,19 @@ const styles = StyleSheet.create({
   time: {
     fontSize:  8,
     marginTop: 1,
+  },
+  strikethrough: {
+    textDecorationLine: 'line-through',
+  },
+  checkBadge: {
+    position:    'absolute',
+    top:         2,
+    right:       2,
+    width:       12,
+    height:      12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    alignItems:  'center',
+    justifyContent: 'center',
   },
 });
