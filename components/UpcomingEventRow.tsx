@@ -90,6 +90,9 @@ export default function UpcomingEventRow({
         onPress={onTap}
         onLongPress={onLongPress ? handleLongPress : undefined}
         delayLongPress={500}
+        accessibilityRole="button"
+        accessibilityLabel={`${event.title}, ${startTime}${isCompleted ? ', 완료됨' : ''}`}
+        accessibilityHint="길게 누르면 옵션"
         style={[styles.row, isCompleted && styles.rowCompleted]}
       >
         <Text style={[styles.time, isCompleted && styles.textCompleted]}>{startTime}</Text>

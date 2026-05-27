@@ -49,7 +49,10 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
+    if (!fontsLoaded) return;
+    // 최소 500ms 표시 후 hide — 폰트 즉시 로드 시 깜박임 방지
+    const t = setTimeout(() => SplashScreen.hideAsync(), 500);
+    return () => clearTimeout(t);
   }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;

@@ -109,6 +109,9 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
           onPress={() => setExpanded(e => !e)}
           onLongPress={() => onLongPress(event)}
           delayLongPress={500}
+          accessibilityRole="button"
+          accessibilityLabel={`${event.title}, ${timeRange(event.start_at, event.end_at)}${isCompleted ? ', 완료됨' : ''}`}
+          accessibilityHint="길게 누르면 옵션, 우로 밀면 삭제, 좌로 밀면 완료"
         >
           {isCompleted && (
             <View style={styles.checkBadge}>

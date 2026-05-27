@@ -195,6 +195,9 @@ export default function SpineEvent({
             onPress={onTap}
             onLongPress={isPast ? undefined : () => onLongPress(event)}
             delayLongPress={500}
+            accessibilityRole="button"
+            accessibilityLabel={`${event.title}, ${formatTimeRow(new Date(event.start_at))}${isCompleted ? ', 완료됨' : isCurrent ? ', 진행 중' : isNext ? ', 다음 일정' : ''}`}
+            accessibilityHint={isPast ? undefined : '길게 누르면 옵션, 좌로 밀면 완료, 우로 밀면 삭제'}
           >
             {/* Time column */}
             <Text style={[styles.time, isHoliday && styles.timeHoliday]}>

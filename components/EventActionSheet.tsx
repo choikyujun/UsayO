@@ -119,10 +119,10 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
 
         {/* 4개 아이콘 그리드 */}
         <View style={[styles.gridRow, { borderTopColor: colors.border }]}>
-          <GridBtn label="시간 변경" Icon={Clock}   onPress={() => onEditTime?.(ev)}                       colors={colors} />
-          <GridBtn label="제목 수정" Icon={Pencil}  onPress={() => onEditTitle?.(ev)}                      colors={colors} />
-          <GridBtn label="알림 설정" Icon={Bell}    onPress={() => { onClose(); onEditNotification?.(ev); }} colors={colors} />
-          <GridBtn label="공유"      Icon={Share2}  onPress={handleShare}                                   colors={colors} />
+          <GridBtn label="시간 변경" Icon={Clock}   onPress={() => onEditTime?.(ev)}                        colors={colors} a11yLabel="시간 변경" />
+          <GridBtn label="제목 수정" Icon={Pencil}  onPress={() => onEditTitle?.(ev)}                       colors={colors} a11yLabel="제목 수정" />
+          <GridBtn label="알림 설정" Icon={Bell}    onPress={() => { onClose(); onEditNotification?.(ev); }} colors={colors} a11yLabel="알림 설정" />
+          <GridBtn label="공유"      Icon={Share2}  onPress={handleShare}                                    colors={colors} a11yLabel="일정 공유" />
         </View>
 
         {/* 전체 반복 일정 삭제 (반복 일정인 경우에만) */}
@@ -130,6 +130,9 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
           <TouchableOpacity
             onPress={() => { onClose(); handleDeleteAll(ev); }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="전체 반복 일정 삭제"
+            accessibilityHint="지난 일정을 포함한 모든 반복 일정이 삭제됩니다"
             style={{
               width: screenW - 40,
               alignSelf: 'center',
@@ -160,6 +163,8 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
         <Pressable
           style={({ pressed }) => [styles.cancelBtn, { backgroundColor: colors.card2, opacity: pressed ? 0.6 : 1 }]}
           onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="취소"
         >
           <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>취소</Text>
         </Pressable>
@@ -169,12 +174,14 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
 }
 
 function GridBtn({
-  label, Icon, onPress, colors,
-}: { label: string; Icon: LucideIcon; onPress: () => void; colors: AppTheme }) {
+  label, Icon, onPress, colors, a11yLabel,
+}: { label: string; Icon: LucideIcon; onPress: () => void; colors: AppTheme; a11yLabel?: string }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.gridBtn, { opacity: pressed ? 0.5 : 1 }]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel ?? label}
     >
       <View style={[styles.gridIconWrap, { backgroundColor: colors.card2 }]}>
         <Icon size={20} color={colors.textPrimary} strokeWidth={1.5} />

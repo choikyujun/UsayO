@@ -53,6 +53,10 @@ export default function VoiceMicButton({ status, onPress }: Props) {
       <Pressable
         onPress={onPress}
         disabled={isProcessing}
+        accessibilityRole="button"
+        accessibilityLabel={isRecording ? '녹음 중단' : isProcessing ? '처리 중' : '음성 입력 시작'}
+        accessibilityHint={isRecording ? '탭하면 녹음을 멈춥니다' : isProcessing ? undefined : '탭하면 음성 인식을 시작합니다'}
+        accessibilityState={{ busy: isProcessing }}
         style={({ pressed }) => [
           styles.button,
           isRecording && styles.buttonRecording,

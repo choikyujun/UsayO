@@ -81,6 +81,9 @@ export default function AppHeader({ currentTab }: Props) {
           return (
             <Pressable
               key={tab.key}
+              accessibilityRole="tab"
+              accessibilityLabel={`${tab.label} 뷰`}
+              accessibilityState={{ selected: active }}
               style={[styles.tab, active && { backgroundColor: colors.primary }]}
               onPress={() => handleTab(tab.key)}
               hitSlop={4}
