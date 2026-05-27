@@ -22,9 +22,10 @@ if (Platform.OS === 'android') {
 
 interface Props {
   events: Event[];
+  onDeleted?: () => void;
 }
 
-export default function RecurringBadge({ events }: Props) {
+export default function RecurringBadge({ events, onDeleted }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { showUndo } = useUndoToast();
@@ -51,7 +52,6 @@ export default function RecurringBadge({ events }: Props) {
       supabase.from('events').select('*').or(`id.eq.${parentId},parent_event_id.eq.${parentId}`),
       supabase.from('event_exceptions').select('*').eq('parent_id', parentId),
     ]);
-    const backupEvents     = (eventsRes.data     ?? []) as Event[];
     const backupExceptions = (exceptionsRes.data ?? []) as any[];
 
     // soft-delete events, hard-delete exceptions
@@ -65,17 +65,20 @@ export default function RecurringBadge({ events }: Props) {
         .eq('parent_id', parentId),
     ]);
 
+    // 목록 즉시 갱신
+    onDeleted?.();
+
     showUndo('반복 일정 전체 삭제됨', async () => {
-      // events 복구 (soft-delete 해제)
       await supabase.from('events')
         .update({ deleted_at: null })
         .or(`id.eq.${parentId},parent_event_id.eq.${parentId}`);
-      // exceptions 재삽입
       if (backupExceptions.length > 0) {
         await supabase.from('event_exceptions').insert(backupExceptions);
       }
+      // 복구 후에도 목록 갱신
+      onDeleted?.();
     });
-  }, [showUndo]);
+  }, [showUndo, onDeleted]);
 
   if (events.length === 0) return null;
 

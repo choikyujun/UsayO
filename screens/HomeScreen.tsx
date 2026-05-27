@@ -506,7 +506,7 @@ export default function HomeScreen() {
         </View>
 
         <UsageWarningBanner feature="voice_create" />
-        <RecurringBadge events={recurringEvents} />
+        <RecurringBadge events={recurringEvents} onDeleted={() => reloadSchedules()} />
 
         <View style={styles.divider} />
 
