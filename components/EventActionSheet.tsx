@@ -85,6 +85,7 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
   const ev = event;
 
   const isRecurringEvent = ev.is_recurring || !!ev.recurrence_rule || isVirtualInstance(ev.id);
+  console.log('[ActionSheet] id:', ev.id, '| is_recurring:', ev.is_recurring, '| rule:', ev.recurrence_rule, '| isRecurringEvent:', isRecurringEvent);
   const startStr = formatTimeKo(new Date(ev.start_at));
 
   async function handleShare() {
