@@ -84,7 +84,7 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
   if (!event) return null;
   const ev = event;
 
-  const isRecurringEvent = ev.is_recurring || isVirtualInstance(ev.id);
+  const isRecurringEvent = ev.is_recurring || !!ev.recurrence_rule || isVirtualInstance(ev.id);
   const startStr = formatTimeKo(new Date(ev.start_at));
 
   async function handleShare() {
@@ -126,22 +126,25 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
 
         {/* 전체 반복 일정 삭제 (반복 일정인 경우에만) */}
         {isRecurringEvent && (
-          <Pressable
-            style={({ pressed }) => [
-              styles.deleteAllRow,
-              {
-                backgroundColor: pressed ? colors.error + '40' : colors.error + '26',
-                borderColor: colors.error + '4D',
-              },
-            ]}
-            onPress={() => { onClose(); handleDeleteAll(ev); }}
-          >
-            <Trash2 size={24} color={colors.error} strokeWidth={1.8} />
-            <View style={styles.deleteAllTextCol}>
-              <Text style={[styles.deleteAllLabel, { color: colors.error }]}>전체 반복 일정 삭제</Text>
-              <Text style={[styles.deleteAllSub, { color: colors.textSecondary }]}>지난 일정도 모두 삭제됩니다</Text>
-            </View>
-          </Pressable>
+          <>
+            <View style={[styles.deleteDivider, { backgroundColor: colors.border }]} />
+            <Pressable
+              style={({ pressed }) => [
+                styles.deleteAllRow,
+                {
+                  backgroundColor: pressed ? colors.error + '55' : colors.error + '1A',
+                  borderColor: colors.error + '66',
+                },
+              ]}
+              onPress={() => { onClose(); handleDeleteAll(ev); }}
+            >
+              <Trash2 size={22} color={colors.error} strokeWidth={2} />
+              <View style={styles.deleteAllTextCol}>
+                <Text style={[styles.deleteAllLabel, { color: colors.error }]}>전체 반복 일정 삭제</Text>
+                <Text style={[styles.deleteAllSub, { color: colors.textSecondary }]}>지난 일정도 모두 삭제됩니다</Text>
+              </View>
+            </Pressable>
+          </>
         )}
 
         {/* 취소 */}
@@ -206,16 +209,20 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   gridLabel: { fontSize: 11, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
+  deleteDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginTop: Spacing.md,
+  },
   deleteAllRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: Spacing.md,
+    marginHorizontal: 16,
+    marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 14,
-    borderWidth: 0.5,
+    borderWidth: 1,
     gap: 14,
   },
   deleteAllTextCol: { flex: 1, gap: 3 },

@@ -101,24 +101,21 @@ function AppRoot() {
         .then(({ id, source }) => console.log('[Auth] deviceId pre-check:', source, id))
         .catch(e => console.log('[Auth] deviceId unavailable:', (e as Error).message));
 
-      // 1. Device auth — always runs to ensure the session maps to the correct user.
+      // 1. 만료된 로컬 토큰 제거 → "Invalid Refresh Token" 에러 방지
+      //    signInWithDevice가 항상 새 세션을 만들므로 지워도 안전
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+
+      // 2. Device auth — always runs to ensure the session maps to the correct user.
       try {
         const uid = await signInWithDevice();
         console.log('[Auth] device auth OK:', uid);
       } catch (deviceErr) {
-        // Edge Function 실패: 기존 세션 유지 (signOut 호출 금지 — 세션 날아감)
+        // Edge Function 실패: 익명 로그인으로 최소 기능 유지
         const errMsg = (deviceErr as Error).message;
         console.log('[Auth] device auth FAILED:', errMsg);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          console.log('[Auth] kept existing session:', session.user.id);
-        } else {
-          // 진짜 세션이 없을 때만 익명 로그인 (마지막 수단)
-          console.log('[Auth] no existing session — falling back to anonymous');
-          const { data, error } = await supabase.auth.signInAnonymously();
-          if (error) console.log('[Auth] signInAnonymously FAILED:', error.message);
-          else console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
-        }
+        const { data, error } = await supabase.auth.signInAnonymously();
+        if (error) console.log('[Auth] signInAnonymously FAILED:', error.message);
+        else console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
       }
       // 초기 인증 완료 — 이후 SIGNED_OUT은 진짜 토큰 만료로 처리
       initDoneRef.current = true;
