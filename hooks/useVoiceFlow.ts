@@ -360,6 +360,15 @@ export function useVoiceFlow() {
     const intent = useVoiceStore.getState().classifiedIntent;
     const events = intent?.events;
     if (!events?.length) return;
+    console.log('[VoiceFlow] 멀티 저장 시작, events:', events.length);
+    events.forEach((e, i) => {
+      console.log(`[VoiceFlow] event ${i}:`, {
+        title: e.title,
+        startAt: e.startDateTime?.date,
+        recurrenceRule: e.startDateTime?.recurrenceRule ?? 'null (정상)',
+        isRecurring: e.startDateTime?.isRecurring ?? false,
+      });
+    });
     store.setPhase('processing');
     ttsService.stop();
     try {

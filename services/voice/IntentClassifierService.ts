@@ -309,6 +309,10 @@ export class IntentClassifierService {
         events: parsed.events?.length,
         confidence: parsed.confidence,
       }));
+      if (parsed.events?.length) {
+        console.log('[Intent] 멀티 일정 분류 결과:');
+        console.log('[Intent] events:', JSON.stringify(parsed.events, null, 2));
+      }
       return this.postProcessAmbiguous(parsed, transcript);
 
     } catch (e) {

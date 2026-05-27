@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react-native';
+import { Check, RotateCcw } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -76,10 +76,14 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
         renderLeftActions={(progress) => (
           <Animated.View style={[
             styles.actionLeft,
+            isCompleted && styles.actionUndo,
             { opacity: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 0.65, 1], extrapolate: 'clamp' }) },
           ]}>
-            <Check size={14} color="#fff" strokeWidth={2.5} />
-            {!isShort && <Text style={styles.actionLabel}>완료</Text>}
+            {isCompleted
+              ? <RotateCcw size={14} color="#fff" strokeWidth={2.5} />
+              : <Check size={14} color="#fff" strokeWidth={2.5} />
+            }
+            {!isShort && <Text style={styles.actionLabel}>{isCompleted ? '완료 취소' : '완료'}</Text>}
           </Animated.View>
         )}
         renderRightActions={(progress) => (
@@ -224,6 +228,7 @@ function makeStyles(c: AppTheme) {
       borderRadius:    6,
       gap:             2,
     },
+    actionUndo:  { backgroundColor: c.primary },
     actionIcon:  { fontSize: 18, color: '#fff' },
     actionLabel: { fontSize: 11, color: '#fff', fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
   });
