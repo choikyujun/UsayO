@@ -92,14 +92,17 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
           <Pressable
             style={({ pressed }) => [
               styles.deleteAllRow,
-              { backgroundColor: pressed ? colors.error + '22' : colors.error + '12' },
+              {
+                backgroundColor: pressed ? colors.error + '40' : colors.error + '26',
+                borderColor: colors.error + '4D',
+              },
             ]}
             onPress={() => { onClose(); onDeleteAll(ev); }}
           >
-            <Trash2 size={18} color={colors.error} strokeWidth={1.8} />
+            <Trash2 size={24} color={colors.error} strokeWidth={1.8} />
             <View style={styles.deleteAllTextCol}>
               <Text style={[styles.deleteAllLabel, { color: colors.error }]}>전체 반복 일정 삭제</Text>
-              <Text style={[styles.deleteAllSub, { color: colors.textMuted }]}>지난 일정도 모두 삭제됩니다</Text>
+              <Text style={[styles.deleteAllSub, { color: colors.textSecondary }]}>지난 일정도 모두 삭제됩니다</Text>
             </View>
           </Pressable>
         )}
@@ -166,23 +169,20 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   gridLabel: { fontSize: 11, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
-  sectionDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: 20,
-    marginTop: Spacing.md,
-  },
   deleteAllRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 20,
     marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 14,
-    gap: 12,
+    borderWidth: 0.5,
+    gap: 14,
   },
-  deleteAllTextCol: { flex: 1, gap: 2 },
-  deleteAllLabel: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
+  deleteAllTextCol: { flex: 1, gap: 3 },
+  deleteAllLabel: { fontSize: 15, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
   deleteAllSub:   { fontSize: 12, fontFamily: 'Pretendard-Regular', fontWeight: '400' },
   cancelBtn: {
     marginHorizontal: 20, marginTop: Spacing.md,
