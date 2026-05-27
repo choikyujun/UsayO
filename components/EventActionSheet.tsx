@@ -101,10 +101,7 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
               <View style={[styles.deleteAllIconWrap, { backgroundColor: colors.error + '22' }]}>
                 <Trash2 size={20} color={colors.error} strokeWidth={1.8} />
               </View>
-              <View style={styles.deleteAllTextCol}>
-                <Text style={[styles.deleteAllTitle, { color: colors.error }]}>전체 반복 일정 삭제</Text>
-                <Text style={[styles.deleteAllSub, { color: colors.textMuted }]}>지난 일정도 모두 삭제됩니다</Text>
-              </View>
+              <Text style={[styles.deleteAllTitle, { color: colors.error }]}>전체 반복 일정 삭제</Text>
             </Pressable>
           </>
         )}
@@ -191,9 +188,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
   },
-  deleteAllTextCol: { flex: 1, gap: 3 },
-  deleteAllTitle: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
-  deleteAllSub:   { fontSize: 12, fontFamily: 'Pretendard-Regular', fontWeight: '400' },
+  deleteAllTitle: { flex: 1, fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
   cancelBtn: {
     marginHorizontal: 20, marginTop: Spacing.md,
     paddingVertical: 15, borderRadius: 14, alignItems: 'center',
