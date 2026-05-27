@@ -8,6 +8,7 @@ import { Event } from '../types/database';
 import { formatTimeRow } from '../utils/timeHelpers';
 import { getEventTop, getEventHeight, TIME_LABEL_W } from '../utils/dayViewLayout';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
+import { Spacing } from '../constants/spacing';
 
 const SCREEN_W   = Dimensions.get('window').width;
 const LEFT_PAD   = 4;
@@ -149,7 +150,7 @@ function makeStyles(c: AppTheme) {
     block: {
       backgroundColor:  c.primary,
       borderRadius:     6,
-      paddingHorizontal: 8,
+      paddingHorizontal: Spacing.sm,
       paddingVertical:   6,
       overflow:         'hidden',
       position:         'relative',
@@ -190,7 +191,7 @@ function makeStyles(c: AppTheme) {
       fontWeight: '500',
     },
     expandedArea: {
-      marginTop: 4,
+      marginTop: Spacing.xs,
       gap:       2,
     },
     meta: {
@@ -201,7 +202,7 @@ function makeStyles(c: AppTheme) {
       backgroundColor: c.success,
       justifyContent:  'center',
       alignItems:      'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       borderRadius:    6,
       gap:             2,
     },
@@ -209,7 +210,7 @@ function makeStyles(c: AppTheme) {
       backgroundColor: c.error,
       justifyContent:  'center',
       alignItems:      'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       borderRadius:    6,
       gap:             2,
     },

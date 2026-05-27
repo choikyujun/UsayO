@@ -17,6 +17,7 @@ import {
 } from '../utils/notificationHelpers';
 import { formatTimeKo } from '../utils/timeHelpers';
 import { matchNotificationOffset } from '../utils/voiceResponseMatcher';
+import { Spacing } from '../constants/spacing';
 
 interface Props {
   visible:  boolean;
@@ -200,7 +201,7 @@ function makeStyles(c: AppTheme) {
       maxHeight: '75%',
       backgroundColor: c.card,
       borderRadius: 20,
-      padding: 24,
+      padding: Spacing.lg,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.18,
@@ -211,7 +212,7 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 8,
+      marginBottom: Spacing.sm,
     },
     heading:    { fontSize: 18, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     eventInfo:  { fontSize: 14, marginBottom: 16 },
@@ -224,7 +225,7 @@ function makeStyles(c: AppTheme) {
     },
     optionLabel: { fontSize: 16 },
     cancelBtn: {
-      marginTop: 16,
+      marginTop: Spacing.base,
       height: 48,
       borderRadius: 12,
       alignItems: 'center',

@@ -6,6 +6,7 @@ import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { speechService } from '../services/voice/SpeechRecognitionService';
 import { matchQuickResponse } from '../services/voice/QuickResponseMatcher';
 import { ClassifiedIntent } from '../types';
+import { Spacing } from '../constants/spacing';
 
 const AUTO_CONFIRM_MS    = 5000;
 const RECORD_START_DELAY = 500;   // 사양: 500ms
@@ -272,7 +273,7 @@ function makeStyles(c: AppTheme) {
     card: {
       backgroundColor: c.card,
       borderRadius: 20,
-      padding: 24,
+      padding: Spacing.lg,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.18,
@@ -285,12 +286,12 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 12,
+      marginBottom: Spacing.md,
     },
     intentBadge: {
       backgroundColor: c.primary + '1A',
-      paddingHorizontal: 12,
-      paddingVertical: 4,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs,
       borderRadius: 20,
     },
     intentLabel: {
@@ -302,7 +303,7 @@ function makeStyles(c: AppTheme) {
     rawText: {
       fontSize: 14,
       color: c.textMuted,
-      marginBottom: 16,
+      marginBottom: Spacing.base,
       fontStyle: 'italic',
     },
     details: {
@@ -312,7 +313,7 @@ function makeStyles(c: AppTheme) {
     detailRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: Spacing.sm,
     },
     detailText: {
       fontSize: 17,

@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppTheme, useColors } from '../../constants/colors';
 import { Event } from '../../types/database';
+import { Spacing } from '../../constants/spacing';
 import {
-  DAYS_KO,
+    DAYS_KO,
   HEATMAP_COLORS,
   MONTHS_KO,
   buildCells,
@@ -118,20 +119,20 @@ function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     scroll: { flex: 1 },
     grid: {
-      paddingHorizontal: 8,
-      paddingTop: 4,
-      paddingBottom: 24,
-      gap: 8,
+      paddingHorizontal: Spacing.sm,
+      paddingTop: Spacing.xs,
+      paddingBottom: Spacing.lg,
+      gap: Spacing.sm,
     },
     gridRow: {
       flexDirection: 'row',
-      gap: 8,
+      gap: Spacing.sm,
     },
     monthCard: {
       flex: 1,
       backgroundColor: c.card,
       borderRadius: 10,
-      padding: 8,
+      padding: Spacing.sm,
       borderWidth: 0.5,
       borderColor: c.border,
     },
@@ -144,7 +145,7 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 4,
+      marginBottom: Spacing.xs,
     },
     monthName: {
       fontSize: 11,
@@ -176,7 +177,7 @@ function makeStyles(c: AppTheme) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 5,
-      marginTop: 8,
+      marginTop: Spacing.sm,
     },
     legendLabel: { fontSize: 10, color: c.textMuted },
     legendDot: {

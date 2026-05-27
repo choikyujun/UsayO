@@ -11,6 +11,7 @@ import RecurringEventRow from './RecurringEventRow';
 import EditTimeModal from './EditTimeModal';
 import EditTitleModal from './EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from './EventActionSheet';
+import { Spacing } from '../constants/spacing';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -103,7 +104,7 @@ function makeStyles(c: AppTheme) {
     container: {
       marginHorizontal: 20,
       marginTop: 10,
-      marginBottom: 4,
+      marginBottom: Spacing.xs,
       borderRadius: 12,
       overflow: 'hidden',
       borderWidth: 0.5,

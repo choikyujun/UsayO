@@ -14,6 +14,7 @@ import {
 import FeatureGate from '../../components/FeatureGate';
 import { AppTheme, useColors } from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
+import { Spacing } from '../../constants/spacing';
 
 const ANALYTICS_KEY = 'yusay_analytics_consent';
 
@@ -157,11 +158,11 @@ function Row({
     <View style={{
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: Spacing.base,
+      paddingVertical: Spacing.md,
       borderTopWidth: 0.5,
       borderTopColor: colors.border,
-      gap: 12,
+      gap: Spacing.md,
     }}>
       <View style={{ width: 24, alignItems: 'center', justifyContent: 'center' }}>{icon}</View>
       <View style={{ flex: 1, gap: 2 }}>
@@ -204,7 +205,7 @@ function Row({
 function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     root:        { flex: 1, backgroundColor: c.bg },
-    scroll:      { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 48, gap: 16 },
+    scroll:      { paddingHorizontal: Spacing.base, paddingTop: Spacing.md, paddingBottom: Spacing['2xl'], gap: 16 },
     section:     { gap: 8 },
     sectionTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.accent, paddingLeft: 4 },
     card: {
@@ -217,7 +218,7 @@ function makeStyles(c: AppTheme) {
     linkRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       paddingVertical: 14,
       justifyContent: 'space-between',
     },

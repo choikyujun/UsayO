@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppTheme, useColors } from '../../constants/colors';
 import { Event } from '../../types/database';
+import { Spacing } from '../../constants/spacing';
 import {
-  CATEGORY_COLORS,
+    CATEGORY_COLORS,
   DAYS_KO,
   EventLane,
   assignLanes,
@@ -197,7 +198,7 @@ function makeStyles(c: AppTheme) {
     dayHeader: {
       width: COL_W,
       alignItems: 'center',
-      paddingVertical: 4,
+      paddingVertical: Spacing.xs,
     },
     dayHeaderToday: {},
     dayName: { fontSize: 11, color: c.textMuted, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },

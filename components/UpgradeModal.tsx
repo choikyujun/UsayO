@@ -14,6 +14,7 @@ import Purchases from 'react-native-purchases';
 import { Colors } from '../constants/colors';
 import { GateType } from '../constants/featureGates';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
+import { Spacing } from '../constants/spacing';
 
 interface Props {
   visible: boolean;
@@ -233,8 +234,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkCard,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
     paddingBottom: 40,
   },
   handle: {
@@ -243,14 +244,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkBorder,
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 24,
+    marginBottom: Spacing.lg,
   },
   modalTitle: {
     color: Colors.textPrimary,
     fontSize: 20,
     fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   modalSubtitle: {
     color: Colors.textMuted,
@@ -278,7 +279,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent + '50',
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
     marginBottom: 20,
   },
   trialBadgeText: {
@@ -303,7 +304,7 @@ const styles = StyleSheet.create({
   usageText: {
     color: Colors.textMuted,
     fontSize: 14,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   usageHighlight: {
     color: Colors.textPrimary,
@@ -313,11 +314,11 @@ const styles = StyleSheet.create({
   // CTA
   ctaBtn: {
     backgroundColor: Colors.primary,
-    paddingVertical: 16,
+    paddingVertical: Spacing.base,
     borderRadius: 14,
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   ctaBtnDisabled: {
     opacity: 0.6,
@@ -332,23 +333,23 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 12,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 24,
+    gap: Spacing.lg,
   },
   dismissBtn: {
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
   },
   dismissText: {
     color: Colors.textMuted,
     fontSize: 14,
   },
   restoreBtn: {
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
   },
   restoreText: {
     color: Colors.textMuted,

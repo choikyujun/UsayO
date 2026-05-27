@@ -5,6 +5,7 @@ import { Check, Mic } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { Spacing } from '../../constants/spacing';
 
 const BENEFITS = [
   '말하는 순간에만 사용해요',
@@ -76,13 +77,13 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Colors.darkBg,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.lg,
     paddingTop: 72,
-    paddingBottom: 48,
+    paddingBottom: Spacing['2xl'],
   },
   top: {
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
     marginBottom: 40,
   },
   iconCircle: {
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.45,
@@ -118,13 +119,13 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 0.5,
     borderColor: Colors.darkBorder,
-    gap: 16,
+    gap: Spacing.base,
     marginBottom: 40,
   },
   benefitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
   },
   checkCircle: {
     width: 28,
@@ -144,12 +145,12 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 'auto',
-    gap: 8,
+    gap: Spacing.sm,
   },
   allowBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: Spacing.base,
     alignItems: 'center',
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   laterBtn: {
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
     alignItems: 'center',
   },
   laterText: {

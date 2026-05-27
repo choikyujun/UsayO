@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { Spacing } from '../../constants/spacing';
 
 const BAR_COUNT = 5;
 const BAR_STEP_MS = 130;
@@ -98,7 +99,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.45,

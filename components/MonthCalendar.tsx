@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
+import { Spacing } from '../constants/spacing';
 
 type Props = {
   year: number;
@@ -122,8 +123,8 @@ function makeStyles(c: AppTheme) {
     container: {
       backgroundColor: c.card,
       borderRadius: 20,
-      padding: 16,
-      marginHorizontal: 16,
+      padding: Spacing.base,
+      marginHorizontal: Spacing.base,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.08,
@@ -134,8 +135,8 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 12,
-      paddingHorizontal: 4,
+      marginBottom: Spacing.md,
+      paddingHorizontal: Spacing.xs,
     },
     arrow: { padding: 8 },
     title: { fontSize: 17, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textPrimary },
@@ -150,7 +151,7 @@ function makeStyles(c: AppTheme) {
       fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
       color: c.textMuted,
-      paddingVertical: 4,
+      paddingVertical: Spacing.xs,
     },
     cell: {
       flex: 1,

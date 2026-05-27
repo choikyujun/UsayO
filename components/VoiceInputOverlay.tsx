@@ -15,6 +15,7 @@ import {
   SAVING_MESSAGES,
 } from '../constants/voiceLoadingMessages';
 import type { MicStatus } from '../types';
+import { Spacing } from '../constants/spacing';
 
 export type VoiceLoadingStage = 'analyzing' | 'saving' | null;
 
@@ -188,14 +189,14 @@ const styles = StyleSheet.create({
     borderRadius:   40,
     alignItems:     'center',
     justifyContent: 'center',
-    marginBottom:   24,
+    marginBottom: Spacing.lg,
   },
   listenText: {
     color:        '#FFFFFF',
     fontSize:     18,
     fontFamily: 'Pretendard-Medium',
     fontWeight:   '500',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   hintText: {
     fontSize:  12,

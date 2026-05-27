@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme } from '../constants/colors';
 import { isKoreanHoliday } from '../hooks/useHolidays';
 import { YearCell } from '../utils/yearViewLayout';
+import { Spacing } from '../constants/spacing';
 
 const KO_DAYS_SHORT = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -95,7 +96,7 @@ export default function MiniMonth({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 4,
+    paddingHorizontal: Spacing.xs,
     paddingVertical:   6,
     borderWidth:       0.5,
     borderRadius:      8,
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-Medium',
     fontWeight:    '500',
     textAlign:     'center',
-    marginBottom:  4,
+    marginBottom: Spacing.xs,
   },
   dowRow: {
     flexDirection: 'row',

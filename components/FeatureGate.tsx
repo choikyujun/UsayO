@@ -5,6 +5,7 @@ import { Colors } from '../constants/colors';
 import { FeatureKey } from '../constants/featureGates';
 import { useFeatureGate } from '../hooks/useFeatureGate';
 import UpgradeModal from './UpgradeModal';
+import { Spacing } from '../constants/spacing';
 
 interface FeatureGateProps {
   feature: FeatureKey;
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     opacity: 0.45,
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
   },
   lockedText: {
     fontSize: 13,

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
 import { Database } from '../types/database';
+import { Spacing } from '../constants/spacing';
 
 type Schedule = Database['public']['Tables']['schedules']['Row'];
 
@@ -79,7 +80,7 @@ const staticStyles = StyleSheet.create({
 function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     emptyTitle: {
-      marginTop: 8,
+      marginTop: Spacing.sm,
       fontSize: 17,
       fontFamily: 'Pretendard-SemiBold',
       fontWeight: '600',
@@ -91,7 +92,7 @@ function makeStyles(c: AppTheme) {
       alignItems: 'center',
       backgroundColor: c.card,
       borderRadius: 14,
-      padding: 16,
+      padding: Spacing.base,
       marginBottom: 10,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },

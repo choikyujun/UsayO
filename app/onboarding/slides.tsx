@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { Spacing } from '../../constants/spacing';
 
 const { width: W } = Dimensions.get('window');
 
@@ -185,7 +186,7 @@ const illus = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: Spacing.base,
     justifyContent: 'center',
   },
   col: {
@@ -215,7 +216,7 @@ const illus = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   actionDot: {
     width: 10,
@@ -230,9 +231,9 @@ const illus = StyleSheet.create({
   exRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
     backgroundColor: Colors.darkCard,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.base,
     paddingVertical: 11,
     borderRadius: 12,
     borderWidth: 0.5,
@@ -265,7 +266,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   slide: {
     flex: 1,
-    paddingHorizontal: 32,
+    paddingHorizontal: Spacing.xl,
     paddingTop: 64,
     alignItems: 'center',
   },
@@ -274,7 +275,7 @@ const styles = StyleSheet.create({
     height: 180,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: Spacing.xl,
   },
   badge: {
     backgroundColor: Colors.primary + '20',
@@ -283,7 +284,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1,
     borderColor: Colors.primary + '50',
-    marginBottom: 16,
+    marginBottom: Spacing.base,
   },
   badgeText: {
     fontSize: 11,
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
     letterSpacing: -0.5,
   },
   desc: {
@@ -310,7 +311,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
     paddingVertical: 20,
   },
   dot: {
@@ -326,16 +327,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.darkBorder,
   },
   footer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.lg,
     paddingBottom: 52,
-    gap: 8,
+    gap: Spacing.sm,
     alignItems: 'center',
   },
   nextBtn: {
     width: '100%',
     backgroundColor: Colors.primary,
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: Spacing.base,
     alignItems: 'center',
   },
   nextBtnText: {
@@ -345,7 +346,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   skipBtn: {
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
   },
   skipText: {
     fontSize: 14,

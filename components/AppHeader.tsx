@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '../constants/colors';
 import { useCurrentDate } from '../hooks/useCurrentDate';
 import VoiceHintRotator from './VoiceHintRotator';
+import { Spacing } from '../constants/spacing';
 
 export type AppTab = 'home' | 'day' | 'week' | 'month' | 'year';
 
@@ -119,8 +120,8 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     flexDirection: 'row',
-    paddingLeft:   24,
-    gap:           12,
+    paddingLeft: Spacing.lg,
+    gap: Spacing.md,
     height:        40,
     alignItems:    'center',
   },
@@ -142,8 +143,8 @@ const styles = StyleSheet.create({
   },
   dateRow: {
     flexDirection:  'row',
-    paddingLeft:    24,
-    paddingBottom:  4,
+    paddingLeft: Spacing.lg,
+    paddingBottom: Spacing.xs,
     height:         36,
     alignItems:     'center',
   },

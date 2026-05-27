@@ -10,6 +10,7 @@ import ReAnimated, {
 import { useColors } from '../constants/colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { VOICE_HINTS } from '../constants/voiceHints';
+import { Spacing } from '../constants/spacing';
 
 const ROTATE_MS  = 8_000;
 const FADE_MS    = 200;
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection:  'row',
     alignItems:     'center',
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
   },
   textWrap: {
     flex: 1,
@@ -97,6 +98,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   close: {
-    marginLeft: 8,
+    marginLeft: Spacing.sm,
   },
 });

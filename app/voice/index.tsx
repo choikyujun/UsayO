@@ -16,6 +16,7 @@ import { useVoiceFlow } from '../../hooks/useVoiceFlow';
 import { useSchedules } from '../../hooks/useSchedules';
 import { ttsService } from '../../services/voice/TTSService';
 import { useCurrentDate } from '../../hooks/useCurrentDate';
+import { Spacing } from '../../constants/spacing';
 
 const SUCCESS_BACK_DELAY_MS = 1500; // 성공 후 모달 닫힘 딜레이
 
@@ -256,9 +257,9 @@ const styles = StyleSheet.create({
   },
   phaseCenter: {
     alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 32,
-    gap: 16,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.base,
   },
   hint: {
     fontSize: 13,
@@ -279,7 +280,7 @@ const styles = StyleSheet.create({
     height: 88,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 8,
+    marginVertical: Spacing.sm,
   },
   pulse: {
     position: 'absolute',
@@ -312,9 +313,9 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   closeTextBtn: {
-    marginTop: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 24,
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
   },
   closeText: {
     fontSize: 15,
@@ -346,12 +347,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
     paddingHorizontal: 28,
     borderRadius: 24,
     borderWidth: 1.5,
     borderColor: Colors.primary,
-    marginTop: 4,
+    marginTop: Spacing.xs,
   },
   stopText: {
     fontSize: 15,
@@ -362,9 +363,9 @@ const styles = StyleSheet.create({
   processingText: {
     fontSize: 16,
     color: Colors.textMuted,
-    marginTop: 12,
+    marginTop: Spacing.md,
   },
   confirmWrap: {
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
   },
 });

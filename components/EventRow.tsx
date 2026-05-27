@@ -13,6 +13,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { AppTheme, useColors } from '../constants/colors';
 import { Event } from '../types/database';
 import { formatTimeKo, formatTimeRow, MONO } from '../utils/timeHelpers';
+import { Spacing } from '../constants/spacing';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -173,9 +174,9 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 20,
-      paddingVertical: 12,
+      paddingVertical: Spacing.md,
       minHeight: 44,
-      gap: 12,
+      gap: Spacing.md,
       backgroundColor: 'transparent',
     },
     rowLunch: {
@@ -218,14 +219,14 @@ function makeStyles(c: AppTheme) {
       width: 5,
       height: 5,
       borderRadius: 2.5,
-      marginRight: 4,
+      marginRight: Spacing.xs,
     },
     // ── Swipe actions ────────────────────────────────────────────
     actionLeft: {
       backgroundColor: c.success,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 24,
+      paddingHorizontal: Spacing.lg,
       gap: 2,
     },
     actionLeftIcon:  { fontSize: 18, color: '#fff' },
@@ -234,7 +235,7 @@ function makeStyles(c: AppTheme) {
       backgroundColor: c.error,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 24,
+      paddingHorizontal: Spacing.lg,
       gap: 2,
     },
     actionRightIcon:  { fontSize: 16 },
@@ -243,8 +244,8 @@ function makeStyles(c: AppTheme) {
     expanded: {
       paddingLeft: 74,   // time-col width + gap
       paddingRight: 20,
-      paddingBottom: 12,
-      gap: 4,
+      paddingBottom: Spacing.md,
+      gap: Spacing.xs,
     },
     expandedTime:  { fontSize: 11, color: c.textMuted },
     expandedLine:  { fontSize: 13, color: c.textSecondary, lineHeight: 18 },

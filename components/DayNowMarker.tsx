@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useColors } from '../constants/colors';
 import { TIME_LABEL_W, getNowY } from '../utils/dayViewLayout';
+import { Spacing } from '../constants/spacing';
 
 interface Props {
   tick: number; // changes every minute to trigger re-render
@@ -38,9 +39,9 @@ const styles = StyleSheet.create({
   },
   pill: {
     borderRadius:    4,
-    paddingHorizontal: 4,
+    paddingHorizontal: Spacing.xs,
     paddingVertical:   1,
-    marginLeft:      4,
+    marginLeft: Spacing.xs,
     width:           TIME_LABEL_W - 8,
     alignItems:      'center',
   },

@@ -4,6 +4,7 @@ import { Calendar, Check, Mic } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { Spacing } from '../../constants/spacing';
 
 type IconComp = React.ComponentType<{ size: number; color: string }>;
 
@@ -134,8 +135,8 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Colors.darkBg,
-    paddingHorizontal: 24,
-    paddingBottom: 48,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing['2xl'],
     paddingTop: 56,
   },
   glow: {
@@ -150,8 +151,8 @@ const styles = StyleSheet.create({
   center: {
     flex: 1,
     alignItems: 'center',
-    gap: 16,
-    paddingTop: 12,
+    gap: Spacing.base,
+    paddingTop: Spacing.md,
   },
   checkCircle: {
     width: 104,
@@ -160,7 +161,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.success,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
     shadowColor: Colors.success,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.45,
@@ -176,13 +177,13 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: Colors.textMuted,
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   statusCard: {
     width: '100%',
     backgroundColor: Colors.darkCard,
     borderRadius: 16,
-    padding: 16,
+    padding: Spacing.base,
     borderWidth: 0.5,
     borderColor: Colors.darkBorder,
     gap: 10,
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: Colors.primary + '40',
-    gap: 8,
+    gap: Spacing.sm,
   },
   suggestionLabel: {
     fontSize: 12,
@@ -218,10 +219,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: Spacing.sm,
     backgroundColor: Colors.success,
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: Spacing.base,
     shadowColor: Colors.success,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,

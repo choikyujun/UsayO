@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Colors, useColors } from '../constants/colors';
 import { Event } from '../types/database';
+import { Spacing } from '../constants/spacing';
 
 const MONO = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
@@ -74,7 +75,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       borderColor: c.border,
       borderRadius: 10,
       overflow: 'hidden',
-      marginBottom: 8,
+      marginBottom: Spacing.sm,
     },
     nextCard: {
       borderColor: c.primary,
@@ -84,7 +85,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     colorBar: { width: 2.5 },
     body: {
       flex: 1,
-      paddingHorizontal: 12,
+      paddingHorizontal: Spacing.md,
       paddingVertical: 10,
     },
     time: {
@@ -112,7 +113,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       top: 8,
       right: 10,
       backgroundColor: c.primary + '30',
-      paddingHorizontal: 8,
+      paddingHorizontal: Spacing.sm,
       paddingVertical: 2,
       borderRadius: 6,
     },

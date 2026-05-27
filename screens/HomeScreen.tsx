@@ -52,6 +52,7 @@ import { ClassifiedIntent, HybridInputState } from '../types';
 import type { Event as CalEvent } from '../types/database';
 import { addDays, toYearMonth } from '../utils/dateHelpers';
 import { useCurrentDate } from '../hooks/useCurrentDate';
+import { Spacing } from '../constants/spacing';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const FAB_SMALL = 64;
 
@@ -692,8 +693,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     },
     header: {
       paddingHorizontal: 20,
-      paddingTop:        16,
-      paddingBottom:     8,
+      paddingTop: Spacing.base,
+      paddingBottom: Spacing.sm,
       alignItems:        'flex-start',
     },
     conversational: {
@@ -711,8 +712,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     divider: {
       height: 0.5,
       backgroundColor: c.border,
-      marginHorizontal: 16,
-      marginTop: 4,
+      marginHorizontal: Spacing.base,
+      marginTop: Spacing.xs,
       marginBottom: 2,
     },
     // ── Listening UI ─────────────────────────────────────────────
@@ -768,7 +769,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       left: 0,
       right: 0,
       alignItems: 'center',
-      gap: 8,
+      gap: Spacing.sm,
     },
     fabOuter: {
       width: FAB_SMALL,
@@ -839,8 +840,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       flexDirection:     'row',
       alignItems:        'center',
       justifyContent:    'space-between',
-      paddingHorizontal: 16,
-      paddingVertical:   12,
+      paddingHorizontal: Spacing.base,
+      paddingVertical: Spacing.md,
       shadowColor:       '#000',
       shadowOffset:      { width: 0, height: 2 },
       shadowOpacity:     0.12,
@@ -857,7 +858,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       color:      c.accent,
       fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
-      marginLeft: 12,
+      marginLeft: Spacing.md,
     },
   });
 }

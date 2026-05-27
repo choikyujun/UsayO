@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { AppTheme, useColors } from '../../constants/colors';
+import { Spacing } from '../../constants/spacing';
 
 interface NotifItem {
   key:   string;
@@ -133,7 +134,7 @@ function NotifRow({
 }: { item: NotifItem; value: boolean; onChange: (v: boolean) => void; bordered: boolean; colors: AppTheme }) {
   return (
     <View style={[
-      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.base, paddingVertical: 12 },
       bordered && { borderTopWidth: 0.5, borderTopColor: colors.border },
     ]}>
       <View style={{ flex: 1, gap: 2 }}>
@@ -153,7 +154,7 @@ function NotifRow({
 function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     root:    { flex: 1, backgroundColor: c.bg },
-    scroll:  { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 16 },
+    scroll:  { paddingHorizontal: Spacing.base, paddingTop: Spacing.md, paddingBottom: 40, gap: 16 },
     infoBox: {
       backgroundColor: c.card,
       borderRadius: 10,

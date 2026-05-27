@@ -14,6 +14,7 @@ import {
 import { AppTheme, useColors } from '../constants/colors';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { useCurrentDate } from '../hooks/useCurrentDate';
+import { Spacing } from '../constants/spacing';
 
 type ViewType = 'day' | 'week' | 'month' | 'year';
 
@@ -232,8 +233,8 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 8,
-      paddingVertical: 8,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.sm,
       borderBottomWidth: 0.5,
       borderColor: c.border,
     },
@@ -248,8 +249,8 @@ function makeStyles(c: AppTheme) {
     },
     tabs: {
       flexDirection: 'row',
-      paddingHorizontal: 16,
-      paddingVertical: 8,
+      paddingHorizontal: Spacing.base,
+      paddingVertical: Spacing.sm,
       gap: 6,
       borderBottomWidth: 0.5,
       borderColor: c.border,
@@ -268,8 +269,8 @@ function makeStyles(c: AppTheme) {
     },
     tabText: { fontSize: 14, color: c.textMuted, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     tabTextActive: { color: '#fff' },
-    content: { flex: 1, paddingHorizontal: 8, paddingTop: 8 },
-    skeleton: { gap: 10, paddingHorizontal: 8, paddingTop: 12 },
+    content: { flex: 1, paddingHorizontal: Spacing.sm, paddingTop: 8 },
+    skeleton: { gap: 10, paddingHorizontal: Spacing.sm, paddingTop: 12 },
     skeletonRow: {
       height: 48,
       backgroundColor: c.card,

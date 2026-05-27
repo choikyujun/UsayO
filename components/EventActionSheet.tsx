@@ -9,6 +9,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { Event } from '../types/database';
 import { formatTimeKo } from '../utils/timeHelpers';
 import { isVirtualInstance } from '../utils/recurrenceHelpers';
+import { Spacing } from '../constants/spacing';
 
 // 다른 파일에서 여전히 사용 중인 타입은 그대로 export 유지
 export type RecurringDeleteScope = 'this' | 'future' | 'all';
@@ -122,10 +123,10 @@ const styles = StyleSheet.create({
   },
   handle: {
     width: 32, height: 3.5, borderRadius: 2,
-    alignSelf: 'center', marginTop: 10, marginBottom: 16,
+    alignSelf: 'center', marginTop: 10, marginBottom: Spacing.base,
   },
   titleRow: {
-    paddingHorizontal: 24, paddingBottom: 16, gap: 4,
+    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.base, gap: Spacing.xs,
   },
   eventTitle: { fontSize: 17, fontFamily: 'Pretendard-Bold', fontWeight: '700', letterSpacing: -0.3 },
   metaRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -138,17 +139,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 20,
-    paddingHorizontal: 8,
+    paddingHorizontal: Spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  gridBtn: { alignItems: 'center', gap: 8, flex: 1 },
+  gridBtn: { alignItems: 'center', gap: Spacing.sm, flex: 1 },
   gridIconWrap: {
     width: 52, height: 52, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
   },
   gridLabel: { fontSize: 11, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
   cancelBtn: {
-    marginHorizontal: 20, marginTop: 12,
+    marginHorizontal: 20, marginTop: Spacing.md,
     paddingVertical: 15, borderRadius: 14, alignItems: 'center',
   },
   cancelBtnText: { fontSize: 16, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', textAlign: 'center' },

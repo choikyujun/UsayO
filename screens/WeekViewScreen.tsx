@@ -43,6 +43,7 @@ import { formatWeekRange, getWeekDays, COL_W } from '../utils/weekViewLayout';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
 import { computeOverlapLayout } from '../utils/eventOverlapLayout';
 import { useCurrentDate } from '../hooks/useCurrentDate';
+import { Spacing } from '../constants/spacing';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -362,13 +363,13 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       flexDirection:     'row',
       alignItems:        'center',
       justifyContent:    'space-between',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       paddingVertical:   6,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
     rangeLabel: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
-    todayBtn:   { paddingHorizontal: 8, paddingVertical: 4 },
+    todayBtn:   { paddingHorizontal: Spacing.sm, paddingVertical: 4 },
     todayText:  { fontSize: 13, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
   });
 }

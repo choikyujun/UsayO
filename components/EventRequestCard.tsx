@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { useState } from 'react';
 import { Colors } from '../constants/colors';
 import type { EventRequest } from '../types/team';
+import { Spacing } from '../constants/spacing';
 
 interface Props {
   request: EventRequest;
@@ -92,22 +93,22 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.darkCard,
     borderRadius: 16,
-    padding: 16,
+    padding: Spacing.base,
     borderWidth: 1,
     borderColor: Colors.primary + '40',
-    marginHorizontal: 16,
+    marginHorizontal: Spacing.base,
     marginVertical: 6,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
     marginBottom: 10,
   },
   badge: {
     backgroundColor: Colors.primary + '20',
     borderRadius: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
     borderWidth: 1,
     borderColor: Colors.primary + '50',
@@ -130,8 +131,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   meta: {
-    gap: 4,
-    marginBottom: 8,
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
   metaRow: {
     flexDirection: 'row',
@@ -151,8 +152,8 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   btn: {
     flex: 1,
@@ -160,7 +161,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
     borderRadius: 12,
   },
   rejectBtn: {

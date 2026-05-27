@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { Colors } from '../constants/colors';
 import { HybridInputState } from '../types';
+import { Spacing } from '../constants/spacing';
 
 interface Props {
   visible: boolean;
@@ -143,7 +144,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingBottom: 36,
-    paddingTop: 12,
+    paddingTop: Spacing.md,
   },
   handle: {
     width: 36,
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
     marginBottom: 20,
   },
   headerIcon: {
@@ -183,17 +184,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   inputWrapper: {
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   input: {
     backgroundColor: Colors.darkBg,
     borderWidth: 1,
     borderColor: Colors.darkBorder,
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.base,
     paddingVertical: 14,
     color: Colors.textPrimary,
     fontSize: 16,

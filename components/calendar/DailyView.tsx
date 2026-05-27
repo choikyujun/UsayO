@@ -3,8 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppTheme, useColors } from '../../constants/colors';
 import { Event } from '../../types/database';
+import { Spacing } from '../../constants/spacing';
 import {
-  CATEGORY_COLORS,
+    CATEGORY_COLORS,
   DAYS_KO,
   EventLane,
   assignLanes,
@@ -198,8 +199,8 @@ function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     wrap: { flex: 1 },
     header: {
-      paddingHorizontal: 16,
-      paddingBottom: 12,
+      paddingHorizontal: Spacing.base,
+      paddingBottom: Spacing.md,
       borderBottomWidth: 0.5,
       borderColor: c.border,
     },
@@ -208,7 +209,7 @@ function makeStyles(c: AppTheme) {
       fontFamily: 'Pretendard-Bold',
       fontWeight: '700',
       color: c.textPrimary,
-      marginBottom: 8,
+      marginBottom: Spacing.sm,
     },
     chips: { flexDirection: 'row', gap: 6 },
     scroll: { flex: 1 },
@@ -223,7 +224,7 @@ function makeStyles(c: AppTheme) {
     hourLabel: {
       width: TIME_COL_W,
       textAlign: 'right',
-      paddingRight: 8,
+      paddingRight: Spacing.sm,
       fontSize: 10,
       color: c.textMuted,
     },
@@ -248,8 +249,8 @@ function makeStyles(c: AppTheme) {
       position: 'absolute',
       borderLeftWidth: 2.5,
       borderRadius: 6,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
       overflow: 'hidden',
     },
     eventTime: { fontSize: 10, color: c.textMuted, marginBottom: 1 },
@@ -277,7 +278,7 @@ function makeStyles(c: AppTheme) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingBottom: 60,
-      gap: 8,
+      gap: Spacing.sm,
     },
     emptyTitle: { fontSize: 16, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textMuted },
     emptyHint:  { fontSize: 13, color: c.accent },

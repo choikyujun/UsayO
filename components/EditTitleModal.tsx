@@ -8,6 +8,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { Spacing } from '../constants/spacing';
 
 type Scope = 'this' | 'future' | 'all';
 
@@ -224,7 +225,7 @@ function makeStyles(c: AppTheme) {
       width: '85%',
       backgroundColor: c.card,
       borderRadius: 20,
-      padding: 24,
+      padding: Spacing.lg,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.18,
@@ -241,7 +242,7 @@ function makeStyles(c: AppTheme) {
     input: {
       height: 52,
       borderRadius: 12,
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       fontSize: 16,
       marginBottom: 20,
     },
@@ -249,13 +250,13 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       justifyContent: 'flex-end',
       alignItems: 'center',
-      gap: 12,
+      gap: Spacing.md,
     },
-    cancelBtn:    { height: 48, paddingHorizontal: 8, justifyContent: 'center' },
+    cancelBtn:    { height: 48, paddingHorizontal: Spacing.sm, justifyContent: 'center' },
     cancelText:   { fontSize: 16, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
-    saveBtn:      { height: 48, paddingHorizontal: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    saveBtn:      { height: 48, paddingHorizontal: Spacing.lg, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
     saveBtnText:  { fontSize: 16, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: '#fff' },
-    scopeList:    { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, marginBottom: 16, overflow: 'hidden' },
+    scopeList:    { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, marginBottom: Spacing.base, overflow: 'hidden' },
     scopeItem:    { paddingVertical: 15, paddingHorizontal: 16 },
     scopeText:    { fontSize: 16 },
   });

@@ -8,6 +8,7 @@ import { runOnJS, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppTheme, useColors } from '../constants/colors';
 import { Event } from '../types/database';
+import { Spacing } from '../constants/spacing';
 
 const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -154,8 +155,8 @@ function makeStyles(c: AppTheme) {
     sheet: {
       borderTopLeftRadius:  24,
       borderTopRightRadius: 24,
-      padding:              24,
-      paddingTop:           12,
+      padding: Spacing.lg,
+      paddingTop: Spacing.md,
       minHeight:            260,
       shadowColor:          '#000',
       shadowOffset:         { width: 0, height: -4 },
@@ -165,7 +166,7 @@ function makeStyles(c: AppTheme) {
     },
     handleWrap: {
       alignItems:    'center',
-      marginBottom:  16,
+      marginBottom: Spacing.base,
     },
     handle: {
       width:        40,
@@ -181,18 +182,18 @@ function makeStyles(c: AppTheme) {
       fontSize:     18,
       fontFamily: 'Pretendard-SemiBold',
       fontWeight:   '600',
-      marginBottom: 8,
-      paddingRight: 32,
+      marginBottom: Spacing.sm,
+      paddingRight: Spacing.xl,
     },
     time: {
       fontSize:     14,
-      marginBottom: 16,
+      marginBottom: Spacing.base,
     },
     row: {
       flexDirection: 'row',
       alignItems:    'flex-start',
       gap:           10,
-      marginBottom:  12,
+      marginBottom: Spacing.md,
     },
     rowText: {
       fontSize: 14,

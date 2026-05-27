@@ -5,6 +5,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { useFeatureGate } from '../hooks/useFeatureGate';
 import { FeatureKey } from '../constants/featureGates';
 import UpgradeModal from './UpgradeModal';
+import { Spacing } from '../constants/spacing';
 
 interface Props {
   feature: 'voice_create' | 'voice_modify' | 'voice_query';
@@ -97,8 +98,8 @@ function makeStyles(c: AppTheme) {
       borderWidth: 1,
       borderColor: c.warning + '50',
       borderRadius: 12,
-      marginHorizontal: 16,
-      marginBottom: 8,
+      marginHorizontal: Spacing.base,
+      marginBottom: Spacing.sm,
       overflow: 'hidden',
     },
     content: {
@@ -115,7 +116,7 @@ function makeStyles(c: AppTheme) {
     right:       { flexDirection: 'row', alignItems: 'center', gap: 10 },
     upgradeBtn: {
       backgroundColor: c.primary,
-      paddingHorizontal: 12,
+      paddingHorizontal: Spacing.md,
       paddingVertical: 6,
       borderRadius: 8,
     },

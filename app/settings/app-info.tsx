@@ -2,6 +2,7 @@ import { Mic } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { Spacing } from '../../constants/spacing';
 
 export default function AppInfoRoute() {
   return (
@@ -40,8 +41,8 @@ export default function AppInfoRoute() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.darkBg },
-  scroll: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48, gap: 20 },
-  logoWrap: { alignItems: 'center', gap: 8, marginBottom: 8 },
+  scroll: { paddingHorizontal: Spacing.base, paddingTop: Spacing.lg, paddingBottom: Spacing['2xl'], gap: 20 },
+  logoWrap: { alignItems: 'center', gap: Spacing.sm, marginBottom: 8 },
   logoCircle: {
     width: 72,
     height: 72,
@@ -62,7 +63,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.base,
     paddingVertical: 13,
   },
   rowBorder: { borderTopWidth: 0.5, borderTopColor: Colors.darkBorder },

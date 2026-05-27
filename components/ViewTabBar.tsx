@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, ToastAndroid, View } from 'react-native';
 import { useColors } from '../constants/colors';
+import { Spacing } from '../constants/spacing';
 
 export type CalendarView = 'day' | 'week' | 'month' | 'year';
 
@@ -63,9 +64,9 @@ export default function ViewTabBar({ currentView, onSelect }: Props) {
 const styles = StyleSheet.create({
   bar: {
     flexDirection:     'row',
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.base,
     paddingVertical:   6,
-    gap:               8,
+    gap: Spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   tab: {

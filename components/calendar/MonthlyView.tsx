@@ -11,8 +11,9 @@ import {
 } from 'react-native';
 import { AppTheme, useColors } from '../../constants/colors';
 import { Event } from '../../types/database';
+import { Spacing } from '../../constants/spacing';
 import {
-  CATEGORY_COLORS,
+    CATEGORY_COLORS,
   DAYS_KO,
   MONTHS_KO,
   buildCells,
@@ -179,7 +180,7 @@ function makeStyles(c: AppTheme) {
     wrap: { flex: 1 },
     headerRow: {
       flexDirection: 'row',
-      paddingHorizontal: 4,
+      paddingHorizontal: Spacing.xs,
       paddingBottom: 6,
     },
     dayLabel: {
@@ -238,7 +239,7 @@ function makeStyles(c: AppTheme) {
       borderTopRightRadius: 22,
       paddingHorizontal: 20,
       paddingBottom: 40,
-      paddingTop: 12,
+      paddingTop: Spacing.md,
       maxHeight: '55%',
     },
     handle: {
@@ -247,13 +248,13 @@ function makeStyles(c: AppTheme) {
       backgroundColor: c.border,
       borderRadius: 2,
       alignSelf: 'center',
-      marginBottom: 16,
+      marginBottom: Spacing.base,
     },
     sheetHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 16,
+      marginBottom: Spacing.base,
     },
     sheetTitle: {
       fontSize: 17,
@@ -264,7 +265,7 @@ function makeStyles(c: AppTheme) {
     sheetSwitchBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
     sheetSwitch: { fontSize: 13 },
     sheetScroll: { flex: 1 },
-    emptyDay: { alignItems: 'center', paddingVertical: 32, gap: 8 },
+    emptyDay: { alignItems: 'center', paddingVertical: Spacing.xl, gap: 8 },
     emptyText: { fontSize: 16, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textMuted },
     emptyHint: { fontSize: 13, color: c.accent },
     eventRow: {
@@ -275,7 +276,7 @@ function makeStyles(c: AppTheme) {
       overflow: 'hidden',
     },
     eventBar: { width: 3 },
-    eventBody: { flex: 1, paddingHorizontal: 12, paddingVertical: 10 },
+    eventBody: { flex: 1, paddingHorizontal: Spacing.md, paddingVertical: 10 },
     eventTime: { fontSize: 11, color: c.textMuted, marginBottom: 2 },
     eventTitle: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textPrimary },
     eventLoc: { fontSize: 12, color: c.textMuted, marginTop: 2 },

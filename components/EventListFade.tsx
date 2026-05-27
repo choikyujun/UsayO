@@ -3,6 +3,7 @@ import { Animated, RefreshControl, ScrollView, StyleSheet, Text, View } from 're
 import { useColors } from '../constants/colors';
 import { Event } from '../types/database';
 import EventCard from './EventCard';
+import { Spacing } from '../constants/spacing';
 
 const CARD_RADIUS = 10;
 
@@ -207,7 +208,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     wrap: { flex: 1 },
     scroll: { flex: 1 },
-    list: { paddingHorizontal: 16, paddingBottom: 24 },
+    list: { paddingHorizontal: Spacing.base, paddingBottom: 24 },
 
     empty: {
       flex: 1,
@@ -228,9 +229,9 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     },
 
     todayEmpty: {
-      paddingVertical: 12,
-      paddingHorizontal: 4,
-      marginBottom: 4,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.xs,
+      marginBottom: Spacing.xs,
     },
     todayEmptyText: {
       fontSize: 13,
@@ -245,7 +246,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       color: c.textTertiary,
       letterSpacing: 0.4,
       textTransform: 'uppercase',
-      paddingTop: 16,
+      paddingTop: Spacing.base,
       paddingBottom: 6,
       paddingHorizontal: 2,
     },
@@ -255,7 +256,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: c.primary,
       borderRadius: CARD_RADIUS,
-      marginBottom: 8,
+      marginBottom: Spacing.sm,
     },
 
     fadeWrap: {

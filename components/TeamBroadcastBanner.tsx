@@ -2,6 +2,7 @@ import { Megaphone } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../constants/colors';
 import type { TeamEvent } from '../types/team';
+import { Spacing } from '../constants/spacing';
 
 interface Props {
   event: TeamEvent;
@@ -45,9 +46,9 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: Colors.darkCard,
     borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 16,
-    marginVertical: 4,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.base,
+    marginVertical: Spacing.xs,
     borderWidth: 1,
     borderColor: Colors.accent + '30',
     borderLeftWidth: 3,
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   scopeLabel: {
     fontSize: 10,

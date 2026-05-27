@@ -15,6 +15,7 @@ import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
+import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
 const TIME_W    = 38;
@@ -308,14 +309,14 @@ function makeStyles(c: AppTheme, state: EventState) {
       backgroundColor:   c.success,
       alignItems:        'center',
       justifyContent:    'center',
-      paddingHorizontal: 24,
+      paddingHorizontal: Spacing.lg,
       gap:               2,
     },
     actionRight: {
       backgroundColor:   c.error,
       alignItems:        'center',
       justifyContent:    'center',
-      paddingHorizontal: 24,
+      paddingHorizontal: Spacing.lg,
       gap:               2,
     },
     actionUndo:  { backgroundColor: c.primary },

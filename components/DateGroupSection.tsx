@@ -4,6 +4,7 @@ import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
 import { DateGroup, formatUpcomingDate } from '../utils/dateHelpers';
 import UpcomingEventRow from './UpcomingEventRow';
+import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
 const SPINE_X   = PADDING_H + 38 + 14 / 2; // matches TimeSpine spine line position
@@ -59,14 +60,14 @@ export default function DateGroupSection({ group, colors, onLongPress, onDelete,
 function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     container: {
-      marginTop: 8,
+      marginTop: Spacing.sm,
     },
     header: {
       flexDirection:     'row',
       alignItems:        'center',
       paddingHorizontal: PADDING_H,
-      marginBottom:      4,
-      gap:               8,
+      marginBottom: Spacing.xs,
+      gap: Spacing.sm,
     },
     line: {
       flex:   1,

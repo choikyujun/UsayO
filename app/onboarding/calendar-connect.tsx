@@ -4,6 +4,7 @@ import { Calendar } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { Spacing } from '../../constants/spacing';
 
 const PROVIDERS = [
   {
@@ -96,14 +97,14 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Colors.darkBg,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.lg,
     paddingTop: 64,
-    paddingBottom: 48,
+    paddingBottom: Spacing['2xl'],
   },
   top: {
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 32,
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
   },
   iconCircle: {
     width: 96,
@@ -112,7 +113,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.38,
@@ -132,8 +133,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   providers: {
-    gap: 12,
-    marginBottom: 16,
+    gap: Spacing.md,
+    marginBottom: Spacing.base,
   },
   providerCard: {
     flexDirection: 'row',
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
     gap: 14,
     backgroundColor: Colors.darkCard,
     borderRadius: 14,
-    padding: 16,
+    padding: Spacing.base,
     borderWidth: 1.5,
     borderColor: Colors.darkBorder,
   },
@@ -184,18 +185,18 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 24,
+    marginBottom: Spacing.lg,
   },
   footer: {
     marginTop: 'auto',
-    gap: 8,
+    gap: Spacing.sm,
     alignItems: 'center',
   },
   connectBtn: {
     width: '100%',
     backgroundColor: Colors.primary,
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: Spacing.base,
     alignItems: 'center',
   },
   connectBtnText: {

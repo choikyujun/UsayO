@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { AppTheme, useColors } from '../../constants/colors';
 import { ttsService } from '../../services/voice/TTSService';
+import { Spacing } from '../../constants/spacing';
 
 const LANG_KEY  = 'yusay_lang';
 const SPEED_KEY = 'yusay_tts_speed';
@@ -127,7 +128,7 @@ export default function LanguageSettingsScreen() {
 function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     root:         { flex: 1, backgroundColor: c.bg },
-    scroll:       { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 20 },
+    scroll:       { paddingHorizontal: Spacing.base, paddingTop: Spacing.md, paddingBottom: 40, gap: 20 },
     section:      { gap: 8 },
     sectionTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.accent, paddingLeft: 4 },
     card: {
@@ -140,9 +141,9 @@ function makeStyles(c: AppTheme) {
     langRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       paddingVertical: 13,
-      gap: 12,
+      gap: Spacing.md,
     },
     langRowBorder: { borderTopWidth: 0.5, borderTopColor: c.border },
     langFlag:      { fontSize: 22 },
@@ -151,15 +152,15 @@ function makeStyles(c: AppTheme) {
       width: 8, height: 8,
       borderRadius: 4,
       backgroundColor: c.primary,
-      marginRight: 4,
+      marginRight: Spacing.xs,
     },
     speedRow: {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 14,
       paddingTop: 14,
-      paddingBottom: 8,
-      gap: 8,
+      paddingBottom: Spacing.sm,
+      gap: Spacing.sm,
     },
     speedLabel: { fontSize: 11, color: c.textMuted, width: 36, textAlign: 'center' },
     speedSteps: { flex: 1, flexDirection: 'row', gap: 3, justifyContent: 'center' },
@@ -192,7 +193,7 @@ function makeStyles(c: AppTheme) {
       textAlign: 'center',
       fontSize: 11,
       color: c.textMuted,
-      paddingBottom: 12,
+      paddingBottom: Spacing.md,
     },
   });
 }

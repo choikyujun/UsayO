@@ -7,6 +7,7 @@ import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
+import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
 const TIME_W    = 38;
@@ -152,7 +153,7 @@ function makeStyles(c: AppTheme) {
       flexDirection:     'row',
       alignItems:        'center',
       paddingHorizontal: PADDING_H,
-      paddingVertical:   8,
+      paddingVertical: Spacing.sm,
       gap:               DOT_GAP,
       backgroundColor:   'transparent',
     },
@@ -186,7 +187,7 @@ function makeStyles(c: AppTheme) {
     titleRow: {
       flexDirection: 'row',
       alignItems:    'center',
-      gap:           4,
+      gap: Spacing.xs,
     },
     title: {
       fontSize:   14,
@@ -201,7 +202,7 @@ function makeStyles(c: AppTheme) {
     },
     recurIcon: { fontSize: 10 },
     expandedArea: {
-      marginTop: 4,
+      marginTop: Spacing.xs,
       gap: 2,
     },
     meta: {
@@ -213,14 +214,14 @@ function makeStyles(c: AppTheme) {
       backgroundColor:   c.error,
       alignItems:        'center',
       justifyContent:    'center',
-      paddingHorizontal: 24,
+      paddingHorizontal: Spacing.lg,
       gap:               2,
     },
     actionComplete: {
       backgroundColor:   c.success,
       alignItems:        'center',
       justifyContent:    'center',
-      paddingHorizontal: 24,
+      paddingHorizontal: Spacing.lg,
       gap:               2,
     },
     actionUndo: {

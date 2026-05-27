@@ -25,6 +25,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import { useCurrentDate } from '../hooks/useCurrentDate';
 import { Event } from '../types/database';
+import { Spacing } from '../constants/spacing';
 
 type Tab = 'week' | 'month' | 'ai';
 const TAB_LABELS: Record<Tab, string> = { week: '이번 주', month: '이번 달', ai: 'AI 빈 슬롯' };
@@ -383,7 +384,7 @@ function makeStyles(c: AppTheme) {
     ddayBanner: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       paddingVertical: 10,
       backgroundColor: c.card,
       borderBottomWidth: 0.5,
@@ -403,7 +404,7 @@ function makeStyles(c: AppTheme) {
     ddayDate: { fontSize: 11, color: c.textMuted },
     tabs: {
       flexDirection: 'row',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       paddingVertical: 10,
       gap: 6,
       borderBottomWidth: 0.5,
@@ -421,13 +422,13 @@ function makeStyles(c: AppTheme) {
     tabText: { fontSize: 13, color: c.textMuted, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     tabTextActive: { color: '#fff' },
     content: { flex: 1 },
-    weekScroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32, gap: 4 },
+    weekScroll: { paddingHorizontal: Spacing.base, paddingTop: Spacing.md, paddingBottom: Spacing.xl, gap: 4 },
     dayGroup: { marginBottom: 16 },
     dayGroupHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      marginBottom: 8,
+      gap: Spacing.sm,
+      marginBottom: Spacing.sm,
     },
     dayGroupHeaderToday: {},
     dayGroupTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textMuted },
@@ -435,7 +436,7 @@ function makeStyles(c: AppTheme) {
     todayDot: {
       width: 6, height: 6, borderRadius: 3, backgroundColor: c.success,
     },
-    emptyDayText: { fontSize: 12, color: c.textMuted, paddingLeft: 4, paddingVertical: 6 },
+    emptyDayText: { fontSize: 12, color: c.textMuted, paddingLeft: Spacing.xs, paddingVertical: 6 },
     eventItem: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -446,13 +447,13 @@ function makeStyles(c: AppTheme) {
       gap: 0,
     },
     eventBar: { width: 3, alignSelf: 'stretch' },
-    eventBody: { flex: 1, paddingHorizontal: 12, paddingVertical: 10 },
+    eventBody: { flex: 1, paddingHorizontal: Spacing.md, paddingVertical: 10 },
     eventTime: { fontSize: 10, color: c.textMuted, marginBottom: 2 },
     eventTitle: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textPrimary },
     eventLoc: { fontSize: 11, color: c.textMuted, marginTop: 2 },
     soonBadge: {
       backgroundColor: c.success + '25',
-      paddingHorizontal: 8,
+      paddingHorizontal: Spacing.sm,
       paddingVertical: 3,
       borderRadius: 8,
       marginRight: 10,
@@ -462,7 +463,7 @@ function makeStyles(c: AppTheme) {
     soonText: { fontSize: 11, color: c.success, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     ddaySmallBadge: {
       backgroundColor: c.warning + '20',
-      paddingHorizontal: 8,
+      paddingHorizontal: Spacing.sm,
       paddingVertical: 3,
       borderRadius: 8,
       marginRight: 10,
@@ -471,7 +472,7 @@ function makeStyles(c: AppTheme) {
     },
     ddaySmallText: { fontSize: 11, color: c.warning, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     weekGroup: { marginBottom: 20 },
-    weekHeader: { marginBottom: 8, gap: 4 },
+    weekHeader: { marginBottom: Spacing.sm, gap: 4 },
     weekTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.accent },
     weekUnderline: {
       height: 1.5,
@@ -483,13 +484,13 @@ function makeStyles(c: AppTheme) {
     insightCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: Spacing.md,
       backgroundColor: c.primary + '20',
       borderWidth: 1,
       borderColor: c.primary + '40',
       borderRadius: 12,
       padding: 14,
-      marginBottom: 16,
+      marginBottom: Spacing.base,
     },
     insightIcon: { fontSize: 22 },
     insightTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textPrimary, marginBottom: 3 },
@@ -497,7 +498,7 @@ function makeStyles(c: AppTheme) {
     aiSlotHint: {
       fontSize: 12,
       color: c.textMuted,
-      marginBottom: 12,
+      marginBottom: Spacing.md,
       lineHeight: 18,
     },
     slotCard: {
@@ -512,7 +513,7 @@ function makeStyles(c: AppTheme) {
     slotRank: { fontSize: 12, color: c.accent, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     slotDurBadge: {
       backgroundColor: c.success + '20',
-      paddingHorizontal: 8,
+      paddingHorizontal: Spacing.sm,
       paddingVertical: 2,
       borderRadius: 8,
       borderWidth: 1,

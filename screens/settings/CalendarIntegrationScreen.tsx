@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { AppTheme, useColors } from '../../constants/colors';
+import { Spacing } from '../../constants/spacing';
 
 interface CalendarProvider {
   id: string;
@@ -118,9 +119,9 @@ export default function CalendarIntegrationScreen() {
 function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     root:        { flex: 1, backgroundColor: c.bg },
-    scroll:      { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 10 },
+    scroll:      { paddingHorizontal: Spacing.base, paddingTop: Spacing.md, paddingBottom: 40, gap: 10 },
     sectionTitle: { fontSize: 20, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
-    sectionDesc:  { fontSize: 13, color: c.textMuted, marginBottom: 8, lineHeight: 18 },
+    sectionDesc:  { fontSize: 13, color: c.textMuted, marginBottom: Spacing.sm, lineHeight: 18 },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -132,7 +133,7 @@ function makeStyles(c: AppTheme) {
       borderColor: c.border,
     },
     cardDisabled:       { opacity: 0.45 },
-    cardLeft:           { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    cardLeft:           { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flex: 1 },
     providerIcon:       { fontSize: 26 },
     providerName:       { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textPrimary, marginBottom: 3 },
     textDisabled:       { color: c.textMuted },
@@ -141,7 +142,7 @@ function makeStyles(c: AppTheme) {
     disconnectedLabel:  { fontSize: 11, color: c.textMuted },
     btn: {
       backgroundColor: c.primary,
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       paddingVertical: 7,
       borderRadius: 8,
     },
@@ -151,13 +152,13 @@ function makeStyles(c: AppTheme) {
     infoBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: 8,
+      gap: Spacing.sm,
       backgroundColor: c.card,
       borderRadius: 10,
       padding: 14,
       borderWidth: 0.5,
       borderColor: c.border,
-      marginTop: 8,
+      marginTop: Spacing.sm,
     },
     infoText: { flex: 1, fontSize: 12, color: c.textMuted, lineHeight: 18 },
   });

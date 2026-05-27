@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppTheme, useColors } from '../constants/colors';
 import { Event } from '../types/database';
 import EventDetailSheet from './EventDetailSheet';
+import { Spacing } from '../constants/spacing';
 
 const KO_DAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 
@@ -170,8 +171,8 @@ function makeStyles(c: AppTheme) {
     sheet: {
       borderTopLeftRadius:  24,
       borderTopRightRadius: 24,
-      padding:              24,
-      paddingTop:           12,
+      padding: Spacing.lg,
+      paddingTop: Spacing.md,
       maxHeight:            '60%',
       shadowColor:          '#000',
       shadowOffset:         { width: 0, height: -4 },
@@ -181,7 +182,7 @@ function makeStyles(c: AppTheme) {
     },
     handleWrap: {
       alignItems:   'center',
-      marginBottom: 12,
+      marginBottom: Spacing.md,
     },
     handle: {
       width:        40,
@@ -192,7 +193,7 @@ function makeStyles(c: AppTheme) {
       flexDirection:  'row',
       justifyContent: 'space-between',
       alignItems:     'center',
-      marginBottom:   16,
+      marginBottom: Spacing.base,
     },
     dayLabel: {
       fontSize:   18,
@@ -202,11 +203,11 @@ function makeStyles(c: AppTheme) {
     emptyText: {
       textAlign: 'center',
       fontSize:  14,
-      marginTop: 24,
+      marginTop: Spacing.lg,
     },
     eventRow: {
       flexDirection: 'row',
-      gap:           12,
+      gap: Spacing.md,
       alignItems:    'flex-start',
     },
     eventTime: {
@@ -223,7 +224,7 @@ function makeStyles(c: AppTheme) {
     locationRow: {
       flexDirection: 'row',
       alignItems:    'center',
-      gap:           4,
+      gap: Spacing.xs,
       marginTop:     2,
     },
     locationText: {

@@ -10,6 +10,7 @@ import {
 } from '../utils/dateHelpers';
 import { localDateStr, todayDateStr } from '../utils/timeHelpers';
 import CalendarDayCell from './CalendarDayCell';
+import { Spacing } from '../constants/spacing';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 const SAT_COLOR = '#2563EB';
@@ -201,10 +202,10 @@ function makeStyles(c: AppTheme) {
       height: HEADER_H,
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 8,
+      paddingHorizontal: Spacing.sm,
     },
     arrowBtn: {
-      paddingHorizontal: 12,
+      paddingHorizontal: Spacing.md,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -227,7 +228,7 @@ function makeStyles(c: AppTheme) {
     dayLabels: {
       height: LABELS_H,
       flexDirection: 'row',
-      paddingHorizontal: 4,
+      paddingHorizontal: Spacing.xs,
     },
     dayLabel: {
       flex: 1,
@@ -240,7 +241,7 @@ function makeStyles(c: AppTheme) {
     },
     weekRow: {
       flexDirection: 'row',
-      paddingHorizontal: 4,
+      paddingHorizontal: Spacing.xs,
     },
   });
 }

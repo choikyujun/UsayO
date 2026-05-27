@@ -29,6 +29,7 @@ import EmptyTodayState from './EmptyTodayState';
 import EditTimeModal from './EditTimeModal';
 import EditTitleModal from './EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from './EventActionSheet';
+import { Spacing } from '../constants/spacing';
 
 export type { EventState };
 
@@ -458,7 +459,7 @@ const nowRowStyles = StyleSheet.create({
     flexDirection:     'row',
     alignItems:        'center',
     paddingHorizontal: PADDING_H,
-    marginVertical:    16,
+    marginVertical: Spacing.base,
     gap:               DOT_GAP,
   },
   time: {
@@ -518,8 +519,8 @@ function makeContainerStyles(c: AppTheme) {
       flexDirection:     'row',
       alignItems:        'center',
       justifyContent:    'space-between',
-      paddingHorizontal: 16,
-      paddingVertical:   12,
+      paddingHorizontal: Spacing.base,
+      paddingVertical: Spacing.md,
       shadowColor:       '#000',
       shadowOffset:      { width: 0, height: 2 },
       shadowOpacity:     0.12,

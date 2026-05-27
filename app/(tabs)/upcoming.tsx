@@ -2,6 +2,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import UpcomingScreen from '../../screens/UpcomingScreen';
 import { Colors } from '../../constants/colors';
 import { StyleSheet, Text, View } from 'react-native';
+import { Spacing } from '../../constants/spacing';
 
 export default function UpcomingTab() {
   return (
@@ -17,9 +18,9 @@ export default function UpcomingTab() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.darkBg },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 8,
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
     borderBottomWidth: 0.5,
     borderColor: Colors.darkBorder,
   },

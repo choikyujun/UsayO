@@ -51,6 +51,7 @@ import { localDateStr } from '../utils/timeHelpers';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
 import { computeOverlapLayout } from '../utils/eventOverlapLayout';
 import { useCurrentDate } from '../hooks/useCurrentDate';
+import { Spacing } from '../constants/spacing';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -431,13 +432,13 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       flexDirection:     'row',
       alignItems:        'center',
       justifyContent:    'space-between',
-      paddingHorizontal: 16,
-      paddingVertical:   8,
+      paddingHorizontal: Spacing.base,
+      paddingVertical: Spacing.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: c.border,
     },
     dateLabel: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
-    todayBtn:  { paddingHorizontal: 8, paddingVertical: 4 },
+    todayBtn:  { paddingHorizontal: Spacing.sm, paddingVertical: 4 },
     todayText: { fontSize: 13, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
 
     // Voice overlays
@@ -450,7 +451,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     },
     listenLabel: { fontSize: 22, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     cancelBtn: {
-      paddingHorizontal: 24,
+      paddingHorizontal: Spacing.lg,
       paddingVertical:   10,
       borderRadius:      12,
       borderWidth:       1,
@@ -462,7 +463,7 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       ...StyleSheet.absoluteFillObject,
       alignItems:     'center',
       justifyContent: 'center',
-      gap:            12,
+      gap: Spacing.md,
     },
     processText: { fontSize: 15 },
 

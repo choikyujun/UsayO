@@ -7,6 +7,7 @@ import { speechService } from '../services/voice/SpeechRecognitionService';
 import { ttsService } from '../services/voice/TTSService';
 import { ClassifiedIntent } from '../types';
 import { matchMultiConfirmResponse } from '../utils/voiceResponseMatcher';
+import { Spacing } from '../constants/spacing';
 
 interface Props {
   events:     ClassifiedIntent[];
@@ -158,7 +159,7 @@ function makeStyles(c: AppTheme) {
     card: {
       backgroundColor: c.card,
       borderRadius: 20,
-      padding: 24,
+      padding: Spacing.lg,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.18,
@@ -169,12 +170,12 @@ function makeStyles(c: AppTheme) {
     },
     headerRow: {
       flexDirection: 'row',
-      marginBottom: 12,
+      marginBottom: Spacing.md,
     },
     badge: {
       backgroundColor: c.primary + '1A',
-      paddingHorizontal: 12,
-      paddingVertical: 4,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs,
       borderRadius: 20,
     },
     badgeText: {
@@ -185,11 +186,11 @@ function makeStyles(c: AppTheme) {
     rawText: {
       fontSize: 14,
       fontStyle: 'italic',
-      marginBottom: 16,
+      marginBottom: Spacing.base,
     },
     list: {
-      gap: 12,
-      marginBottom: 24,
+      gap: Spacing.md,
+      marginBottom: Spacing.lg,
     },
     eventRow: {
       flexDirection: 'row',

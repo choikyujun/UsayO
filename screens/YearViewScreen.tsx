@@ -17,6 +17,7 @@ import { useCurrentDate } from '../hooks/useCurrentDate';
 import { useYearEvents } from '../hooks/useYearEvents';
 import { formatYearLabel } from '../utils/yearViewLayout';
 import { useState } from 'react';
+import { Spacing } from '../constants/spacing';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -117,12 +118,12 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     subHeader: {
       flexDirection:     'row',
       alignItems:        'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       paddingVertical:   10,
     },
     yearLabel: { fontSize: 24, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     todayWrap: { flex: 1, alignItems: 'flex-end' },
-    todayBtn:  { paddingHorizontal: 8, paddingVertical: 4 },
+    todayBtn:  { paddingHorizontal: Spacing.sm, paddingVertical: 4 },
     todayText: { fontSize: 13, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     gridWrap:  { flex: 1, paddingBottom: 12 },
   });

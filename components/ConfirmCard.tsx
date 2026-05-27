@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { AppTheme, useColors } from '../constants/colors';
 import { ClassifiedIntent } from '../types';
 import { formatKoreanTime } from '../utils/timeFormat';
+import { Spacing } from '../constants/spacing';
 
 type Props = {
   intent: ClassifiedIntent;
@@ -112,7 +113,7 @@ function makeStyles(c: AppTheme) {
     card: {
       backgroundColor: c.card,
       borderRadius: 20,
-      padding: 24,
+      padding: Spacing.lg,
       marginHorizontal: 20,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 8 },
@@ -123,10 +124,10 @@ function makeStyles(c: AppTheme) {
     intentBadge: {
       backgroundColor: c.card2,
       alignSelf: 'flex-start',
-      paddingHorizontal: 12,
-      paddingVertical: 4,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.xs,
       borderRadius: 20,
-      marginBottom: 12,
+      marginBottom: Spacing.md,
     },
     intentLabel: {
       color: c.primary,
@@ -137,17 +138,17 @@ function makeStyles(c: AppTheme) {
     rawText: {
       fontSize: 14,
       color: c.textMuted,
-      marginBottom: 16,
+      marginBottom: Spacing.base,
       fontStyle: 'italic',
     },
     details: {
       gap: 10,
-      marginBottom: 24,
+      marginBottom: Spacing.lg,
     },
     detailRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: Spacing.sm,
     },
     detailText: {
       fontSize: 17,
@@ -164,7 +165,7 @@ function makeStyles(c: AppTheme) {
     },
     actions: {
       flexDirection: 'row',
-      gap: 12,
+      gap: Spacing.md,
     },
     retryBtn: {
       flex: 1,

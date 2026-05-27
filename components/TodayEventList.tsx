@@ -22,6 +22,7 @@ import EventActionSheet from './EventActionSheet';
 import EventGroupHeader from './EventGroupHeader';
 import EventRow from './EventRow';
 import NowIndicator from './NowIndicator';
+import { Spacing } from '../constants/spacing';
 
 interface Props {
   events:        Event[];
@@ -230,12 +231,12 @@ export default function TodayEventList({
 function DateHeader({ label, colors }: { label: string; colors: AppTheme }) {
   return (
     <View style={{
-      paddingTop: 24,
+      paddingTop: Spacing.lg,
       paddingBottom: 6,
       paddingHorizontal: 20,
       borderTopWidth: 0.5,
       borderTopColor: colors.border,
-      marginTop: 8,
+      marginTop: Spacing.sm,
     }}>
       <Text style={{ fontSize: 12, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: colors.textMuted, letterSpacing: 0.4 }}>
         {label}
@@ -264,8 +265,8 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: Spacing.base,
+      paddingVertical: Spacing.md,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.12,

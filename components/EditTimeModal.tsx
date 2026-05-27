@@ -8,6 +8,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { Spacing } from '../constants/spacing';
 
 type Scope = 'this' | 'future' | 'all';
 
@@ -355,7 +356,7 @@ function makeStyles(c: AppTheme) {
       width: '85%',
       backgroundColor: c.card,
       borderRadius: 20,
-      padding: 24,
+      padding: Spacing.lg,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.18,
@@ -376,7 +377,7 @@ function makeStyles(c: AppTheme) {
       justifyContent: 'space-between',
       borderWidth: 1,
       borderRadius: 12,
-      paddingHorizontal: 12,
+      paddingHorizontal: Spacing.md,
       paddingVertical: 10,
       marginBottom: 20,
     },
@@ -386,8 +387,8 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 12,
-      marginBottom: 24,
+      gap: Spacing.md,
+      marginBottom: Spacing.lg,
     },
     spinnerCol:   { alignItems: 'center', gap: 6 },
     spinnerArrow: { padding: 4 },
@@ -400,11 +401,11 @@ function makeStyles(c: AppTheme) {
     colon:      { fontSize: 26, fontWeight: '300', marginBottom: 4 },
     iosPickerWrap: {
       borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
-      overflow: 'hidden', marginBottom: 8,
+      overflow: 'hidden', marginBottom: Spacing.sm,
     },
     iosPickerDone: {
-      margin: 12, borderRadius: 12,
-      alignItems: 'center', paddingVertical: 12,
+      margin: Spacing.md, borderRadius: 12,
+      alignItems: 'center', paddingVertical: Spacing.md,
     },
     iosPickerDoneText: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: '#fff' },
 
@@ -412,13 +413,13 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       justifyContent: 'flex-end',
       alignItems: 'center',
-      gap: 12,
+      gap: Spacing.md,
     },
-    cancelBtn:   { height: 48, paddingHorizontal: 8, justifyContent: 'center' },
+    cancelBtn:   { height: 48, paddingHorizontal: Spacing.sm, justifyContent: 'center' },
     cancelText:  { fontSize: 16, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
-    saveBtn:     { height: 48, paddingHorizontal: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    saveBtn:     { height: 48, paddingHorizontal: Spacing.lg, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
     saveBtnText: { fontSize: 16, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: '#fff' },
-    scopeList:   { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, marginBottom: 16, overflow: 'hidden' },
+    scopeList:   { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, marginBottom: Spacing.base, overflow: 'hidden' },
     scopeItem:   { paddingVertical: 15, paddingHorizontal: 16 },
     scopeText:   { fontSize: 16 },
   });

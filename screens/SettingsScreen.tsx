@@ -15,6 +15,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { ACCENT_PALETTES, useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { useSubscriptionStore } from '../stores/useSubscriptionStore';
+import { Spacing } from '../constants/spacing';
 
 const PLAN_LABEL: Record<string, string> = {
   free: 'Free',
@@ -187,13 +188,13 @@ export default function SettingsScreen() {
 function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40, gap: 12 },
+    scroll: { paddingHorizontal: Spacing.base, paddingTop: Spacing.sm, paddingBottom: 40, gap: 12 },
     profileCard: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: c.card,
       borderRadius: 14,
-      padding: 16,
+      padding: Spacing.base,
       borderWidth: 0.5,
       borderColor: c.border,
       gap: 14,
@@ -212,7 +213,7 @@ function makeStyles(c: AppTheme) {
     profileEmail: { fontSize: 12, color: c.textMuted },
     planBadge: {
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: Spacing.xs,
       borderRadius: 10,
       borderWidth: 1.5,
     },
@@ -250,7 +251,7 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       paddingTop: 14,
       paddingBottom: 10,
     },
@@ -260,9 +261,9 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-around',
-      paddingHorizontal: 16,
-      paddingBottom: 16,
-      gap: 8,
+      paddingHorizontal: Spacing.base,
+      paddingBottom: Spacing.base,
+      gap: Spacing.sm,
     },
     colorCircle: {
       width: 44,
@@ -283,7 +284,7 @@ function makeStyles(c: AppTheme) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       paddingVertical: 14,
     },
     toggleRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
@@ -291,9 +292,9 @@ function makeStyles(c: AppTheme) {
     menuRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: Spacing.base,
       paddingVertical: 14,
-      gap: 12,
+      gap: Spacing.md,
     },
     menuRowBorder: {
       borderTopWidth: 0.5,
@@ -314,7 +315,7 @@ function makeStyles(c: AppTheme) {
       fontSize: 11,
       color: c.textMuted,
       opacity: 0.5,
-      marginTop: 4,
+      marginTop: Spacing.xs,
     },
   });
 }
