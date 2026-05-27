@@ -135,22 +135,21 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
               borderColor: 'rgba(230, 57, 70, 0.4)',
               borderWidth: 0.5,
               borderRadius: 16,
-              paddingVertical: 14,
-              paddingHorizontal: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
               marginTop: 12,
+              overflow: 'hidden',
               opacity: pressed ? 0.7 : 1,
             })}
           >
-            <Trash2 size={24} color="#E63946" strokeWidth={1.75} style={{ marginRight: 14 }} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 15, fontWeight: '500', color: '#E63946', marginBottom: 2 }}>
-                전체 반복 일정 삭제
-              </Text>
-              <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.55)' }}>
-                지난 일정도 모두 삭제됩니다
-              </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 16 }}>
+              <Trash2 size={24} color="#E63946" strokeWidth={1.75} style={{ marginRight: 14 }} />
+              <View>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: '#E63946', marginBottom: 2 }}>
+                  전체 반복 일정 삭제
+                </Text>
+                <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.55)' }}>
+                  지난 일정도 모두 삭제됩니다
+                </Text>
+              </View>
             </View>
           </Pressable>
         )}
