@@ -511,6 +511,52 @@ export function useSchedules(date: string, daysAhead = 0) {
       return target.id;
     }
 
+    // ── NOTIFICATION_UPDATE ──────────────────────────────────────
+    if (intent.intent === 'NOTIFICATION_UPDATE') {
+      const notifOffset = intent.notificationOffsetMinutes !== undefined
+        ? intent.notificationOffsetMinutes
+        : null;
+      const rawQuery = intent.targetEventQuery ?? intent.title ?? '';
+      const hintDate = intent.startDateTime?.date;
+      console.log('[VoiceFlow] NOTIFICATION_UPDATE branch, query:', rawQuery, '| offset:', notifOffset);
+
+      let targetIds: string[] = [];
+      if (intent.targetEventIds && intent.targetEventIds.length > 0) {
+        targetIds = intent.targetEventIds;
+      } else if (intent.targetEventId) {
+        targetIds = [intent.targetEventId];
+      } else {
+        const candidates = await searchEventsByQuery(rawQuery, hintDate);
+        if (candidates.length === 0) throw new Error('해당 일정을 찾을 수 없어요.');
+        if (candidates.length > 1) {
+          const titles = candidates.slice(0, 3).map(e => e.title).join(', ');
+          throw new Error(`일정이 여러 개 있어요: ${titles} — 더 구체적으로 말씀해 주세요.`);
+        }
+        targetIds = [candidates[0].id];
+      }
+
+      const { error } = await supabase
+        .from('events')
+        .update({ notification_offset_minutes: notifOffset, updated_at: new Date().toISOString() })
+        .in('id', targetIds);
+      console.log('[VoiceFlow] NOTIFICATION_UPDATE DB result: error=', error?.message ?? null);
+      if (error) throw new Error(error.message);
+
+      const { data: updated } = await supabase.from('events').select('*').in('id', targetIds);
+      if (updated) {
+        const updatedMap = new Map(updated.map(e => [e.id, e as Event]));
+        setEvents(prev => prev.map(e => updatedMap.get(e.id) ?? e));
+        for (const ev of updated) {
+          if (notifOffset === null) {
+            cancelEventNotification(ev.id).catch(() => {});
+          } else {
+            scheduleEventNotification(ev as Event).catch(() => {});
+          }
+        }
+      }
+      return targetIds[0];
+    }
+
     return undefined;
   }
 

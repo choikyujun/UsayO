@@ -204,6 +204,7 @@ export function useVoiceFlow() {
       resolvedIntent.intent === 'DELETE' ||
       resolvedIntent.intent === 'UPDATE' ||
       resolvedIntent.intent === 'COMPLETE' ||
+      resolvedIntent.intent === 'NOTIFICATION_UPDATE' ||
       (resolvedIntent.events?.length ?? 0) > 0 ||
       (resolvedIntent.targetEventIds?.length ?? 0) > 0;
 

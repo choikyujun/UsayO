@@ -40,7 +40,7 @@ export interface STTResult {
   alternatives?: Array<{ transcript: string; confidence: number }>;
 }
 
-export type IntentType = 'CREATE' | 'UPDATE' | 'DELETE' | 'COMPLETE' | 'QUERY' | 'NAVIGATION' | 'RESCHEDULE_UNDO' | 'UNKNOWN';
+export type IntentType = 'CREATE' | 'UPDATE' | 'DELETE' | 'COMPLETE' | 'QUERY' | 'NAVIGATION' | 'RESCHEDULE_UNDO' | 'NOTIFICATION_UPDATE' | 'UNKNOWN';
 export type NavigationTarget = 'today' | 'calendar' | 'upcoming' | 'settings';
 
 export interface ClassifiedIntent {
@@ -78,6 +78,8 @@ export interface ClassifiedIntent {
   targetEventIds?: string[];
   // 다중 매칭 범위
   scope?: 'single' | 'all_day' | 'filtered';
+  // NOTIFICATION_UPDATE
+  notificationOffsetMinutes?: number | null;
   // 시간 모호성 (오전/오후 미지정 "6시" 등)
   ambiguous?: boolean;
   suggestedMeridiem?: 'AM' | 'PM';

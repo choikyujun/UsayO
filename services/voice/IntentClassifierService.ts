@@ -14,6 +14,7 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 - COMPLETE: 기존 일정 완료 처리 ("완료해줘", "완료 처리해줘", "끝났어", "다 했어", "체크해줘", "done", "끝냈어", "마쳤어")
 - QUERY:  일정 조회 ("알려줘", "보여줘", "뭐 있어", "확인해줘") — 단, 화면 이동이 명확하면 NAVIGATION 우선
 - NAVIGATION: 화면 이동 ("보여줘" + 화면명, "이동해줘", "열어줘")
+- NOTIFICATION_UPDATE: 일정 알림 시점 변경 ("알림 바꿔줘", "알림 꺼줘", "N분 전으로 알림 설정해줘", "알림 없애줘")
 - RESCHEDULE_UNDO: 드래그 이동 취소 ("방금 옮긴 거 취소", "방금 이동한 거 되돌려", "되돌려줘", "원래대로")
 - UNKNOWN: 위에 해당하지 않음
 
@@ -173,8 +174,28 @@ ambiguous: true이면 사용자가 AM/PM을 UI에서 선택하므로 date는 sug
   "queryType": "list|free_slots|specific",
   "navigationTarget": "today|calendar|upcoming|settings",
   "ambiguous": false,
-  "suggestedMeridiem": "AM|PM (ambiguous: true일 때만 설정)"
-}`;
+  "suggestedMeridiem": "AM|PM (ambiguous: true일 때만 설정)",
+  "notificationOffsetMinutes": null
+}
+
+## NOTIFICATION_UPDATE 규칙
+- targetEventQuery: 알림을 바꿀 일정 제목 키워드
+- targetEventId / targetEventIds: nearby events에서 특정 가능할 때 설정
+- notificationOffsetMinutes: 알림 시점(분 단위, 일정 시작 N분 전)
+  * null = 알림 없음 ("꺼줘", "없애줘", "알림 없음")
+  * 0 = 시작 시 알림
+  * 5, 10, 15, 30 = N분 전
+  * 60 = 1시간 전, 120 = 2시간 전
+  * 1440 = 1일 전, 2880 = 2일 전, 10080 = 1주 전
+
+발화: "내일 팀 회의 알림을 30분 전으로 바꿔줘"
+→ {"intent":"NOTIFICATION_UPDATE","targetEventQuery":"팀 회의","startDateTime":{"date":"{exampleTomorrow}T09:00:00+09:00","isRecurring":false,"confidence":0.8},"notificationOffsetMinutes":30,"confidence":0.95}
+
+발화: "오늘 운동 알림 꺼줘"
+→ {"intent":"NOTIFICATION_UPDATE","targetEventQuery":"운동","notificationOffsetMinutes":null,"confidence":0.95}
+
+발화: "팀 미팅 알림을 1시간 전으로 설정해줘"
+→ {"intent":"NOTIFICATION_UPDATE","targetEventQuery":"팀 미팅","notificationOffsetMinutes":60,"confidence":0.95}`;
 
 export class IntentClassifierService {
   private readonly apiKey: string;
@@ -328,6 +349,8 @@ export class IntentClassifierService {
 
     if (/방금.*취소|방금.*되돌|방금.*원래|되돌려줘|원래대로/.test(lower)) {
       intent = 'RESCHEDULE_UNDO';
+    } else if (/알림.*(바꿔|설정|변경|꺼|없애)|알림\s*없애줘/.test(lower)) {
+      intent = 'NOTIFICATION_UPDATE';
     } else if (/캘린더|달력|이번 달|월별/.test(lower)) {
       intent = 'NAVIGATION'; navigationTarget = 'calendar';
     } else if (/다가올|이번 주|이후 일정|앞으로/.test(lower)) {
@@ -372,8 +395,24 @@ export class IntentClassifierService {
       }
     }
 
-    // DELETE/UPDATE: targetEventQuery 추출 (제목 키워드, 검색용)
+    // DELETE/UPDATE/NOTIFICATION_UPDATE: targetEventQuery 추출 (제목 키워드, 검색용)
     const eventKeyword = this.extractEventKeyword(text);
+
+    // NOTIFICATION_UPDATE: notificationOffsetMinutes 추출
+    let notifOffset: number | null | undefined;
+    if (intent === 'NOTIFICATION_UPDATE') {
+      if (/없음|안\s*함|꺼줘|끄기|알림\s*없음/.test(text)) {
+        notifOffset = null;
+      } else {
+        const mM = text.match(/(\d+)\s*분\s*전/);
+        const hM = text.match(/(\d+)\s*시간\s*전/);
+        const dM = text.match(/(\d+)\s*일\s*전/);
+        if (mM) notifOffset = parseInt(mM[1]);
+        else if (hM) notifOffset = parseInt(hM[1]) * 60;
+        else if (dM) notifOffset = parseInt(dM[1]) * 1440;
+        else notifOffset = null;
+      }
+    }
 
     return {
       intent,
@@ -381,9 +420,10 @@ export class IntentClassifierService {
       title: this.extractTitle(text, intent),
       startDateTime: intent === 'NAVIGATION' ? undefined : startDateTime,
       navigationTarget,
-      targetEventQuery:    (intent === 'DELETE' || intent === 'UPDATE' || intent === 'COMPLETE') ? eventKeyword : undefined,
-      deleteTargetQuery:   intent === 'DELETE'                                                  ? eventKeyword : undefined,
-      completeTargetQuery: intent === 'COMPLETE'                                                ? eventKeyword : undefined,
+      targetEventQuery:          (intent === 'DELETE' || intent === 'UPDATE' || intent === 'COMPLETE' || intent === 'NOTIFICATION_UPDATE') ? eventKeyword : undefined,
+      deleteTargetQuery:         intent === 'DELETE'               ? eventKeyword : undefined,
+      completeTargetQuery:       intent === 'COMPLETE'             ? eventKeyword : undefined,
+      notificationOffsetMinutes: intent === 'NOTIFICATION_UPDATE'  ? notifOffset  : undefined,
       rawTranscript: text,
     };
   }

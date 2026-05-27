@@ -49,6 +49,9 @@ export class TTSService {
 
     switch (intent.intent) {
       case 'CREATE': {
+        if (intent.events?.length) {
+          return `${intent.events.length}개 일정 저장할까요?`;
+        }
         const title = intent.title ?? '일정';
         if (intent.ambiguous && intent.startDateTime) {
           const dt     = intent.startDateTime;
@@ -93,6 +96,15 @@ export class TTSService {
       case 'QUERY': {
         return '일정을 불러올게요.';
       }
+      case 'NOTIFICATION_UPDATE': {
+        const target = intent.targetEventQuery ?? '이 일정';
+        const offset = intent.notificationOffsetMinutes;
+        if (offset === null || offset === undefined) return `${target} 알림을 끌까요?`;
+        if (offset === 0)     return `${target} 알림을 시작 시로 바꿀까요?`;
+        if (offset < 60)     return `${target} 알림을 ${offset}분 전으로 바꿀까요?`;
+        if (offset < 1440)   return `${target} 알림을 ${Math.round(offset / 60)}시간 전으로 바꿀까요?`;
+        return `${target} 알림을 ${Math.round(offset / 1440)}일 전으로 바꿀까요?`;
+      }
       default:
         return '다시 말씀해 주세요.';
     }
@@ -118,6 +130,14 @@ export class TTSService {
         return '일정이 삭제됐어요.';
       case 'COMPLETE': return '일정을 완료 처리했어요!';
       case 'QUERY': return '';
+      case 'NOTIFICATION_UPDATE': {
+        const offset = intent.notificationOffsetMinutes;
+        if (offset === null || offset === undefined) return '알림을 껐어요.';
+        if (offset === 0) return '시작 시 알림으로 설정했어요.';
+        if (offset < 60) return `${offset}분 전 알림으로 설정했어요.`;
+        if (offset < 1440) return `${Math.round(offset / 60)}시간 전 알림으로 설정했어요.`;
+        return `${Math.round(offset / 1440)}일 전 알림으로 설정했어요.`;
+      }
       default: return '완료됐어요!';
     }
   }
