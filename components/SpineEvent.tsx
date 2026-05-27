@@ -27,6 +27,7 @@ interface SpineEventProps {
   expanded:    boolean;
   isHoliday:   boolean;
   isLunch:     boolean;
+  isCompleted: boolean;
   onTap:       () => void;
   onLongPress: (e: Event) => void;
   onDelete:    (e: Event) => void;
@@ -39,12 +40,13 @@ interface SpineEventProps {
 }
 
 export default function SpineEvent({
-  event, state, expanded, isHoliday, isLunch,
+  event, state, expanded, isHoliday, isLunch, isCompleted,
   onTap, onLongPress, onDelete, onComplete, colors,
   onLayout, getDropTime, onReschedule,
 }: SpineEventProps) {
-  const swipeRef  = useRef<Swipeable>(null);
-  const styles    = useMemo(() => makeStyles(colors, state), [colors, state]);
+  const swipeRef      = useRef<Swipeable>(null);
+  const pendingAction = useRef<'complete' | 'delete' | null>(null);
+  const styles        = useMemo(() => makeStyles(colors, state), [colors, state]);
   const isPast    = state === 'past';
   const isNext    = state === 'next';
   const isCurrent = state === 'current';
@@ -122,12 +124,10 @@ export default function SpineEvent({
     });
 
   function handleComplete() {
-    swipeRef.current?.close();
     onComplete(event);
   }
 
   function handleSwipeDelete() {
-    swipeRef.current?.close();
     onDelete(event);
   }
 
@@ -143,9 +143,9 @@ export default function SpineEvent({
         <Swipeable
           ref={swipeRef}
           renderLeftActions={() => (
-            <View style={styles.actionLeft}>
-              <Text style={styles.actionIcon}>✓</Text>
-              <Text style={styles.actionLabel}>완료</Text>
+            <View style={[styles.actionLeft, isCompleted && styles.actionUndo]}>
+              <Text style={styles.actionIcon}>{isCompleted ? '↩' : '✓'}</Text>
+              <Text style={styles.actionLabel}>{isCompleted ? '완료취소' : '완료'}</Text>
             </View>
           )}
           renderRightActions={() => (
@@ -155,8 +155,17 @@ export default function SpineEvent({
             </View>
           )}
           onSwipeableOpen={dir => {
-            if (dir === 'left') handleComplete();
-            else handleSwipeDelete();
+            pendingAction.current = dir === 'left' ? 'complete' : 'delete';
+            Haptics.impactAsync(
+              dir === 'left' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Heavy,
+            ).catch(() => {});
+            swipeRef.current?.close();
+          }}
+          onSwipeableClose={() => {
+            const action = pendingAction.current;
+            pendingAction.current = null;
+            if (action === 'complete') handleComplete();
+            else if (action === 'delete') handleSwipeDelete();
           }}
           friction={2}
           leftThreshold={60}
@@ -305,6 +314,7 @@ function makeStyles(c: AppTheme, state: EventState) {
       paddingHorizontal: 24,
       gap:               2,
     },
+    actionUndo:  { backgroundColor: c.primary },
     actionIcon:  { fontSize: 16, color: '#fff' },
     actionLabel: { fontSize: 10, color: '#fff', fontWeight: '700' },
   });

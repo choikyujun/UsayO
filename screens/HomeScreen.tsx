@@ -102,6 +102,7 @@ export default function HomeScreen() {
     recurringParents,
     lastCreatedId, applyClassifiedIntent,
     deleteEventById,
+    toggleEventComplete,
     rescheduleEvent, undoRescheduleEvent,
     reload: reloadSchedules,
   } = useSchedules(selectedDate, 7);
@@ -358,6 +359,16 @@ export default function HomeScreen() {
     deleteEventById(event.id).catch(() => {});
   }, [deleteEventById]);
 
+  const handleCompleteUpcoming = useCallback((event: CalEvent) => {
+    toggleEventComplete(event.id, !!event.completed_at).catch(() => {});
+  }, [toggleEventComplete]);
+
+  const handleCompleteToday = useCallback((event: CalEvent) => {
+    const willComplete = !event.completed_at;
+    patchEvent(event.id, { completed_at: willComplete ? new Date().toISOString() : null });
+    toggleEventComplete(event.id, !!event.completed_at).catch(() => {});
+  }, [toggleEventComplete, patchEvent]);
+
   const handleConfirm = useCallback(async () => {
     ttsService.stop();
     if (voice.classifiedIntent?.events?.length) {
@@ -476,7 +487,8 @@ export default function HomeScreen() {
           isRefreshing={isRefreshing}
           listPaddingBottom={insets.bottom + 120}
           onReschedule={handleReschedule}
-          footerContent={<UpcomingSection allEvents={allEvents} onLongPress={handleLongPressUpcoming} onDelete={handleDeleteUpcoming} />}
+          onToggleComplete={handleCompleteToday}
+          footerContent={<UpcomingSection allEvents={allEvents} onLongPress={handleLongPressUpcoming} onDelete={handleDeleteUpcoming} onComplete={handleCompleteUpcoming} />}
         />
       </ReAnimated.View>
 
@@ -539,7 +551,6 @@ export default function HomeScreen() {
               transcript={voice.transcript}
               onConfirm={handleConfirm}
               onRetry={handleRetry}
-              onAmPmChange={voice.setConfirmedIntent}
             />
           </View>
         )

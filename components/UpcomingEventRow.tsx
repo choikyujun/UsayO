@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { CheckCircle, RotateCcw } from 'lucide-react-native';
 import { useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -19,29 +20,50 @@ interface Props {
   onTap:        () => void;
   onLongPress?: () => void;
   onDelete?:    () => void;
+  onComplete?:  () => void;
 }
 
-export default function UpcomingEventRow({ event, colors, expanded, onTap, onLongPress, onDelete }: Props) {
-  const styles   = useMemo(() => makeStyles(colors), [colors]);
-  const swipeRef = useRef<Swipeable>(null);
+export default function UpcomingEventRow({
+  event, colors, expanded, onTap, onLongPress, onDelete, onComplete,
+}: Props) {
+  const styles        = useMemo(() => makeStyles(colors), [colors]);
+  const swipeRef      = useRef<Swipeable>(null);
+  const pendingAction = useRef<'complete' | 'delete' | null>(null);
   const startTime = formatTimeRow(new Date(event.start_at));
+  const isCompleted = !!event.completed_at;
 
   async function handleLongPress() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     onLongPress?.();
   }
 
-  async function handleSwipeDelete() {
-    swipeRef.current?.close();
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+  function handleSwipeDelete() {
     onDelete?.();
   }
 
-  function renderRightAction() {
+  function handleSwipeComplete() {
+    onComplete?.();
+  }
+
+  // renderRightActions: right panel revealed when row slides LEFT (left swipe) → delete
+  function renderDeleteAction() {
     return (
-      <View style={styles.actionRight}>
-        <Text style={styles.actionRightIcon}>🗑️</Text>
-        <Text style={styles.actionRightLabel}>삭제</Text>
+      <View style={styles.actionDelete}>
+        <Text style={styles.actionIcon}>🗑️</Text>
+        <Text style={styles.actionDeleteLabel}>삭제</Text>
+      </View>
+    );
+  }
+
+  // renderLeftActions: left panel revealed when row slides RIGHT (right swipe) → complete / undo
+  function renderCompleteAction() {
+    return (
+      <View style={[styles.actionComplete, isCompleted && styles.actionUndo]}>
+        {isCompleted
+          ? <RotateCcw size={16} color="#fff" />
+          : <CheckCircle size={16} color="#fff" />
+        }
+        <Text style={styles.actionCompleteLabel}>{isCompleted ? '완료취소' : '완료'}</Text>
       </View>
     );
   }
@@ -49,32 +71,55 @@ export default function UpcomingEventRow({ event, colors, expanded, onTap, onLon
   return (
     <Swipeable
       ref={swipeRef}
-      renderRightActions={onDelete ? renderRightAction : undefined}
-      onSwipeableOpen={(direction) => { if (direction === 'right') handleSwipeDelete(); }}
+      renderRightActions={onDelete ? renderDeleteAction : undefined}
+      renderLeftActions={onComplete ? renderCompleteAction : undefined}
+      onSwipeableOpen={(direction) => {
+        pendingAction.current = direction === 'right' ? 'delete' : 'complete';
+        Haptics.notificationAsync(
+          direction === 'right'
+            ? Haptics.NotificationFeedbackType.Warning
+            : Haptics.NotificationFeedbackType.Success,
+        ).catch(() => {});
+        swipeRef.current?.close();
+      }}
+      onSwipeableClose={() => {
+        const action = pendingAction.current;
+        pendingAction.current = null;
+        if (action === 'delete') handleSwipeDelete();
+        else if (action === 'complete') handleSwipeComplete();
+      }}
       friction={2}
+      leftThreshold={60}
       rightThreshold={60}
+      overshootLeft={false}
       overshootRight={false}
     >
       <Pressable
         onPress={onTap}
         onLongPress={onLongPress ? handleLongPress : undefined}
         delayLongPress={500}
-        style={styles.row}
+        style={[styles.row, isCompleted && styles.rowCompleted]}
       >
         {/* Time */}
-        <Text style={styles.time}>{startTime}</Text>
+        <Text style={[styles.time, isCompleted && styles.textCompleted]}>{startTime}</Text>
 
         {/* Dot + content */}
         <View style={styles.dotCol}>
-          <View style={styles.dot} />
+          {isCompleted
+            ? <CheckCircle size={DOT_SIZE + 4} color={colors.success} />
+            : <View style={styles.dot} />
+          }
         </View>
 
         <View style={styles.content}>
           <View style={styles.titleRow}>
-            <Text style={styles.title} numberOfLines={expanded ? undefined : 1}>
+            <Text
+              style={[styles.title, isCompleted && styles.titleCompleted]}
+              numberOfLines={expanded ? undefined : 1}
+            >
               {event.title}
             </Text>
-            {event.is_recurring && (
+            {event.is_recurring && !isCompleted && (
               <Text style={[styles.recurIcon, { color: colors.accent }]}>🔁</Text>
             )}
           </View>
@@ -111,6 +156,9 @@ function makeStyles(c: AppTheme) {
       gap:               DOT_GAP,
       backgroundColor:   'transparent',
     },
+    rowCompleted: {
+      opacity: 0.5,
+    },
     time: {
       width:      TIME_W,
       fontSize:   11,
@@ -118,15 +166,18 @@ function makeStyles(c: AppTheme) {
       color:      c.textMuted,
       textAlign:  'right',
     },
+    textCompleted: {
+      textDecorationLine: 'line-through',
+    },
     dotCol: {
-      width:          DOT_SIZE,
+      width:          DOT_SIZE + 4,
       alignItems:     'center',
       justifyContent: 'center',
     },
     dot: {
-      width:        DOT_SIZE,
-      height:       DOT_SIZE,
-      borderRadius: DOT_SIZE / 2,
+      width:           DOT_SIZE,
+      height:          DOT_SIZE,
+      borderRadius:    DOT_SIZE / 2,
       backgroundColor: c.border,
     },
     content: {
@@ -143,6 +194,10 @@ function makeStyles(c: AppTheme) {
       fontWeight: '400',
       flex:       1,
     },
+    titleCompleted: {
+      textDecorationLine: 'line-through',
+      color:              c.textMuted,
+    },
     recurIcon: { fontSize: 10 },
     expandedArea: {
       marginTop: 4,
@@ -153,14 +208,25 @@ function makeStyles(c: AppTheme) {
       color:      c.textMuted,
       fontFamily: MONO,
     },
-    actionRight: {
-      backgroundColor: c.error,
-      alignItems:      'center',
-      justifyContent:  'center',
+    actionDelete: {
+      backgroundColor:   c.error,
+      alignItems:        'center',
+      justifyContent:    'center',
       paddingHorizontal: 24,
-      gap: 2,
+      gap:               2,
     },
-    actionRightIcon:  { fontSize: 16 },
-    actionRightLabel: { fontSize: 10, color: '#fff', fontWeight: '700' },
+    actionComplete: {
+      backgroundColor:   c.success,
+      alignItems:        'center',
+      justifyContent:    'center',
+      paddingHorizontal: 24,
+      gap:               2,
+    },
+    actionUndo: {
+      backgroundColor: c.primary,
+    },
+    actionIcon:          { fontSize: 16 },
+    actionDeleteLabel:   { fontSize: 10, color: '#fff', fontWeight: '700' },
+    actionCompleteLabel: { fontSize: 10, color: '#fff', fontWeight: '700' },
   });
 }

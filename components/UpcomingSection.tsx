@@ -8,9 +8,10 @@ interface Props {
   allEvents:    Event[];
   onLongPress?: (event: Event) => void;
   onDelete?:    (event: Event) => void;
+  onComplete?:  (event: Event) => void;
 }
 
-export default function UpcomingSection({ allEvents, onLongPress, onDelete }: Props) {
+export default function UpcomingSection({ allEvents, onLongPress, onDelete, onComplete }: Props) {
   const colors = useColors();
   const groups = useUpcomingEvents(allEvents);
 
@@ -25,6 +26,7 @@ export default function UpcomingSection({ allEvents, onLongPress, onDelete }: Pr
           colors={colors}
           onLongPress={onLongPress}
           onDelete={onDelete}
+          onComplete={onComplete}
         />
       ))}
     </View>

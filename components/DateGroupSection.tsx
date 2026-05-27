@@ -13,9 +13,10 @@ interface Props {
   colors:       AppTheme;
   onLongPress?: (event: Event) => void;
   onDelete?:    (event: Event) => void;
+  onComplete?:  (event: Event) => void;
 }
 
-export default function DateGroupSection({ group, colors, onLongPress, onDelete }: Props) {
+export default function DateGroupSection({ group, colors, onLongPress, onDelete, onComplete }: Props) {
   const styles  = useMemo(() => makeStyles(colors), [colors]);
   const label   = formatUpcomingDate(group.date);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export default function DateGroupSection({ group, colors, onLongPress, onDelete 
             onTap={() => toggleExpand(ev.id)}
             onLongPress={onLongPress ? () => onLongPress(ev) : undefined}
             onDelete={onDelete ? () => onDelete(ev) : undefined}
+            onComplete={onComplete ? () => onComplete(ev) : undefined}
           />
         ))}
       </View>

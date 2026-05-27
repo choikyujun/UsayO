@@ -41,7 +41,7 @@ const PADDING_H = 20;
 const SPINE_X   = PADDING_H + 38 + 14 / 2; // ≈ 64
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-interface SpineEventItem { type: 'event'; id: string; event: Event; state: EventState }
+interface SpineEventItem { type: 'event'; id: string; event: Event; state: EventState; isCompleted: boolean }
 interface SpineNowItem   { type: 'now';   id: string; nowDate: Date }
 type SpineItem = SpineEventItem | SpineNowItem;
 
@@ -52,13 +52,14 @@ interface DeletedItem {
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface Props {
-  events:             Event[];
-  loading?:           boolean;
-  listPaddingBottom?: number;
-  onRefresh?:         () => void;
-  isRefreshing?:      boolean;
-  onReschedule?:      (eventId: string, newTime: Date) => void;
-  footerContent?:     React.ReactNode;
+  events:               Event[];
+  loading?:             boolean;
+  listPaddingBottom?:   number;
+  onRefresh?:           () => void;
+  isRefreshing?:        boolean;
+  onReschedule?:        (eventId: string, newTime: Date) => void;
+  onToggleComplete?:    (event: Event) => void;
+  footerContent?:       React.ReactNode;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -69,14 +70,17 @@ export default function TimeSpine({
   onRefresh,
   isRefreshing,
   onReschedule,
+  onToggleComplete,
   footerContent,
 }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeContainerStyles(colors), [colors]);
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [hiddenIds,    setHiddenIds]    = useState<Set<string>>(new Set());
-  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [hiddenIds,      setHiddenIds]      = useState<Set<string>>(new Set());
+  const [completedIds,   setCompletedIds]   = useState<Set<string>>(new Set());
+  // events prop 업데이트 전에 완료취소 낙관적 UI를 위한 로컬 추적
+  const [uncompletedIds, setUncompletedIds] = useState<Set<string>>(new Set());
   const [expandedIds,  setExpandedIds]  = useState<Set<string>>(new Set());
   const [deletedItem,  setDeletedItem]  = useState<DeletedItem | null>(null);
   const [sheetEvent,       setSheetEvent]       = useState<Event | null>(null);
@@ -84,6 +88,24 @@ export default function TimeSpine({
   const [editTitleVisible, setEditTitleVisible] = useState(false);
   const [editTimeVisible,  setEditTimeVisible]  = useState(false);
   const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  // events prop이 업데이트되면 completed_at이 null인 미래 이벤트만 uncompletedIds에서 제거
+  // 지나간 이벤트(endMs < now)는 제거하지 않음 — 제거하면 endMs < now 조건에 의해 'past'로 다시 돌아감
+  useEffect(() => {
+    const nowMs = Date.now();
+    setUncompletedIds(prev => {
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
+      for (const id of prev) {
+        const ev = events.find(e => e.id === id);
+        if (!ev) { next.delete(id); continue; }
+        if (ev.completed_at === null && new Date(ev.end_at).getTime() >= nowMs) {
+          next.delete(id);
+        }
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [events]);
 
   // Clock tick — spineItems recalculate every minute
   const nowRef = useRef(new Date());
@@ -147,10 +169,12 @@ export default function TimeSpine({
         nowInserted = true;
       }
 
-      const isCompleted = completedIds.has(event.id);
+      const isUncompleted = uncompletedIds.has(event.id);
+      const isCompleted = (completedIds.has(event.id) || !!event.completed_at) && !isUncompleted;
       let state: EventState;
 
-      if (isCompleted || endMs < nowMs) {
+      // 완료취소(isUncompleted)된 이벤트는 시간이 지났어도 past로 처리하지 않음
+      if (isCompleted || (!isUncompleted && endMs < nowMs)) {
         state = 'past';
       } else if (startMs <= nowMs && endMs > nowMs) {
         // Current event: do NOT set nowInserted — NOW marker must appear after this event
@@ -162,7 +186,7 @@ export default function TimeSpine({
         state = 'future';
       }
 
-      items.push({ type: 'event', id: event.id, event, state });
+      items.push({ type: 'event', id: event.id, event, state, isCompleted });
     }
 
     if (!nowInserted) {
@@ -170,7 +194,7 @@ export default function TimeSpine({
     }
 
     return items;
-  }, [visibleEvents, completedIds, tick]);
+  }, [visibleEvents, completedIds, uncompletedIds, tick]);
 
   // ── Delete with undo toast ─────────────────────────────────────────────────
   function handleDelete(event: Event) {
@@ -251,7 +275,15 @@ export default function TimeSpine({
   }
 
   function handleComplete(event: Event) {
-    setCompletedIds(prev => new Set([...prev, event.id]));
+    const alreadyCompleted = (completedIds.has(event.id) || !!event.completed_at) && !uncompletedIds.has(event.id);
+    if (alreadyCompleted) {
+      setCompletedIds(prev => { const s = new Set(prev); s.delete(event.id); return s; });
+      setUncompletedIds(prev => new Set([...prev, event.id]));
+    } else {
+      setCompletedIds(prev => new Set([...prev, event.id]));
+      setUncompletedIds(prev => { const s = new Set(prev); s.delete(event.id); return s; });
+    }
+    onToggleComplete?.(event);
   }
 
   function toggleExpand(id: string) {
@@ -320,6 +352,7 @@ export default function TimeSpine({
                 key={item.id}
                 event={item.event}
                 state={item.state}
+                isCompleted={item.isCompleted}
                 expanded={expandedIds.has(item.event.id)}
                 isHoliday={isKoreanHoliday(new Date(item.event.start_at))}
                 isLunch={isLunchHour(new Date(item.event.start_at))}

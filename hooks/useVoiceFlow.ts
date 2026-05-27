@@ -6,6 +6,8 @@ import { noiseDetector } from '../services/voice/NoiseDetectorService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { intentService } from '../services/voice/IntentClassifierService';
 import { ttsService } from '../services/voice/TTSService';
+import { speechService } from '../services/voice/SpeechRecognitionService';
+import { matchAmbiguousResponse } from '../utils/voiceResponseMatcher';
 import { ClassifiedIntent } from '../types';
 
 type OnAutoSave = (intent: ClassifiedIntent) => Promise<string | undefined>;
@@ -25,8 +27,18 @@ export function useVoiceFlow() {
     ((uri: string | null, onAutoSave?: OnAutoSave) => Promise<void>) | null
   >(null);
 
+  // AM/PM 인라인 처리를 위한 refs
+  const isAmbiguousResolutionRef  = useRef(false);
+  const ambiguousUriResolveRef    = useRef<((uri: string | null) => void) | null>(null);
+
   const recorder = useVoiceRecorder({
     onAutoStop: useCallback((uri: string | null) => {
+      // AM/PM 응답 녹음 중이면 메인 파이프라인 대신 ambiguous 핸들러로 라우팅
+      if (isAmbiguousResolutionRef.current) {
+        ambiguousUriResolveRef.current?.(uri);
+        ambiguousUriResolveRef.current = null;
+        return;
+      }
       console.log('[VoiceFlow] auto-stop received URI:', uri);
       store.setPhase('processing');
       // onAutoSaveRef.current를 함께 전달 → 0.85+ 패스가 auto-stop에서도 동작
@@ -124,35 +136,93 @@ export function useVoiceFlow() {
 
     const confidence = result.intent.confidence;
 
+    // ── AM/PM 모호한 시간 → 팝업 없이 인라인 음성 해결 ────────────
+    let resolvedIntent = result.intent;
+    if (result.intent.ambiguous && result.intent.startDateTime) {
+      ttsService.speak('오전인가요? 오후인가요?').catch(() => {});
+      await ttsService.waitForSpeech();
+      await new Promise<void>(r => setTimeout(r, 600));
+
+      const ambiguousUri = await new Promise<string | null>((resolve) => {
+        let settled = false;
+        let timeoutId: ReturnType<typeof setTimeout>;
+
+        ambiguousUriResolveRef.current = (u) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeoutId);
+          isAmbiguousResolutionRef.current = false;
+          resolve(u);
+        };
+
+        isAmbiguousResolutionRef.current = true;
+        recorder.startRecording().catch(() => {
+          if (settled) return;
+          settled = true;
+          isAmbiguousResolutionRef.current = false;
+          ambiguousUriResolveRef.current = null;
+          resolve(null);
+        });
+
+        timeoutId = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          ambiguousUriResolveRef.current = null;
+          isAmbiguousResolutionRef.current = false;
+          recorder.stopRecording().then(resolve).catch(() => resolve(null));
+        }, 5000);
+      });
+
+      const suggestedMeridiem = result.intent.suggestedMeridiem ?? 'AM';
+      let resolvedMeridiem: 'AM' | 'PM' = suggestedMeridiem;
+
+      if (ambiguousUri) {
+        try {
+          const stt    = await speechService.transcribe(ambiguousUri, 'ko');
+          const action = matchAmbiguousResponse(stt.transcript);
+          console.log('[VoiceFlow] 모호 응답 STT:', JSON.stringify(stt.transcript), '→ action:', action);
+          if (action === 'am') resolvedMeridiem = 'AM';
+          else if (action === 'pm') resolvedMeridiem = 'PM';
+        } catch { /* 실패 시 suggestedMeridiem 유지 */ }
+      }
+
+      const d = new Date(result.intent.startDateTime.date);
+      const h = d.getHours() % 12;
+      d.setHours(resolvedMeridiem === 'PM' ? h + 12 : h);
+      resolvedIntent = {
+        ...result.intent,
+        ambiguous: false,
+        startDateTime: { ...result.intent.startDateTime, date: d.toISOString() },
+      };
+      console.log('[VoiceFlow] 모호 해결 완료:', resolvedMeridiem, '| 최종 시간:', d.toISOString());
+    }
+
     // DELETE/UPDATE/COMPLETE는 항상 확인 필요, 멀티 일정도 항상 카드 표시 (outer intent에 startDateTime 없음)
-    // ambiguous: true이면 AM/PM 확인 전까지 저장 불가
     // targetEventIds 배치 삭제도 확인 필수
     const requiresConfirm =
-      result.intent.intent === 'DELETE' ||
-      result.intent.intent === 'UPDATE' ||
-      result.intent.intent === 'COMPLETE' ||
-      (result.intent.events?.length ?? 0) > 0 ||
-      (result.intent.targetEventIds?.length ?? 0) > 0 ||
-      result.intent.ambiguous === true;
+      resolvedIntent.intent === 'DELETE' ||
+      resolvedIntent.intent === 'UPDATE' ||
+      resolvedIntent.intent === 'COMPLETE' ||
+      (resolvedIntent.events?.length ?? 0) > 0 ||
+      (resolvedIntent.targetEventIds?.length ?? 0) > 0;
 
     console.log('[VoiceFlow] 확인 단계 필요:', requiresConfirm,
-      '| intent:', result.intent.intent,
+      '| intent:', resolvedIntent.intent,
       '| confidence:', confidence,
-      '| ambiguous:', result.intent.ambiguous,
       '| onAutoSave:', !!onAutoSave,
     );
 
     // ── confidence >= 0.85: 즉시 자동 저장 ──────────────────────
     if (confidence >= 0.85 && onAutoSave && !requiresConfirm) {
-      console.log('[VoiceFlow] DB 저장 호출 (auto-save), time:', result.intent.startDateTime?.date ?? 'none');
+      console.log('[VoiceFlow] DB 저장 호출 (auto-save), time:', resolvedIntent.startDateTime?.date ?? 'none');
       store.setTranscript(result.sttResult?.transcript ?? null);
-      store.setClassifiedIntent(result.intent);
+      store.setClassifiedIntent(resolvedIntent);
       store.setPhase('processing');
 
       try {
-        await onAutoSave(result.intent);
+        await onAutoSave(resolvedIntent);
         store.setPhase('success');
-        const successMsg = ttsService.generateSuccessMessage(result.intent);
+        const successMsg = ttsService.generateSuccessMessage(resolvedIntent);
         ttsService.speak(successMsg || '완료됐어요').catch(() => {});
       } catch (e) {
         store.setPhase('fail');
@@ -163,13 +233,16 @@ export function useVoiceFlow() {
     }
 
     // ── 0.6 <= confidence < 0.85: InlineConfirmCard 표시 ────────
-    // ambiguous 시간이면 AM/PM 토글이 있는 ConfirmCard (hybrid 소스)로 강제
     isProcessingRef.current = false;
     store.setTranscript(result.sttResult?.transcript ?? null);
-    store.setClassifiedIntent(result.intent);
-    store.setConfirmMessage(result.confirmMessage ?? null);
-    store.setConfirmSource(result.intent.ambiguous ? 'hybrid' : 'voice');
-    if (result.confirmMessage) ttsService.speak(result.confirmMessage).catch(() => {});
+    store.setClassifiedIntent(resolvedIntent);
+    // 모호 해결 후에는 수정된 시간으로 확인 메시지 재생성
+    const resolvedConfirmMsg = result.intent.ambiguous
+      ? (ttsService.generateConfirmMessage(resolvedIntent) ?? null)
+      : (result.confirmMessage ?? null);
+    store.setConfirmMessage(resolvedConfirmMsg);
+    store.setConfirmSource('voice');
+    if (resolvedConfirmMsg) ttsService.speak(resolvedConfirmMsg).catch(() => {});
     store.setPhase('confirming');
   }, [store, recorder]);
 

@@ -514,6 +514,17 @@ export function useSchedules(date: string, daysAhead = 0) {
     return undefined;
   }
 
+  async function toggleEventComplete(eventId: string, currentlyCompleted: boolean): Promise<void> {
+    const completedAt = currentlyCompleted ? null : new Date().toISOString();
+    setEvents(prev => prev.map(e =>
+      e.id === eventId ? { ...e, completed_at: completedAt } : e,
+    ));
+    await supabase
+      .from('events')
+      .update({ completed_at: completedAt })
+      .eq('id', eventId);
+  }
+
   async function deleteEventById(eventId: string): Promise<void> {
     setEvents(prev => prev.filter(e => e.id !== eventId));
     await Promise.all([
@@ -586,6 +597,7 @@ export function useSchedules(date: string, daysAhead = 0) {
     applyVoiceCommand,
     applyClassifiedIntent,
     deleteEventById,
+    toggleEventComplete,
     undoSave,
     rescheduleEvent,
     undoRescheduleEvent,
