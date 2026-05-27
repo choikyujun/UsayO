@@ -41,6 +41,7 @@ import { GRID_TOTAL_H, getNowY, scrollTargetForHour, yToTime, TIME_LABEL_W } fro
 import { localDateStr, todayDateStr } from '../utils/timeHelpers';
 import { formatWeekRange, getWeekDays, COL_W } from '../utils/weekViewLayout';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { computeOverlapLayout } from '../utils/eventOverlapLayout';
 import { useCurrentDate } from '../hooks/useCurrentDate';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -244,19 +245,25 @@ export default function WeekViewScreen() {
               <View style={{ height: GRID_TOTAL_H }}>
                 <WeekGrid days={days} colors={colors} tick={tick} />
 
-                {/* Event blocks per column */}
+                {/* Event blocks per column — overlap layout per day */}
                 {days.map((dateStr, colIndex) => {
                   const evs = eventsByDate[dateStr] ?? [];
-                  return evs.map(ev => (
-                    <WeekEventBlock
-                      key={ev.id}
-                      event={ev}
-                      colIndex={colIndex}
-                      colors={colors}
-                      onPress={ev => { setDetailEvent(ev); setDetailVisible(true); }}
-                      onLongPress={setSheetEvent}
-                    />
-                  ));
+                  const overlapMap = computeOverlapLayout(evs);
+                  return evs.map(ev => {
+                    const layout = overlapMap.get(ev.id);
+                    return (
+                      <WeekEventBlock
+                        key={ev.id}
+                        event={ev}
+                        colIndex={colIndex}
+                        colors={colors}
+                        onPress={ev => { setDetailEvent(ev); setDetailVisible(true); }}
+                        onLongPress={setSheetEvent}
+                        widthRatio={layout?.widthRatio}
+                        xRatio={layout?.xRatio}
+                      />
+                    );
+                  });
                 })}
               </View>
             </Pressable>

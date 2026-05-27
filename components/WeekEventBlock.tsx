@@ -16,20 +16,32 @@ const EVENT_COLORS: Record<string, string> = {
 };
 
 interface Props {
-  event:       Event;
-  colIndex:    number;
-  colors:      AppTheme;
-  onPress:     (event: Event) => void;
-  onLongPress: (event: Event) => void;
+  event:        Event;
+  colIndex:     number;
+  colors:       AppTheme;
+  onPress:      (event: Event) => void;
+  onLongPress:  (event: Event) => void;
+  widthRatio?:  number;  // fraction of column width, default 1.0
+  xRatio?:      number;  // left offset within column, default 0.0
 }
 
-export default function WeekEventBlock({ event, colIndex, colors, onPress, onLongPress }: Props) {
+const COL_GAP = 1; // px gap between overlapping blocks within a column
+
+export default function WeekEventBlock({ event, colIndex, colors, onPress, onLongPress, widthRatio = 1, xRatio = 0 }: Props) {
   const top    = getEventTop(event.start_at);
   const height = getEventHeight(event.start_at, event.end_at);
   const isShort = height < 28;
 
-  const left   = TIME_LABEL_W + colIndex * COL_W + 1;
-  const width  = COL_W - 2;
+  // Column origin pixel position
+  const colOrigin = TIME_LABEL_W + colIndex * COL_W;
+  // Sub-divide the column for overlapping events
+  const subW = COL_W * widthRatio - COL_GAP;
+  const left = colOrigin + xRatio * COL_W + COL_GAP;
+  const width = Math.max(subW, 8);
+
+  // Text adaptation for narrow sub-columns
+  const isNarrow     = widthRatio < 0.34;
+  const isVeryNarrow = widthRatio < 0.2;
 
   const accentColor = (event.color && EVENT_COLORS[event.color])
     ? EVENT_COLORS[event.color]
@@ -55,7 +67,7 @@ export default function WeekEventBlock({ event, colIndex, colors, onPress, onLon
             <Check size={7} color={accentColor} strokeWidth={3} />
           </View>
         )}
-        {isShort ? (
+        {isVeryNarrow ? null : isShort ? (
           <Text style={[styles.titleShort, { color: accentColor }, isCompleted && styles.strikethrough]} numberOfLines={1}>
             {event.title}
           </Text>
@@ -64,9 +76,11 @@ export default function WeekEventBlock({ event, colIndex, colors, onPress, onLon
             <Text style={[styles.title, { color: accentColor }, isCompleted && styles.strikethrough]} numberOfLines={2}>
               {event.title}
             </Text>
-            <Text style={[styles.time, { color: accentColor + 'AA' }]} numberOfLines={1}>
-              {formatTimeRow(new Date(event.start_at))}
-            </Text>
+            {!isNarrow && (
+              <Text style={[styles.time, { color: accentColor + 'AA' }]} numberOfLines={1}>
+                {formatTimeRow(new Date(event.start_at))}
+              </Text>
+            )}
           </>
         )}
       </Pressable>
