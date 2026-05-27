@@ -38,7 +38,6 @@ import TimeSpine from '../components/TimeSpine';
 import UpcomingSection from '../components/UpcomingSection';
 import { useConversationalMessage } from '../hooks/useConversationalMessage';
 import { useRecurringEvents } from '../hooks/useRecurringEvents';
-import VoiceHintCarousel from '../components/VoiceHintCarousel';
 import HybridInputModal from '../components/HybridInputModal';
 import UpgradeModal from '../components/UpgradeModal';
 import UsageWarningBanner from '../components/UsageWarningBanner';
@@ -508,7 +507,6 @@ export default function HomeScreen() {
 
         <UsageWarningBanner feature="voice_create" />
         <RecurringBadge events={recurringEvents} />
-        <VoiceHintCarousel isVoiceActive={isVoiceActive} />
 
         <View style={styles.divider} />
 
