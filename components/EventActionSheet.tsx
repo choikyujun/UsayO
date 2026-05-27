@@ -1,4 +1,4 @@
-import { Bell, Clock, Pencil, Share2 } from 'lucide-react-native';
+import { Bell, Clock, Pencil, Share2, Trash2 } from 'lucide-react-native';
 
 import type { LucideIcon } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
@@ -20,9 +20,10 @@ interface Props {
   onEditTitle?: (event: Event) => void;
   onEditTime?: (event: Event) => void;
   onEditNotification?: (event: Event) => void;
+  onDeleteAll?: (event: Event) => void;
 }
 
-export default function EventActionSheet({ event, onClose, onEditTitle, onEditTime, onEditNotification }: Props) {
+export default function EventActionSheet({ event, onClose, onEditTitle, onEditTime, onEditNotification, onDeleteAll }: Props) {
   const colors = useColors();
   const slideY = useRef(new Animated.Value(320)).current;
   const bgOp   = useRef(new Animated.Value(0)).current;
@@ -86,6 +87,22 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
           <GridBtn label="공유"      Icon={Share2}  onPress={handleShare}                                   colors={colors} />
         </View>
 
+        {/* 전체 반복 일정 삭제 (반복 일정인 경우에만) */}
+        {isRecurringEvent && onDeleteAll && (
+          <Pressable
+            style={({ pressed }) => [styles.deleteAllRow, { borderTopColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
+            onPress={() => { onClose(); onDeleteAll(ev); }}
+          >
+            <View style={[styles.deleteAllIconWrap, { backgroundColor: colors.error + '18' }]}>
+              <Trash2 size={18} color={colors.error} strokeWidth={1.8} />
+            </View>
+            <View style={styles.deleteAllTextCol}>
+              <Text style={[styles.deleteAllTitle, { color: colors.error }]}>전체 반복 일정 삭제</Text>
+              <Text style={[styles.deleteAllSub, { color: colors.textMuted }]}>지난 일정도 다 삭제됩니다</Text>
+            </View>
+          </Pressable>
+        )}
+
         {/* 취소 */}
         <Pressable
           style={({ pressed }) => [styles.cancelBtn, { backgroundColor: colors.card2, opacity: pressed ? 0.6 : 1 }]}
@@ -148,6 +165,24 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   gridLabel: { fontSize: 11, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
+  deleteAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: Spacing.md,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  deleteAllIconWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  deleteAllTextCol: { flex: 1, gap: 1 },
+  deleteAllTitle: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
+  deleteAllSub:   { fontSize: 12, fontFamily: 'Pretendard-Regular', fontWeight: '400' },
   cancelBtn: {
     marginHorizontal: 20, marginTop: Spacing.md,
     paddingVertical: 15, borderRadius: 14, alignItems: 'center',
