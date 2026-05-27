@@ -1,10 +1,13 @@
 import { Check, X } from 'lucide-react-native';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Animated, Modal, Pressable, ScrollView,
   StyleSheet, Text, View,
 } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import { speechService } from '../services/voice/SpeechRecognitionService';
+import { ttsService } from '../services/voice/TTSService';
 import { Event } from '../types/database';
 import {
   ALLDAY_NOTIF_OPTIONS,
@@ -13,6 +16,7 @@ import {
   offsetToLabel,
 } from '../utils/notificationHelpers';
 import { formatTimeKo } from '../utils/timeHelpers';
+import { matchNotificationOffset } from '../utils/voiceResponseMatcher';
 
 interface Props {
   visible:  boolean;
@@ -57,6 +61,63 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
     onSaved(updated);
     onClose();
   }
+
+  // ── Voice STT: TTS → record → match → handleSelect/close/restart ──
+  const isVoiceActiveRef = useRef(false);
+  const startVoiceRef    = useRef<() => Promise<void>>(() => Promise.resolve());
+  const handleSelectRef  = useRef(handleSelect);
+  handleSelectRef.current = handleSelect;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const handleVoiceAutoStop = useCallback(async (uri: string | null) => {
+    if (!isVoiceActiveRef.current) return;
+    try {
+      if (uri) {
+        const stt   = await speechService.transcribe(uri, 'ko');
+        const match = matchNotificationOffset(stt.transcript);
+        if (!isVoiceActiveRef.current) return;
+        if (match.type === 'offset') {
+          handleSelectRef.current({ label: '', offsetMinutes: match.offsetMinutes });
+          return;
+        }
+        if (match.type === 'cancel') {
+          onCloseRef.current();
+          return;
+        }
+      }
+      // unknown → restart
+      if (isVoiceActiveRef.current) await startVoiceRef.current().catch(() => {});
+    } catch {
+      if (isVoiceActiveRef.current) await startVoiceRef.current().catch(() => {});
+    }
+  }, []);
+
+  const voiceRecorder = useVoiceRecorder({ onAutoStop: handleVoiceAutoStop });
+  startVoiceRef.current = voiceRecorder.startRecording;
+
+  useEffect(() => {
+    if (visible) {
+      isVoiceActiveRef.current = true;
+      (async () => {
+        try {
+          await ttsService.speak('어떻게 알려드릴까요?');
+          await ttsService.waitForSpeech(5000);
+          await new Promise<void>(r => setTimeout(r, 400));
+          if (isVoiceActiveRef.current) await voiceRecorder.startRecording();
+        } catch {
+          if (isVoiceActiveRef.current) await voiceRecorder.startRecording().catch(() => {});
+        }
+      })();
+    } else {
+      isVoiceActiveRef.current = false;
+      voiceRecorder.cancelRecording();
+    }
+    return () => {
+      isVoiceActiveRef.current = false;
+      voiceRecorder.cancelRecording();
+    };
+  }, [visible]);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
