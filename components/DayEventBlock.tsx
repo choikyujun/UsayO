@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Check } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
@@ -9,12 +9,20 @@ import { formatTimeRow } from '../utils/timeHelpers';
 import { getEventTop, getEventHeight, TIME_LABEL_W } from '../utils/dayViewLayout';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
 
+const SCREEN_W   = Dimensions.get('window').width;
+const LEFT_PAD   = 4;
+const RIGHT_PAD  = 6;
+const COL_GAP    = 2;  // gap between adjacent columns
+const USABLE_W   = SCREEN_W - TIME_LABEL_W - LEFT_PAD - RIGHT_PAD;
+
 interface Props {
-  event:       Event;
-  colors:      AppTheme;
-  onLongPress: (event: Event) => void;
-  onDelete:    (event: Event) => void;
-  onComplete:  (event: Event) => void;
+  event:        Event;
+  colors:       AppTheme;
+  onLongPress:  (event: Event) => void;
+  onDelete:     (event: Event) => void;
+  onComplete:   (event: Event) => void;
+  widthRatio?:  number;  // default 1.0 — fraction of usable width
+  xRatio?:      number;  // default 0.0 — left offset fraction
 }
 
 function timeRange(startAt: string, endAt: string | null | undefined): string {
@@ -23,7 +31,7 @@ function timeRange(startAt: string, endAt: string | null | undefined): string {
   return `${s} — ${formatTimeRow(new Date(endAt))}`;
 }
 
-export default function DayEventBlock({ event, colors, onLongPress, onDelete, onComplete }: Props) {
+export default function DayEventBlock({ event, colors, onLongPress, onDelete, onComplete, widthRatio = 1, xRatio = 0 }: Props) {
   const swipeRef  = useRef<Swipeable>(null);
   const styles    = useMemo(() => makeStyles(colors), [colors]);
   const [expanded,   setExpanded]   = useState(false);
@@ -32,6 +40,14 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
   const top    = getEventTop(event.start_at);
   const height = getEventHeight(event.start_at, event.end_at);
   const isShort = height < 30;
+
+  // Pixel-based left/width from layout ratios
+  const blockWidth = Math.max(widthRatio * USABLE_W - COL_GAP, 20);
+  const blockLeft  = TIME_LABEL_W + LEFT_PAD + xRatio * USABLE_W;
+
+  // Text adaptation based on column width
+  const isNarrow   = widthRatio < 0.3;
+  const isVeryNarrow = widthRatio < 0.2;
 
   function handleSwipeComplete() {
     swipeRef.current?.close();
@@ -47,7 +63,7 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
   }
 
   return (
-    <View style={[styles.absoluteWrap, { top, height, opacity: isCompleted ? 0.45 : 1 }]}>
+    <View style={[styles.absoluteWrap, { top, height, left: blockLeft, width: blockWidth, opacity: isCompleted ? 0.45 : 1 }]}>
       <Swipeable
         ref={swipeRef}
         containerStyle={{ flex: 1 }}
@@ -84,18 +100,20 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
               <Check size={10} color="#fff" strokeWidth={3} />
             </View>
           )}
-          {isShort ? (
+          {isVeryNarrow ? null : isShort ? (
             <Text style={[styles.compactTitle, isCompleted && styles.strikethrough]} numberOfLines={1}>
-              {event.title} · {timeRange(event.start_at, event.end_at)}
+              {isNarrow ? event.title : `${event.title} · ${timeRange(event.start_at, event.end_at)}`}
             </Text>
           ) : (
             <>
               <Text style={[styles.blockTitle, isCompleted && styles.strikethrough]} numberOfLines={expanded ? undefined : 2}>
                 {event.title}
               </Text>
-              <Text style={styles.blockTime}>
-                {timeRange(event.start_at, event.end_at)}
-              </Text>
+              {!isNarrow && (
+                <Text style={styles.blockTime}>
+                  {timeRange(event.start_at, event.end_at)}
+                </Text>
+              )}
 
               {expanded && (
                 <View style={styles.expandedArea}>
@@ -125,8 +143,6 @@ function makeStyles(c: AppTheme) {
   return StyleSheet.create({
     absoluteWrap: {
       position:     'absolute',
-      left:         TIME_LABEL_W + 4,
-      right:        6,
       overflow:     'hidden',
       borderRadius: 6,
     },

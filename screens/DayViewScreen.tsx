@@ -49,6 +49,7 @@ import {
 } from '../utils/dayViewLayout';
 import { localDateStr } from '../utils/timeHelpers';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { computeOverlapLayout } from '../utils/eventOverlapLayout';
 import { useCurrentDate } from '../hooks/useCurrentDate';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -284,16 +285,24 @@ export default function DayViewScreen() {
                 <DinnerHint colors={colors} />
                 <HourGrid   colors={colors} />
 
-                {events.map(ev => (
-                  <DayEventBlock
-                    key={ev.id}
-                    event={ev}
-                    colors={colors}
-                    onLongPress={e => setSheetEvent(e)}
-                    onDelete={handleDeleteEvent}
-                    onComplete={handleCompleteEvent}
-                  />
-                ))}
+                {(() => {
+                  const overlapMap = computeOverlapLayout(events);
+                  return events.map(ev => {
+                    const layout = overlapMap.get(ev.id);
+                    return (
+                      <DayEventBlock
+                        key={ev.id}
+                        event={ev}
+                        colors={colors}
+                        onLongPress={e => setSheetEvent(e)}
+                        onDelete={handleDeleteEvent}
+                        onComplete={handleCompleteEvent}
+                        widthRatio={layout?.widthRatio}
+                        xRatio={layout?.xRatio}
+                      />
+                    );
+                  });
+                })()}
 
                 {isToday && <DayNowMarker tick={tick} />}
               </View>
