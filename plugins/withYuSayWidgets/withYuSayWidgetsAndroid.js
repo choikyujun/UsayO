@@ -46,6 +46,29 @@ function withYuSayWidgetsAndroid(config) {
     ensureReceiver('YuSaySmallWidget', 'widget_small_info');
     ensureReceiver('YuSayMediumWidget', 'widget_medium_info');
 
+    // WidgetConfigActivity — 투명도 슬라이더
+    if (!app.activity) app.activity = [];
+    const activities = app.activity;
+    const configExists = activities.some(
+      (a) => a.$ && a.$['android:name'] && a.$['android:name'].includes('WidgetConfigActivity'),
+    );
+    if (!configExists) {
+      activities.push({
+        $: {
+          'android:name': '.widget.WidgetConfigActivity',
+          'android:exported': 'true',
+          'android:theme': '@android:style/Theme.Material.Light.Dialog',
+        },
+        'intent-filter': [
+          {
+            action: [
+              { $: { 'android:name': 'android.appwidget.action.APPWIDGET_CONFIGURE' } },
+            ],
+          },
+        ],
+      });
+    }
+
     return mod;
   });
 
@@ -64,7 +87,12 @@ function withYuSayWidgetsAndroid(config) {
       fs.mkdirSync(path.join(resDir, 'layout'), { recursive: true });
       fs.mkdirSync(path.join(resDir, 'xml'), { recursive: true });
 
-      for (const file of ['WidgetDataManager.kt', 'YuSaySmallWidget.kt', 'YuSayMediumWidget.kt']) {
+      for (const file of [
+        'WidgetDataManager.kt',
+        'YuSaySmallWidget.kt',
+        'YuSayMediumWidget.kt',
+        'WidgetConfigActivity.kt',
+      ]) {
         fs.copyFileSync(path.join(SRC, file), path.join(javaDir, file));
       }
 

@@ -17,6 +17,6 @@ web-build/
 # TypeScript
 *.tsbuildinfo
 
-# iOS / Android (generated)
-ios/
-android/
+# iOS / Android (generated — Expo prebuild 결과물만 제외)
+/ios/
+/android/

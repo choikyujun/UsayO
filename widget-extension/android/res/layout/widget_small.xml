@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/widget_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="#0E0C1F"
+  android:padding="10dp"
+  android:gravity="center">
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:layout_centerInParent="true">
+
+    <!-- Mic FAB circle -->
+    <ImageView
+      android:layout_width="40dp"
+      android:layout_height="40dp"
+      android:src="@drawable/ic_mic"
+      android:background="@drawable/widget_fab_background"
+      android:padding="10dp"
+      android:layout_gravity="center_horizontal"
+      android:layout_marginBottom="8dp" />
+
+    <!-- Next event time -->
+    <TextView
+      android:id="@+id/widget_time"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_gravity="center_horizontal"
+      android:textSize="12sp"
+      android:textStyle="bold"
+      android:textColor="#AFA9EC"
+      android:layout_marginBottom="2dp" />
+
+    <!-- Next event title -->
+    <TextView
+      android:id="@+id/widget_title"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center"
+      android:textSize="12sp"
+      android:textColor="#EEEDFE"
+      android:maxLines="2"
+      android:ellipsize="end" />
+
+  </LinearLayout>
+</RelativeLayout>
