@@ -54,6 +54,7 @@ import type { Event as CalEvent } from '../types/database';
 import { addDays, toYearMonth } from '../utils/dateHelpers';
 import { useCurrentDate } from '../hooks/useCurrentDate';
 import { Spacing } from '../constants/spacing';
+import { voiceTriggerEmitter } from '../utils/voiceTrigger';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const FAB_SMALL = 64;
 
@@ -361,6 +362,13 @@ export default function HomeScreen() {
 
     voice.startVoice(handleApplyIntent, undefined, nearbyCtx);
   }, [gate, voice, applyClassifiedIntent, allEvents]);
+
+  // Deeplink 'yusay://voice/start' 수신 시 자동 마이크 활성
+  useEffect(() => {
+    const handler = () => handleFabPress();
+    voiceTriggerEmitter.on('voice:start', handler);
+    return () => { voiceTriggerEmitter.off('voice:start', handler); };
+  }, [handleFabPress]);
 
   // DB 반영 즉시 화면 갱신: useSchedules(CRUD)와 useEventsForDate(display)가 분리돼 있어
   // applyClassifiedIntent 완료 후 바로 reloadForDate + reloadSchedules를 호출해야
