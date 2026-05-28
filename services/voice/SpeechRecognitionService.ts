@@ -89,6 +89,11 @@ export class SpeechRecognitionService {
     return Math.round(avg * 100) / 100;
   }
 
+  // No-op warmup hook — called at startup so the module is pre-loaded
+  prewarm(): void {
+    console.log('[STT] prewarm (API-based, no preload needed)');
+  }
+
   private mockResult(): STTResult {
     const mocks = [
       '내일 오후 3시에 팀 회의 잡아줘',
