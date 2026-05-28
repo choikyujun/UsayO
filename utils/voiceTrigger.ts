@@ -1,7 +1,11 @@
-import { EventEmitter } from 'events';
+type Listener = () => void;
+const listeners = new Set<Listener>();
 
-export const voiceTriggerEmitter = new EventEmitter();
+export function onVoiceTrigger(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
 
-export function triggerVoiceFromDeeplink() {
-  voiceTriggerEmitter.emit('voice:start');
+export function triggerVoiceFromDeeplink(): void {
+  listeners.forEach(l => l());
 }
