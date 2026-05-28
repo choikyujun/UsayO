@@ -3,6 +3,7 @@ import '../global.css';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
+import * as Linking from 'expo-linking';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -30,6 +31,7 @@ import { subscriptionService } from '../services/subscription/SubscriptionServic
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { noiseDetector } from '../services/voice/NoiseDetectorService';
 import { requestNotificationPermission, setupNotificationTapHandler } from '../services/notifications';
+import { triggerVoiceFromDeeplink } from '../utils/voiceTrigger';
 
 // Valid onboarding step → route segment map
 const STEP_ROUTES: Record<string, string> = {
@@ -86,12 +88,31 @@ function AppRoot() {
   }, []);
 
   useEffect(() => {
+    function handleDeeplink(url: string) {
+      console.log('[Deeplink] 수신:', url);
+      const parsed = Linking.parse(url);
+      console.log('[Deeplink] parsed:', parsed);
+
+      // yusay://voice/start
+      if (parsed.path === 'voice/start' || parsed.hostname === 'voice') {
+        router.replace('/');
+        setTimeout(() => triggerVoiceFromDeeplink(), 500);
+      }
+    }
+
+    Linking.getInitialURL().then(url => { if (url) handleDeeplink(url); });
+    const sub = Linking.addEventListener('url', ({ url }) => handleDeeplink(url));
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
     audioSessionService.preinit()
       .then(() => noiseDetector.measureBackgroundNoise())
       .then(noise => {
         audioSessionService.setCachedNoise(noise.snr, noise.recommendation);
         return audioSessionService.cleanup();
       })
+      .then(() => import('../services/voice/warmup').then(m => m.warmupVoiceServices()))
       .catch(() => {});
     requestNotificationPermission().catch(() => {});
     return setupNotificationTapHandler();
