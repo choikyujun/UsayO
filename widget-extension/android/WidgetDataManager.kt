@@ -60,6 +60,11 @@ object WidgetDataManager {
     }
   }
 
+  fun getWidgetAlpha(context: Context, appWidgetId: Int): Int {
+    val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
+    return prefs.getInt("alpha_$appWidgetId", 100)
+  }
+
   fun formatTime(isoString: String): String {
     return try {
       val formats = arrayOf(
