@@ -23,7 +23,7 @@ function withYuSayWidgetsAndroid(config) {
       receivers.push({
         $: {
           'android:name': `.widget.${name}`,
-          'android:exported': 'false',
+          'android:exported': 'true',
         },
         'intent-filter': [
           {
