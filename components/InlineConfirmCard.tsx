@@ -157,7 +157,7 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
         if (!uri || confirmedRef.current) return;
 
         try {
-          const stt    = await speechService.transcribe(uri, 'ko');
+          const stt    = await speechService.transcribe(uri, 'ko', { mode: 'confirm' });
           const answer = matchQuickResponse(stt.transcript);
           if (answer === 'positive')  resolve('confirm');
           else if (answer === 'negative') resolve('cancel');

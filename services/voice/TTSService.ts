@@ -4,22 +4,63 @@ import { ClassifiedIntent } from '../../types';
 export class TTSService {
   private _lastMsg = '';
   private _lastAt  = 0;
+  private _speaking = false;                      // 실제 재생 중 여부(onDone/onStopped/onError로 해제)
+  private _settleListeners: Array<() => void> = []; // 발화 종료(정착) 1회 알림 대기열
 
-  async speak(text: string, language = 'ko-KR', rate = 0.95): Promise<void> {
+  // bypassDedup: 사용자 응답을 요구하는 확인 질문 등은 절대 skip되지 않아야 함
+  async speak(text: string, language = 'ko-KR', rate = 0.95, bypassDedup = false): Promise<void> {
     const now = Date.now();
-    if (text === this._lastMsg && now - this._lastAt < 1200) {
+    if (!bypassDedup && text === this._lastMsg && now - this._lastAt < 1200) {
       console.log('[TTS] dedup skip:', text);
       return;
     }
     this._lastMsg = text;
     this._lastAt  = now;
+    this._speaking = true;
     return new Promise((resolve, reject) => {
+      const done = () => { this._settle(); resolve(); };
       Speech.speak(text, {
         language,
         rate,
-        onDone: resolve,
-        onError: (e) => reject(new Error(String(e) ?? 'TTS 오류')),
+        onDone: done,
+        onStopped: done,
+        onError: (e) => { this._settle(); reject(new Error(String(e) ?? 'TTS 오류')); },
       });
+    });
+  }
+
+  // 재생이 실제로 끝났음(onDone/onStopped/onError)을 신뢰 신호로 알린다 — isSpeakingAsync 폴링 대체.
+  private _settle(): void {
+    this._speaking = false;
+    const listeners = this._settleListeners;
+    this._settleListeners = [];
+    listeners.forEach(fn => { try { fn(); } catch { /* ignore */ } });
+  }
+
+  get isSpeaking(): boolean {
+    return this._speaking;
+  }
+
+  // 다음(또는 진행 중인) 발화가 끝나면 1회 호출. 반환값은 구독 해제 함수.
+  onSpeechSettled(cb: () => void): () => void {
+    this._settleListeners.push(cb);
+    return () => { this._settleListeners = this._settleListeners.filter(f => f !== cb); };
+  }
+
+  // 확인 카드가 마이크를 열기 전 사용: 확인 발화가 끝나면 resolve. 발화가 끝내 안 오면
+  // timeoutMs 후 폴백 resolve → 교착 방지(버튼은 항상 사용 가능).
+  awaitSpeechSettled(timeoutMs = 6000): Promise<void> {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        unsub();
+        clearTimeout(timer);
+        resolve();
+      };
+      const unsub = this.onSpeechSettled(finish);
+      const timer = setTimeout(finish, timeoutMs);
     });
   }
 
@@ -119,17 +160,41 @@ export class TTSService {
     }
   }
 
+  // 성공 문구는 실제 수행된 작업만 반영한다. intent별로 분리하며,
+  // 범용 "완료됐어요" 공유 문구는 쓰지 않는다(거짓 성공 방지). QUERY/미지원은 빈 문자열.
   generateSuccessMessage(intent: ClassifiedIntent): string {
     switch (intent.intent) {
-      case 'CREATE': return `${intent.title ?? '일정'}이 추가됐어요!`;
-      case 'UPDATE': return '일정이 수정됐어요!';
-      case 'DELETE':
-        if (intent.targetEventIds && intent.targetEventIds.length > 1) {
-          return `${intent.targetEventIds.length}개 일정이 삭제됐어요.`;
+      case 'CREATE': {
+        const title = intent.title ?? '일정';
+        const dateStr = intent.startDateTime
+          ? this.formatDateTime(intent.startDateTime.date, intent.startDateTime.originalText)
+          : '';
+        const recurStr = intent.startDateTime?.isRecurring ? ' 반복 일정으로' : '';
+        return dateStr ? `${dateStr}${recurStr} ${title} 등록했어요.` : `${title} 등록했어요.`;
+      }
+      case 'UPDATE': {
+        const target = intent.targetEventQuery ?? '일정';
+        if (intent.updateFields?.startDateTime?.date) {
+          const newTime = this.formatDateTime(intent.updateFields.startDateTime.date);
+          return `${target}을(를) ${newTime}으로 바꿨어요.`;
         }
-        return '일정이 삭제됐어요.';
-      case 'COMPLETE': return '일정을 완료 처리했어요!';
-      case 'QUERY': return '';
+        if (intent.updateFields?.title) {
+          return `${target}의 제목을 "${intent.updateFields.title}"으로 바꿨어요.`;
+        }
+        return `${target}을(를) 수정했어요.`;
+      }
+      case 'DELETE': {
+        if (intent.targetEventIds && intent.targetEventIds.length > 1) {
+          return `${intent.targetEventIds.length}개 일정을 삭제했어요.`;
+        }
+        const target = intent.deleteTargetQuery ?? intent.targetEventQuery;
+        return target ? `${target}을(를) 삭제했어요.` : '일정을 삭제했어요.';
+      }
+      case 'COMPLETE': {
+        const target = intent.completeTargetQuery ?? intent.targetEventQuery;
+        return target ? `${target}을(를) 완료 처리했어요.` : '일정을 완료 처리했어요.';
+      }
+      case 'QUERY': return ''; // QUERY 결과는 별도 조회 경로에서 직접 안내
       case 'NOTIFICATION_UPDATE': {
         const offset = intent.notificationOffsetMinutes;
         if (offset === null || offset === undefined) return '알림을 껐어요.';
@@ -138,7 +203,7 @@ export class TTSService {
         if (offset < 1440) return `${Math.round(offset / 60)}시간 전 알림으로 설정했어요.`;
         return `${Math.round(offset / 1440)}일 전 알림으로 설정했어요.`;
       }
-      default: return '완료됐어요!';
+      default: return ''; // 미지원 intent에 거짓 성공 문구를 발화하지 않음
     }
   }
 

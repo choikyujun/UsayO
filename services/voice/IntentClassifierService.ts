@@ -211,9 +211,12 @@ export class IntentClassifierService {
     prefillContext?: string,
     nearbyEventsContext?: string,
   ): Promise<ClassifiedIntent> {
+    const _t0 = Date.now(); // [임시 계측 · voice-verify]
     if (!this.apiKey) {
       console.log('[Intent] API 키 없음 — regex fallback 사용');
-      return this.regexFallback(transcript, prefillContext);
+      const _r = this.regexFallback(transcript, prefillContext);
+      console.log(`[VOICE][3-INTENT] PATH=FALLBACK reason=키없음 elapsedMs=${Date.now() - _t0} json=${JSON.stringify(_r)}`);
+      return _r;
     }
 
     const currentDateTime = new Date().toLocaleString('ko-KR', {
@@ -280,7 +283,9 @@ export class IntentClassifierService {
         }
         // 4xx (모델 ID 오류, 키 오류 등) → regex fallback으로 음성 입력 유지
         console.log('[Intent] Claude API 4xx — regex fallback 사용');
-        return this.postProcessAmbiguous(this.regexFallback(transcript, prefillContext), transcript);
+        const _r = this.postProcessAmbiguous(this.regexFallback(transcript, prefillContext), transcript);
+        console.log(`[VOICE][3-INTENT] PATH=FALLBACK reason=4xx(${response.status}) elapsedMs=${Date.now() - _t0} json=${JSON.stringify(_r)}`);
+        return _r;
       }
 
       const data = await response.json();
@@ -313,12 +318,16 @@ export class IntentClassifierService {
         console.log('[Intent] 멀티 일정 분류 결과:');
         console.log('[Intent] events:', JSON.stringify(parsed.events, null, 2));
       }
-      return this.postProcessAmbiguous(parsed, transcript);
+      const _r = this.postProcessAmbiguous(parsed, transcript);
+      console.log(`[VOICE][3-INTENT] PATH=CLAUDE elapsedMs=${Date.now() - _t0} json=${JSON.stringify(_r)}`);
+      return _r;
 
     } catch (e) {
       if (e instanceof SyntaxError) {
         console.error('[Intent] JSON 파싱 실패 — fallback');
-        return this.postProcessAmbiguous(this.regexFallback(transcript), transcript);
+        const _r = this.postProcessAmbiguous(this.regexFallback(transcript), transcript);
+        console.log(`[VOICE][3-INTENT] PATH=FALLBACK reason=JSON파싱실패 elapsedMs=${Date.now() - _t0} json=${JSON.stringify(_r)}`);
+        return _r;
       }
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('Network') || msg.includes('fetch')) {

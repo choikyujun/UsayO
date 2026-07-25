@@ -6,6 +6,13 @@ const WHISPER_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const SUPPORTED_LANGUAGES = ['ko', 'en', 'ja', 'th', 'id', 'vi'] as const;
 type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
 
+export type TranscribeMode = 'default' | 'confirm';
+
+// 확인 단계 전용 프롬프트 — 한 음절 응답(응/네 등)의 인식률을 높이기 위한 예상 후보.
+// 일반 일정 발화에는 절대 적용하지 않는다(문장 편향 위험).
+const CONFIRM_PROMPT =
+  '응. 어. 네. 그래. 맞아. 오케이. 저장. 저장해. 저장해줘. 해줘. 좋아. 아니. 아니야. 취소. 취소해. 안해. 하지마. 됐어.';
+
 export class SpeechRecognitionService {
   private readonly apiKey: string;
 
@@ -13,7 +20,7 @@ export class SpeechRecognitionService {
     this.apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '';
   }
 
-  async transcribeWithWhisper(audioUri: string, language: string): Promise<STTResult> {
+  async transcribeWithWhisper(audioUri: string, language: string, mode: TranscribeMode = 'default'): Promise<STTResult> {
     if (!this.apiKey) throw new Error('EXPO_PUBLIC_OPENAI_API_KEY가 설정되지 않았습니다.');
 
     // 빈 파일 업로드 방지 (오디오 세션 충돌 시 0바이트 파일 생성됨)
@@ -26,7 +33,10 @@ export class SpeechRecognitionService {
       }
     } catch { /* FileSystem 접근 실패 시 계속 진행 */ }
 
-    const lang = SUPPORTED_LANGUAGES.includes(language as SupportedLanguage) ? language : 'ko';
+    // 확인 모드는 항상 한국어로 강제(짧은 응답은 언어 추정이 흔들림).
+    const lang = mode === 'confirm'
+      ? 'ko'
+      : (SUPPORTED_LANGUAGES.includes(language as SupportedLanguage) ? language : 'ko');
 
     const formData = new FormData();
     formData.append('file', {
@@ -37,7 +47,8 @@ export class SpeechRecognitionService {
     formData.append('model', 'whisper-1');
     formData.append('language', lang);
     formData.append('response_format', 'verbose_json');
-    formData.append('prompt', buildWhisperPrompt());
+    // 확인 모드: 예상 응답 후보 프롬프트 / 일반 모드: 기존 어휘 프롬프트
+    formData.append('prompt', mode === 'confirm' ? CONFIRM_PROMPT : buildWhisperPrompt());
 
     const response = await fetch(WHISPER_URL, {
       method: 'POST',
@@ -64,15 +75,23 @@ export class SpeechRecognitionService {
     };
   }
 
-  async transcribe(audioUri: string, language = 'ko'): Promise<STTResult> {
-    // Whisper API가 없으면 개발용 mock 반환
+  async transcribe(audioUri: string, language = 'ko', options?: { mode?: TranscribeMode }): Promise<STTResult> {
+    const _t0 = Date.now(); // [임시 계측 · voice-verify]
+    const mode = options?.mode ?? 'default';
+    // Whisper API가 없으면 개발용 mock 반환 (확인 모드는 confirm-friendly mock)
     if (!this.apiKey) {
       console.log('[STT] API 키 없음 — mock 사용');
-      return this.mockResult();
+      const _r = mode === 'confirm'
+        ? { transcript: '저장', confidence: 0.9, language: 'ko' }
+        : this.mockResult();
+      console.log(`[VOICE][2-STT] MODE=MOCK(${mode}) transcript=${JSON.stringify(_r.transcript)} confidence=${_r.confidence} elapsedMs=${Date.now() - _t0}`);
+      return _r;
     }
 
     try {
-      return await this.transcribeWithWhisper(audioUri, language);
+      const _r = await this.transcribeWithWhisper(audioUri, language, mode);
+      console.log(`[VOICE][2-STT] MODE=REAL(${mode}) transcript=${JSON.stringify(_r.transcript)} confidence=${_r.confidence} elapsedMs=${Date.now() - _t0}`);
+      return _r;
     } catch (e) {
       // 오프라인 또는 API 오류 → graceful degradation
       const msg = e instanceof Error ? e.message : String(e);

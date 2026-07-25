@@ -166,14 +166,7 @@ export default function DayViewScreen() {
   // ── Voice flow ──────────────────────────────────────────────────────
   const voice = useVoiceInput(ttsEnabled);
 
-  // TTS when confirming
-  const prevPhase = useRef(voice.phase);
-  useEffect(() => {
-    if (prevPhase.current !== 'confirming' && voice.phase === 'confirming' && voice.confirmMessage) {
-      ttsService.speak(voice.confirmMessage).catch(() => {});
-    }
-    prevPhase.current = voice.phase;
-  }, [voice.phase, voice.confirmMessage]);
+  // (확인 문구 발화는 useVoiceFlow 내부 단일 effect로 이동 — 이중 발화 제거)
 
   // Success → reload + reset
   useEffect(() => {

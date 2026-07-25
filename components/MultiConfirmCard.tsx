@@ -36,42 +36,66 @@ export default function MultiConfirmCard({ events, transcript, onConfirm, onCanc
   const slideY  = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
-  // ── Voice STT loop: TTS → record → match → confirm/cancel/restart ──
-  const isActiveRef      = useRef(true);
-  const startRecordRef   = useRef<() => Promise<void>>(() => Promise.resolve());
+  // ── Voice STT loop: TTS 질문 → record → confirm-mode STT → match → confirm/cancel/재질문 ──
+  const isActiveRef    = useRef(true);
+  const startRecordRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const reAskCountRef  = useRef(0);
+  const MAX_REASK = 2;                   // 재질문 최대 2회, 이후 버튼 대기로 정지
+  const CONFIRM_MIN_CONFIDENCE = 0.4;    // 저신뢰 매칭은 재질문(오저장 방지). 주 판정은 unknown
+
+  // 미인식/저신뢰/무음 → 조용히 재녹음하지 않고 "재질문"(사용자가 미인식을 인지). 한도 초과 시 버튼 대기.
+  const reAskOrStop = useCallback(async () => {
+    if (!isActiveRef.current) return;
+    if (reAskCountRef.current >= MAX_REASK) {
+      console.log('[MultiConfirm] 재질문 한도 초과 — 버튼 대기로 정지');
+      await ttsService
+        .speak('잘 못 들었어요. 화면의 저장 또는 취소 버튼을 눌러주세요.', undefined, undefined, true)
+        .catch(() => {});
+      return; // 재녹음하지 않음 → 버튼 입력 대기(무한루프 없음)
+    }
+    reAskCountRef.current += 1;
+    // 재질문 발화가 끝난 뒤(speak는 onDone에서 resolve) 다시 녹음
+    await ttsService
+      .speak('저장할까요? 저장 또는 취소라고 말씀해주세요.', undefined, undefined, true)
+      .catch(() => {});
+    if (!isActiveRef.current) return;
+    await startRecordRef.current().catch(() => {});
+  }, []);
 
   const handleAutoStop = useCallback(async (uri: string | null) => {
     if (!isActiveRef.current) return;
     try {
       if (uri) {
-        const stt    = await speechService.transcribe(uri, 'ko');
-        const action = matchMultiConfirmResponse(stt.transcript);
+        const stt     = await speechService.transcribe(uri, 'ko', { mode: 'confirm' });
+        const action  = matchMultiConfirmResponse(stt.transcript);
+        const lowConf = stt.confidence > 0 && stt.confidence < CONFIRM_MIN_CONFIDENCE;
         if (!isActiveRef.current) return;
-        if (action === 'confirm') { onConfirm(); return; }
-        if (action === 'cancel')  { onCancel();  return; }
+        if (action === 'confirm' && !lowConf) { onConfirm(); return; }
+        if (action === 'cancel'  && !lowConf) { onCancel();  return; }
+        console.log('[MultiConfirm] 미인식/저신뢰 →', JSON.stringify(stt.transcript), '| conf=', stt.confidence, '| action=', action);
       }
-      // unknown/no-audio → restart recording (keep waiting)
-      if (isActiveRef.current) await startRecordRef.current().catch(() => {});
+      // unknown / 저신뢰 / no-audio → 재질문
+      await reAskOrStop();
     } catch {
-      if (isActiveRef.current) await startRecordRef.current().catch(() => {});
+      await reAskOrStop();
     }
-  }, [onConfirm, onCancel]);
+  }, [onConfirm, onCancel, reAskOrStop]);
 
   const recorder = useVoiceRecorder({ onAutoStop: handleAutoStop });
   startRecordRef.current = recorder.startRecording;
 
   useEffect(() => {
     isActiveRef.current = true;
-    (async () => {
-      try {
-        // TTS was already spoken by useVoiceFlow — just wait for it to finish
-        await ttsService.waitForSpeech(6000);
-        await new Promise<void>(r => setTimeout(r, 400));
-        if (isActiveRef.current) await recorder.startRecording();
-      } catch {
-        if (isActiveRef.current) await recorder.startRecording().catch(() => {});
-      }
-    })();
+    let opened = false;
+    const openMic = () => {
+      if (opened || !isActiveRef.current) return;
+      opened = true;
+      recorder.startRecording().catch(() => {});
+    };
+    // 확인 질문(useVoiceFlow가 발화)이 실제로 끝나면(onDone/onStopped/onError) 마이크를 연다.
+    // isSpeakingAsync 폴링(재생 전/후 구분 불가) 대신 재생 완료 신호를 사용.
+    // 완료 신호가 끝내 안 오면 6s 폴백으로 오픈 → 교착 방지(버튼은 항상 사용 가능).
+    ttsService.awaitSpeechSettled(6000).then(openMic);
     return () => {
       isActiveRef.current = false;
       recorder.cancelRecording();

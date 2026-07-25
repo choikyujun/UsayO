@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import { MicStatus } from '../types';
 import { audioSessionService } from '../services/voice/AudioSessionService';
+import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측 · voice-verify]
 
 const MAX_DURATION_MS = 30_000;
 const WARMUP_MS       = 1_000;   // 녹음 시작 후 첫 1초는 무음 감지 제외
@@ -73,6 +75,17 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       const uri = rec.getURI() ?? null;
       console.log('[Recorder] stopRecording URI:', uri);
       lastUriRef.current = uri;
+      // [VOICE][1-REC] 임시 계측: 파일크기 + 녹음길이, TOTAL 앵커 설정
+      voiceTrace.markRecordingEnd();
+      const recMs = startTimeRef.current ? Date.now() - startTimeRef.current : -1;
+      let recBytes = -1;
+      if (uri) {
+        try {
+          const fi = await FileSystem.getInfoAsync(uri);
+          recBytes = (fi as { size?: number }).size ?? -1;
+        } catch { /* 크기 조회 실패 무시 */ }
+      }
+      console.log(`[VOICE][1-REC] bytes=${recBytes} durationMs=${recMs}`);
       return uri;
     } catch (e) {
       setError(e instanceof Error ? e.message : '녹음 중지 실패');
