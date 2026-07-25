@@ -74,7 +74,7 @@ export function useConversationalMessage(
     if (!current && future.length === 0) {
       return {
         primary:   `오늘 일정 ${events.length}개 모두 마쳤어요.`,
-        secondary: '수고하셨습니다 👏',
+        secondary: '수고하셨습니다.',
       };
     }
 

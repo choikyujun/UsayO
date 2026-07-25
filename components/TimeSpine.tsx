@@ -63,6 +63,9 @@ interface Props {
   onReschedule?:        (eventId: string, newTime: Date) => void;
   onToggleComplete?:    (event: Event) => void;
   footerContent?:       React.ReactNode;
+  footerHasContent?:    boolean;  // 다가올 일정(footer)에 표시할 항목이 있는지 → State 2/3 구분
+  footerLoading?:       boolean;  // 다가올 일정 로딩 중 → State 판정 보류(깜빡임 방지)
+  emptyExample?:        string;   // State 3(일정 전무)에서만 노출할 음성 예시
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -75,6 +78,9 @@ export default function TimeSpine({
   onReschedule,
   onToggleComplete,
   footerContent,
+  footerHasContent,
+  footerLoading,
+  emptyExample,
 }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeContainerStyles(colors), [colors]);
@@ -321,7 +327,35 @@ export default function TimeSpine({
   if (loading) return null; // brief load, avoid flash
 
   if (visibleEvents.length === 0) {
-    return <EmptyTodayState isToday />;
+    // 다가올 일정(footer) 로딩이 끝나기 전엔 State 판정 보류 → State 3 잘못된 깜빡임 방지
+    if (footerLoading) return null;
+
+    // State 2: 오늘은 비었으나 이후 일정 있음 → 인-리스트 문구 없이 다가올 일정만 렌더.
+    // (헤더 useConversationalMessage가 "오늘은 비어있어요 + 첫 일정"을 이미 안내)
+    if (footerHasContent) {
+      return (
+        <View style={styles.root}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingTop: Spacing.base, paddingBottom: listPaddingBottom ?? 120 }}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl
+                  refreshing={isRefreshing ?? false}
+                  onRefresh={onRefresh}
+                  tintColor={colors.primary}
+                />
+              ) : undefined
+            }
+          >
+            {footerContent}
+          </ScrollView>
+        </View>
+      );
+    }
+
+    // State 3: 일정 전무 → 빈 상태 + 음성 예시 1개
+    return <EmptyTodayState isToday example={emptyExample} />;
   }
 
   return (

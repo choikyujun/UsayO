@@ -8,10 +8,11 @@ interface Props {
   Icon:      LucideIconComponent;
   title:     string;
   subtitle?: string;
+  example?:  string;
   action?:   { label: string; onPress: () => void };
 }
 
-export default function EmptyState({ Icon, title, subtitle, action }: Props) {
+export default function EmptyState({ Icon, title, subtitle, example, action }: Props) {
   const colors = useColors();
   return (
     <View style={styles.wrap}>
@@ -19,6 +20,12 @@ export default function EmptyState({ Icon, title, subtitle, action }: Props) {
       <Text style={[styles.title, { color: colors.textSecondary }]}>{title}</Text>
       {subtitle ? (
         <Text style={[styles.sub, { color: colors.textTertiary }]}>{subtitle}</Text>
+      ) : null}
+      {example ? (
+        <View style={styles.exampleBlock}>
+          <Text style={[styles.exampleCaption, { color: colors.textTertiary }]}>이렇게 말해보세요</Text>
+          <Text style={[styles.exampleText, { color: colors.textSecondary }]}>{example}</Text>
+        </View>
       ) : null}
       {action ? (
         <Pressable
@@ -53,6 +60,24 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     textAlign:  'center',
     lineHeight: 20,
+  },
+  exampleBlock: {
+    marginTop:  Spacing.base,
+    alignItems: 'center',
+    gap:        Spacing.xs,
+  },
+  exampleCaption: {
+    fontSize:      11,
+    fontFamily:    'Pretendard-Medium',
+    fontWeight:    '500',
+    letterSpacing: 0.3,
+    textAlign:     'center',
+  },
+  exampleText: {
+    fontSize:   15,
+    fontFamily: 'Pretendard-Medium',
+    fontWeight: '500',
+    textAlign:  'center',
   },
   btn: {
     marginTop:         Spacing.md,
