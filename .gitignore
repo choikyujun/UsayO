@@ -20,3 +20,10 @@ web-build/
 # iOS / Android (generated — Expo prebuild 결과물만 제외)
 /ios/
 /android/
+
+# 로컬 네이티브 모듈 빌드 산출물 (소스만 커밋, 빌드 캐시 제외)
+modules/*/android/build/
+modules/*/android/.gradle/
+modules/*/android/.cxx/
+**/*.aar
+**/.transforms/
