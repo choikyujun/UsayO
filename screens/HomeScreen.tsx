@@ -38,6 +38,8 @@ import TimeSpine from '../components/TimeSpine';
 import UpcomingSection from '../components/UpcomingSection';
 import { useConversationalMessage } from '../hooks/useConversationalMessage';
 import { useRecurringEvents } from '../hooks/useRecurringEvents';
+import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
+import { useAuthStore } from '../stores/useAuthStore';
 import HybridInputModal from '../components/HybridInputModal';
 import UpgradeModal from '../components/UpgradeModal';
 import UsageWarningBanner from '../components/UsageWarningBanner';
@@ -124,12 +126,25 @@ export default function HomeScreen() {
     toggleEventComplete,
     rescheduleEvent, undoRescheduleEvent,
     reload: reloadSchedules,
+    loading: schedulesLoading,
   } = useSchedules(selectedDate, 7);
 
   const recurringEvents = useRecurringEvents(recurringParents);
 
-  // 다른 화면에서 돌아올 때(DayView 삭제/수정 등) 즉시 반영
+  // 다가올 일정(footer) 유무 — 오늘 0건일 때 State 2(이후 일정 있음) / State 3(전무) 구분용
+  const upcomingGroups = useUpcomingEvents(allEvents);
+  const hasUpcoming = upcomingGroups.length > 0;
+
+  // 인증 상태(단일 소스). focus 시점에 인증 전이면 조회를 건너뛴다(인증 전 0행 쿼리 제거).
+  const authStatus = useAuthStore(s => s.status);
+  const authStatusRef = useRef(authStatus);
+  authStatusRef.current = authStatus;
+
+  // 다른 화면에서 돌아올 때(DayView 삭제/수정 등) 즉시 반영.
+  // 초기 인증 전(pending)에는 스킵 → 인증 후 최초 조회는 각 훅의 authed 게이트가 담당.
+  // 이미 authed인 상태의 탭 복귀에서는 정상 재조회(데이터 신선도 유지).
   useFocusEffect(useCallback(() => {
+    if (authStatusRef.current !== 'authed') return;
     reloadForDate();
     reloadSchedules();
   }, [reloadForDate, reloadSchedules]));
@@ -258,14 +273,7 @@ export default function HomeScreen() {
     }
   }, [voice.micStatus, voice.phase]);
 
-  // ── TTS on confirming ─────────────────────────────────────────
-  const prevPhase = useRef(voice.phase);
-  useEffect(() => {
-    if (prevPhase.current !== 'confirming' && voice.phase === 'confirming' && voice.confirmMessage) {
-      ttsService.speak(voice.confirmMessage).catch(() => {});
-    }
-    prevPhase.current = voice.phase;
-  }, [voice.phase, voice.confirmMessage]);
+  // (확인 문구 발화는 useVoiceFlow 내부 단일 effect로 이동 — 이중 발화/ dedup skip 제거)
 
   // ── RESCHEDULE_UNDO intent: execute immediately ───────────────
   useEffect(() => {
@@ -525,6 +533,9 @@ export default function HomeScreen() {
           onReschedule={handleReschedule}
           onToggleComplete={handleCompleteToday}
           footerContent={<UpcomingSection allEvents={allEvents} onLongPress={handleLongPressUpcoming} onDelete={handleDeleteUpcoming} onComplete={handleCompleteUpcoming} />}
+          footerHasContent={hasUpcoming}
+          footerLoading={schedulesLoading}
+          emptyExample="내일 오후 3시에 팀 회의 잡아줘"
         />
       </ReAnimated.View>
 
