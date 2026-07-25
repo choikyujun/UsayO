@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.graphics.Color
 import android.widget.RemoteViews
 import com.yusay.app.R
 
@@ -35,6 +36,12 @@ class YuSaySmallWidget : AppWidgetProvider() {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
       )
       views.setOnClickPendingIntent(R.id.widget_root, pi)
+
+      val alpha = WidgetDataManager.getWidgetAlpha(context, id)
+      val baseColor = Color.parseColor("#1A1640")
+      val alphaInt = (alpha * 255 / 100).coerceIn(0, 255)
+      val finalColor = Color.argb(alphaInt, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor))
+      views.setInt(R.id.widget_root, "setBackgroundColor", finalColor)
 
       manager.updateAppWidget(id, views)
     }
