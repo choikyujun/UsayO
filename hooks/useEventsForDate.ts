@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../stores/useAuthStore';
 import { Event } from '../types/database';
 import { localDateStr } from '../utils/timeHelpers';
 import { expandRecurringEvent, EventException } from '../utils/recurrenceHelpers';
@@ -15,8 +16,10 @@ function monthBounds(anchorYearMonth: string) {
 export function useEventsForDate(selectedDate: string, anchorYearMonth: string) {
   const [monthEvents, setMonthEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const reqSeqRef = useRef(0); // load() 요청 시퀀스 — stale 응답 폐기용
 
   const load = useCallback(async () => {
+    const seq = ++reqSeqRef.current; // 최신 요청만 상태 반영(stale clobber 방지)
     setLoading(true);
     try {
       const { from, to } = monthBounds(anchorYearMonth);
@@ -68,22 +71,28 @@ export function useEventsForDate(selectedDate: string, anchorYearMonth: string) 
         (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
       );
 
+      // 최신 요청만 반영 — stale(인증 전/이전 달 등) 응답은 조용히 폐기
+      if (seq !== reqSeqRef.current) return;
       setMonthEvents(merged);
     } finally {
-      setLoading(false);
+      // 최신 요청만 로딩 종료
+      if (seq === reqSeqRef.current) setLoading(false);
     }
   }, [anchorYearMonth]);
 
-  useEffect(() => { load(); }, [load]);
-
+  // 인증이 확정된 뒤에만 조회한다. pending 동안은 load()를 실행하지 않아
+  // loading 초기값(true)이 유지되고, 인증 전 0행 응답으로 인한 빈 상태 깜빡임이 없다.
+  // userId(세션 확정)를 의존성으로 사용 — 'pending→authed' 전이에만 의존하지 않는다.
+  const authStatus = useAuthStore(s => s.status);
+  const authUserId = useAuthStore(s => s.userId);
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        load();
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [load]);
+    if (authUserId) {
+      load();
+    } else if (authStatus === 'failed') {
+      setLoading(false); // 무한 로딩 방지 — 인증 불가 시 로딩 종료(빈 상태로 흐름)
+    }
+    // pending & userId 없음: 대기 → loading=true 유지(skeleton/null)
+  }, [authUserId, authStatus, load]);
 
 
   // Events for the selected day only (filtered from the already-loaded month)

@@ -1,12 +1,55 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase, ensureAuth } from '../lib/supabase';
 import { Database, Event } from '../types/database';
 import { ClassifiedIntent, VoiceCommand } from '../types';
 import { widgetService } from '../services/widget/WidgetService';
 import { expandRecurringEvent, EventException } from '../utils/recurrenceHelpers';
 import { scheduleEventNotification, cancelEventNotification, getEnabledOffsets } from '../services/notifications';
+import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측 · voice-verify]
+import { useAuthStore } from '../stores/useAuthStore';
 
 type Schedule = Database['public']['Tables']['schedules']['Row'];
+
+// ── QUERY 결과 → 자연스러운 한국어 안내 문자열 ─────────────────────
+// 기기 로컬 타임존(KST 사용자 기준)으로 포맷 — 앱 전반 규칙과 동일.
+function fmtKoreanTime(iso: string): string {
+  const d = new Date(iso);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h < 12 ? '오전' : '오후';
+  const h12 = h % 12 || 12;
+  const minStr = m > 0 ? ` ${m}분` : '';
+  return `${ampm} ${h12}시${minStr}`;
+}
+
+function sameYmd(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+// "오늘은" / "내일은" / "N월 N일은" / (여러 날 범위면) "해당 기간에는"
+function queryDayLabel(startIso: string, endIso: string): string {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (!sameYmd(start, end)) return '해당 기간에는';
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  if (sameYmd(start, now)) return '오늘은';
+  if (sameYmd(start, tomorrow)) return '내일은';
+  return `${start.getMonth() + 1}월 ${start.getDate()}일은`;
+}
+
+function buildQuerySummary(events: Event[], range: { start: string; end: string }): string {
+  const label = queryDayLabel(range.start, range.end);
+  if (events.length === 0) {
+    return `${label} 일정이 없어요.`;
+  }
+  const MAX = 5;
+  const items = events.slice(0, MAX).map(e => `${fmtKoreanTime(e.start_at)} ${e.title}`);
+  let body = items.join(', ');
+  if (events.length > MAX) body += ` 외 ${events.length - MAX}개`;
+  return `${label} 일정이 ${events.length}개 있어요. ${body}.`;
+}
 
 function extractTimeFromQuery(q: string): { hour: number; min: number } | null {
   const m = q.match(/(\d{1,2})\s*시\s*(?:(\d{1,2})\s*분)?/);
@@ -154,8 +197,10 @@ export function useSchedules(date: string, daysAhead = 0) {
   const [recurringParents, setRecurringParents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
+  const reqSeqRef = useRef(0); // load() 요청 시퀀스 — stale 응답 폐기용
 
   const load = useCallback(async () => {
+    const seq = ++reqSeqRef.current; // 요청 시퀀스 — 최신 요청만 상태 반영(stale clobber 방지)
     setLoading(true);
     try {
       const { from, to } = dateRange(date, daysAhead);
@@ -188,7 +233,6 @@ export function useSchedules(date: string, daysAhead = 0) {
         ...((eventData ?? []).filter(e => e.is_recurring && !e.parent_event_id)),
         ...(earlyParents ?? []),
       ];
-      setRecurringParents(allParents);
 
       // 3. exception 목록 fetch — 마이그레이션 미적용 시 조용히 스킵
       const parentIds = allParents.map(p => p.id);
@@ -216,27 +260,36 @@ export function useSchedules(date: string, daysAhead = 0) {
         (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
       );
 
+      // 최신 요청만 반영 — stale(인증 전/이전 달 등) 응답은 조용히 폐기(에러 아님)
+      if (seq !== reqSeqRef.current) return;
+      setRecurringParents(allParents);
       setEvents(merged);
       setSchedules(merged.map(evToSchedule));
       widgetService.push(merged, merged).catch(() => {});
     } catch {
       // 미인증 상태에서는 빈 목록 유지
     } finally {
-      setLoading(false);
+      // 최신 요청만 로딩 종료 — stale 응답이 최신 조회의 로딩을 끄지 못하게
+      if (seq === reqSeqRef.current) setLoading(false);
     }
   }, [date, daysAhead]);
 
-  useEffect(() => { load(); }, [load]);
-
-  // Re-fetch when device auth completes (setSession triggers SIGNED_IN or TOKEN_REFRESHED)
+  // 인증이 확정된 뒤에만 조회한다. pending 동안은 load()를 실행하지 않아
+  // loading 초기값(true)이 유지되고, 인증 전 0행 응답으로 인한 빈 상태 깜빡임이 없다.
+  // (기존의 마운트 즉시 load + SIGNED_IN 재조회 두 effect를 authed 게이팅 하나로 통합)
+  // userId(세션 확정)를 의존성으로 사용 — 'pending→authed' 전이에만 의존하지 않는다.
+  // 부트스트랩 reset이 userId=null로 만들고, device-auth가 userId를 채우면(어떤 경로든)
+  // null→uid 변화로 이 effect가 반드시 1회 조회를 실행한다.
+  const authStatus = useAuthStore(s => s.status);
+  const authUserId = useAuthStore(s => s.userId);
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        load();
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [load]);
+    if (authUserId) {
+      load();
+    } else if (authStatus === 'failed') {
+      setLoading(false); // 무한 로딩 방지 — 인증 불가 시 로딩 종료(빈 상태로 흐름)
+    }
+    // pending & userId 없음: 대기 → loading=true 유지
+  }, [authUserId, authStatus, load]);
 
   async function applyVoiceCommand(command: VoiceCommand): Promise<void> {
     const userId = await ensureAuth();
@@ -340,6 +393,8 @@ export function useSchedules(date: string, daysAhead = 0) {
           ),
         );
         setLastCreatedId(savedEvent.id);
+        console.log(`[VOICE][5-DB] op=insert success=true id=${savedEvent.id}`);
+        console.log(`[VOICE][TOTAL] recEnd→DB ${voiceTrace.sinceRecordingEnd()}ms (intent=CREATE)`);
         // 알림 예약 (fire-and-forget — 실패해도 저장은 유지)
         scheduleEventNotification(savedEvent).catch(e =>
           console.log('[Notifications] 예약 실패:', e),
@@ -364,6 +419,9 @@ export function useSchedules(date: string, daysAhead = 0) {
           .in('id', intent.targetEventIds);
         console.log('[VoiceFlow] DB batch delete result: count=', count, '| error=', batchErr?.message ?? null);
         if (batchErr) throw new Error(batchErr.message);
+        console.log(`[VOICE][4-MATCH] intent=DELETE(batch) candidateCount=${intent.targetEventIds.length} selectedIds=${JSON.stringify(intent.targetEventIds)}`);
+        console.log(`[VOICE][5-DB] op=delete-batch success=true count=${count ?? intent.targetEventIds.length}`);
+        console.log(`[VOICE][TOTAL] recEnd→DB ${voiceTrace.sinceRecordingEnd()}ms (intent=DELETE-batch)`);
         const ids = new Set(intent.targetEventIds);
         setEvents(prev => prev.filter(e => !ids.has(e.id)));
         await Promise.all(intent.targetEventIds.map(id => cancelEventNotification(id)));
@@ -388,6 +446,7 @@ export function useSchedules(date: string, daysAhead = 0) {
         }
         target = candidates[0];
       }
+      console.log(`[VOICE][4-MATCH] intent=DELETE selectedId=${target.id} title=${JSON.stringify(target.title)}`);
 
       const { data, error } = await supabase
         .from('events')
@@ -398,6 +457,8 @@ export function useSchedules(date: string, daysAhead = 0) {
 
       console.log('[VoiceFlow] DB delete result: data=', !!data, '| error=', error?.message ?? null);
       if (error) throw new Error(error.message);
+      console.log(`[VOICE][5-DB] op=delete success=${!!data} id=${target.id}`);
+      console.log(`[VOICE][TOTAL] recEnd→DB ${voiceTrace.sinceRecordingEnd()}ms (intent=DELETE)`);
 
       setEvents(prev => prev.filter(e => e.id !== target.id));
       cancelEventNotification(target.id).catch(() => {});
@@ -427,6 +488,7 @@ export function useSchedules(date: string, daysAhead = 0) {
         }
         target = candidates[0];
       }
+      console.log(`[VOICE][4-MATCH] intent=UPDATE selectedId=${target.id} title=${JSON.stringify(target.title)}`);
       const patch: {
         updated_at: string;
         start_at?: string;
@@ -460,6 +522,8 @@ export function useSchedules(date: string, daysAhead = 0) {
 
       console.log('[VoiceFlow] DB update result: data=', !!data, '| error=', error?.message ?? null);
       if (error) throw new Error(error.message);
+      console.log(`[VOICE][5-DB] op=update success=${!!data} id=${target.id}`);
+      console.log(`[VOICE][TOTAL] recEnd→DB ${voiceTrace.sinceRecordingEnd()}ms (intent=UPDATE)`);
 
       if (data) {
         setEvents(prev => prev.map(e => e.id === target.id ? (data as Event) : e));
@@ -495,6 +559,7 @@ export function useSchedules(date: string, daysAhead = 0) {
         }
         target = candidates[0];
       }
+      console.log(`[VOICE][4-MATCH] intent=COMPLETE selectedId=${target.id} title=${JSON.stringify(target.title)}`);
       const { data, error } = await supabase
         .from('events')
         .update({ completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -504,6 +569,8 @@ export function useSchedules(date: string, daysAhead = 0) {
 
       console.log('[VoiceFlow] DB complete result: data=', !!data, '| error=', error?.message ?? null);
       if (error) throw new Error(error.message);
+      console.log(`[VOICE][5-DB] op=update-complete success=${!!data} id=${target.id}`);
+      console.log(`[VOICE][TOTAL] recEnd→DB ${voiceTrace.sinceRecordingEnd()}ms (intent=COMPLETE)`);
 
       if (data) {
         setEvents(prev => prev.map(e => e.id === target.id ? (data as Event) : e));
@@ -534,6 +601,7 @@ export function useSchedules(date: string, daysAhead = 0) {
         }
         targetIds = [candidates[0].id];
       }
+      console.log(`[VOICE][4-MATCH] intent=NOTIFICATION_UPDATE candidateCount=${targetIds.length} selectedIds=${JSON.stringify(targetIds)}`);
 
       const { error } = await supabase
         .from('events')
@@ -541,6 +609,8 @@ export function useSchedules(date: string, daysAhead = 0) {
         .in('id', targetIds);
       console.log('[VoiceFlow] NOTIFICATION_UPDATE DB result: error=', error?.message ?? null);
       if (error) throw new Error(error.message);
+      console.log(`[VOICE][5-DB] op=update-notif success=${!error} ids=${JSON.stringify(targetIds)}`);
+      console.log(`[VOICE][TOTAL] recEnd→DB ${voiceTrace.sinceRecordingEnd()}ms (intent=NOTIFICATION_UPDATE)`);
 
       const { data: updated } = await supabase.from('events').select('*').in('id', targetIds);
       if (updated) {
@@ -555,6 +625,32 @@ export function useSchedules(date: string, daysAhead = 0) {
         }
       }
       return targetIds[0];
+    }
+
+    // ── QUERY: 조회 전용 (저장 없음). 결과를 한국어 요약 문자열로 반환 ──
+    if (intent.intent === 'QUERY') {
+      const range = intent.queryRange;
+      console.log('[VoiceFlow] QUERY branch entered, range:', range, '| queryType:', intent.queryType ?? 'none');
+      if (!range?.start || !range?.end) {
+        console.log('[VOICE][5-DB] op=query success=false reason=no-range');
+        return '조회할 기간을 이해하지 못했어요. 다시 말씀해 주세요.';
+      }
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .is('deleted_at', null)
+        .gte('start_at', range.start)
+        .lte('start_at', range.end)
+        .order('start_at', { ascending: true })
+        .limit(100);
+      if (error) {
+        console.log('[VOICE][5-DB] op=query success=false error=', error.message);
+        throw new Error(error.message);
+      }
+      const rows = (data ?? []) as Event[];
+      console.log(`[VOICE][5-DB] op=query success=true count=${rows.length}`);
+      console.log(`[VOICE][TOTAL] recEnd→DB ${voiceTrace.sinceRecordingEnd()}ms (intent=QUERY)`);
+      return buildQuerySummary(rows, range);
     }
 
     return undefined;

@@ -27,6 +27,7 @@ import { UndoToastProvider } from '../contexts/UndoToastContext';
 import UndoToast from '../components/UndoToast';
 import { supabase } from '../lib/supabase';
 import { signInWithDevice } from '../services/auth/deviceAuth';
+import { useAuthStore } from '../stores/useAuthStore';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { noiseDetector } from '../services/voice/NoiseDetectorService';
@@ -120,6 +121,10 @@ function AppRoot() {
 
   useEffect(() => {
     (async () => {
+      // 0. 인증 상태 초기화 — 이전 세션/Fast Refresh로 살아남은 authed 상태를 반드시 pending으로.
+      //    (signOut 전에 리셋해야 device-auth의 SIGNED_IN이 pending→authed 전이를 확실히 만든다)
+      useAuthStore.getState().reset();
+
       // 0. Device ID 사전 확인 (로그용)
       import('../services/auth/deviceAuth').then(m => m.getDeviceId())
         .then(({ id, source }) => console.log('[Auth] deviceId pre-check:', source, id))
@@ -133,13 +138,21 @@ function AppRoot() {
       try {
         const uid = await signInWithDevice();
         console.log('[Auth] device auth OK:', uid);
+        useAuthStore.getState().markAuthed(uid);
       } catch (deviceErr) {
         // Edge Function 실패: 익명 로그인으로 최소 기능 유지
         const errMsg = (deviceErr as Error).message;
         console.log('[Auth] device auth FAILED:', errMsg);
         const { data, error } = await supabase.auth.signInAnonymously();
-        if (error) console.log('[Auth] signInAnonymously FAILED:', error.message);
-        else console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
+        if (error) {
+          console.log('[Auth] signInAnonymously FAILED:', error.message);
+          // 인증 확정 실패 → 조회 훅이 무한 로딩에 빠지지 않도록 실패 상태 공개
+          useAuthStore.getState().markFailed();
+        } else {
+          console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
+          if (data.user) useAuthStore.getState().markAuthed(data.user.id);
+          else useAuthStore.getState().markFailed();
+        }
       }
       // 초기 인증 완료 — 이후 SIGNED_OUT은 진짜 토큰 만료로 처리
       initDoneRef.current = true;
