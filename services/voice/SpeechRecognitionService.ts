@@ -22,11 +22,7 @@ type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
 export type TranscribeMode = 'default' | 'confirm';
 
 export class SpeechRecognitionService {
-  private readonly apiKey: string;
-
-  constructor() {
-    this.apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '';
-  }
+  // API 키는 클라이언트에 두지 않는다. Whisper 호출/키는 stt-proxy(서버 secret)가 전담.
 
   async transcribeWithWhisper(audioUri: string, language: string, mode: TranscribeMode = 'default'): Promise<STTResult> {
     // SDK 54 File API (deprecated getInfoAsync/readAsStringAsync 대체).
@@ -132,21 +128,6 @@ export class SpeechRecognitionService {
   // No-op warmup hook — called at startup so the module is pre-loaded
   prewarm(): void {
     console.log('[STT] prewarm (API-based, no preload needed)');
-  }
-
-  private mockResult(): STTResult {
-    const mocks = [
-      '내일 오후 3시에 팀 회의 잡아줘',
-      '다음 주 월요일 점심에 팀장 면담',
-      '오늘 저녁 6시 운동 추가해줘',
-      '내일 팀 회의 4시로 바꿔줘',
-      '이번 주 일정 알려줘',
-    ];
-    return {
-      transcript: mocks[Math.floor(Math.random() * mocks.length)],
-      confidence: 0.92,
-      language: 'ko',
-    };
   }
 }
 

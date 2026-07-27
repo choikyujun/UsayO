@@ -3,7 +3,7 @@ import { KoreanDateParser } from '../nlp/KoreanDateParser';
 import { supabase } from '../../lib/supabase';
 import { activityWindowHour24 } from '../../utils/timeHelpers';
 
-const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
+// Claude 호출/키는 intent-proxy(서버 secret)가 전담. 클라이언트엔 URL·키를 두지 않는다.
 const MODEL = 'claude-haiku-4-5-20251001';  // 실시간 처리 → 속도 우선 (Claude Haiku 4.5)
 
 const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리 엔진입니다.
@@ -189,11 +189,7 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 → {"intent":"NOTIFICATION_UPDATE","targetEventQuery":"팀 미팅","notificationOffsetMinutes":60,"confidence":0.95}`;
 
 export class IntentClassifierService {
-  private readonly apiKey: string;
-
-  constructor() {
-    this.apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
-  }
+  // API 키는 클라이언트에 두지 않는다. Claude 호출/키는 intent-proxy(서버 secret)가 전담.
 
   async classify(
     transcript: string,
