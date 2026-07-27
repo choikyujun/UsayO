@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { AppTheme, useColors } from '../../constants/colors';
+import { SETTINGS_FLAGS } from '../../constants/featureFlags';
 import { Spacing } from '../../constants/spacing';
 
 interface NotifItem {
@@ -75,7 +76,8 @@ export default function NotificationSettingsScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Section title="일정 알림" colors={colors}>
-        {SCHEDULE_NOTIFS.map((item, i) => (
+        {/* daily_recap은 미배선 → notifExtras 플래그로 숨김. before_10/60만 실제 예약에 반영됨 */}
+        {(SETTINGS_FLAGS.notifExtras ? SCHEDULE_NOTIFS : SCHEDULE_NOTIFS.filter(x => x.key !== 'daily_recap')).map((item, i) => (
           <NotifRow
             key={item.key}
             item={item}
@@ -87,18 +89,21 @@ export default function NotificationSettingsScreen() {
         ))}
       </Section>
 
-      <Section title="음성 알림" colors={colors}>
-        {VOICE_NOTIFS.map((item, i) => (
-          <NotifRow
-            key={item.key}
-            item={item}
-            value={toggles[item.key] ?? false}
-            onChange={v => toggle(item.key, v)}
-            bordered={i > 0}
-            colors={colors}
-          />
-        ))}
-      </Section>
+      {/* 음성 알림(이어폰 TTS/무음 진동)은 미배선 → notifExtras 배선 후 복원 */}
+      {SETTINGS_FLAGS.notifExtras && (
+        <Section title="음성 알림" colors={colors}>
+          {VOICE_NOTIFS.map((item, i) => (
+            <NotifRow
+              key={item.key}
+              item={item}
+              value={toggles[item.key] ?? false}
+              onChange={v => toggle(item.key, v)}
+              bordered={i > 0}
+              colors={colors}
+            />
+          ))}
+        </Section>
+      )}
 
       <View style={styles.infoBox}>
         <Text style={styles.infoText}>

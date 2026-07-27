@@ -14,6 +14,7 @@ import {
 import FeatureGate from '../../components/FeatureGate';
 import { AppTheme, useColors } from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
+import { SETTINGS_FLAGS } from '../../constants/featureFlags';
 import { Spacing } from '../../constants/spacing';
 
 const ANALYTICS_KEY = 'yusay_analytics_consent';
@@ -83,52 +84,61 @@ export default function PrivacySettingsScreen() {
             locked
             colors={colors}
           />
-          <FeatureGate
-            feature="on_device"
-            fallback={
+          {/* 온디바이스 처리 — 미구현(모든 STT 서버 Whisper). onDeviceProcessing 구현 후 복원 */}
+          {SETTINGS_FLAGS.onDeviceProcessing && (
+            <FeatureGate
+              feature="on_device"
+              fallback={
+                <Row
+                  icon={<Smartphone size={20} color={colors.textMuted} />}
+                  label="온디바이스 처리"
+                  sub="Team 플랜 — 음성 처리를 기기에서만 수행"
+                  value={false}
+                  locked
+                  badge="Team"
+                  colors={colors}
+                />
+              }
+            >
               <Row
                 icon={<Smartphone size={20} color={colors.textMuted} />}
                 label="온디바이스 처리"
-                sub="Team 플랜 — 음성 처리를 기기에서만 수행"
-                value={false}
-                locked
-                badge="Team"
+                sub="음성 처리를 기기에서만 수행해요"
+                value={true}
                 colors={colors}
               />
-            }
-          >
+            </FeatureGate>
+          )}
+          {/* 분석 데이터 수집 — 분석 SDK 없음(저장만·미반영). analyticsConsent 파이프라인 추가 후 복원 */}
+          {SETTINGS_FLAGS.analyticsConsent && (
             <Row
-              icon={<Smartphone size={20} color={colors.textMuted} />}
-              label="온디바이스 처리"
-              sub="음성 처리를 기기에서만 수행해요"
-              value={true}
+              icon={<BarChart2 size={20} color={colors.textMuted} />}
+              label="분석 데이터 수집"
+              sub="익명 사용 통계만 수집 (개인정보 포함 안 됨)"
+              value={analytics}
+              onToggle={toggleAnalytics}
               colors={colors}
             />
-          </FeatureGate>
-          <Row
-            icon={<BarChart2 size={20} color={colors.textMuted} />}
-            label="분석 데이터 수집"
-            sub="익명 사용 통계만 수집 (개인정보 포함 안 됨)"
-            value={analytics}
-            onToggle={toggleAnalytics}
-            colors={colors}
-          />
+          )}
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>약관 및 정책</Text>
-        <View style={styles.card}>
-          <Pressable style={styles.linkRow}>
-            <Text style={styles.linkLabel}>개인정보 처리방침</Text>
-            <ChevronRight size={20} color={colors.textMuted} />
-          </Pressable>
-          <Pressable style={[styles.linkRow, styles.border]}>
-            <Text style={styles.linkLabel}>서비스 이용약관</Text>
-            <ChevronRight size={20} color={colors.textMuted} />
-          </Pressable>
+      {/* 약관 및 정책 — 문서 URL 미준비 + onPress 없는 dead link. URL 확보 후 policyLinks=true + Linking 연결 */}
+      {SETTINGS_FLAGS.policyLinks && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>약관 및 정책</Text>
+          <View style={styles.card}>
+            <Pressable style={styles.linkRow}>
+              <Text style={styles.linkLabel}>개인정보 처리방침</Text>
+              <ChevronRight size={20} color={colors.textMuted} />
+            </Pressable>
+            <Pressable style={[styles.linkRow, styles.border]}>
+              <Text style={styles.linkLabel}>서비스 이용약관</Text>
+              <ChevronRight size={20} color={colors.textMuted} />
+            </Pressable>
+          </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.section}>
         <Pressable style={styles.deleteBtn} onPress={handleDeleteData}>

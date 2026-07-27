@@ -13,6 +13,7 @@ import {
 import UpgradeModal from '../components/UpgradeModal';
 import { AppTheme, useColors } from '../constants/colors';
 import { ACCENT_PALETTES, useTheme } from '../contexts/ThemeContext';
+import { SETTINGS_FLAGS } from '../constants/featureFlags';
 import { supabase } from '../lib/supabase';
 import { useSubscriptionStore } from '../stores/useSubscriptionStore';
 import { Spacing } from '../constants/spacing';
@@ -32,7 +33,10 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
-  { Icon: Calendar, label: '캘린더 연동', route: '/settings/calendar-integration' },
+  // 캘린더 연동은 mock 상태 → SETTINGS_FLAGS.calendarIntegration로 숨김(복원 시 아래 주석 해제 불필요, 플래그만 true)
+  ...(SETTINGS_FLAGS.calendarIntegration
+    ? [{ Icon: Calendar, label: '캘린더 연동', route: '/settings/calendar-integration' }]
+    : []),
   { Icon: Bell,     label: '알림 설정',   route: '/settings/notifications' },
   { Icon: Globe,    label: '언어·음성',   route: '/settings/language' },
   { Icon: Lock,     label: '프라이버시',  route: '/settings/privacy' },
