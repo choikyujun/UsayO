@@ -186,7 +186,7 @@ export default function SettingsScreen() {
         <Text style={styles.logoutText}>로그아웃</Text>
       </Pressable>
 
-      <Text style={styles.version}>YuSay v1.0.0 · Yu say. It's done.</Text>
+      <Text style={styles.version}>UsayO v1.0.0 · Yu say. It's done.</Text>
 
       <UpgradeModal
         visible={upgradeVisible}

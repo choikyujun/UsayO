@@ -25,7 +25,7 @@ export default function PermissionMicScreen() {
     if (!granted) {
       Alert.alert(
         '마이크 권한 필요',
-        '설정 앱에서 YuSay의 마이크 권한을 허용하면\n음성 기능을 사용할 수 있어요.',
+        '설정 앱에서 UsayO의 마이크 권한을 허용하면\n음성 기능을 사용할 수 있어요.',
         [{ text: '확인', onPress: proceed }]
       );
       return;

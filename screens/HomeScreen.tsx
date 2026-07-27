@@ -345,7 +345,7 @@ export default function HomeScreen() {
     );
     const t = setTimeout(() => {
       ttsService
-        .speak('안녕하세요, YuSay예요. 마이크를 누르고 말해보세요. 일정은 제가 정리할게요.')
+        .speak('안녕하세요, UsayO예요. 마이크를 누르고 말해보세요. 일정은 제가 정리할게요.')
         .catch(() => {});
     }, 700);
     return () => clearTimeout(t);

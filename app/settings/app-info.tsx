@@ -12,7 +12,7 @@ export default function AppInfoRoute() {
           <View style={styles.logoCircle}>
             <Mic size={32} color="#fff" />
           </View>
-          <Text style={styles.appName}>YuSay</Text>
+          <Text style={styles.appName}>UsayO</Text>
           <Text style={styles.tagline}>Yu say. It's done.</Text>
         </View>
 

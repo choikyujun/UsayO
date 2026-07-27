@@ -35,7 +35,7 @@ struct YuSaySmallWidget: Widget {
     StaticConfiguration(kind: kind, provider: YuSayProvider()) { entry in
       SmallWidgetView(entry: entry)
     }
-    .configurationDisplayName("YuSay 스몰")
+    .configurationDisplayName("UsayO 스몰")
     .description("다음 일정 + 음성 버튼")
     .supportedFamilies([.systemSmall])
   }
@@ -48,7 +48,7 @@ struct YuSayMediumWidget: Widget {
     StaticConfiguration(kind: kind, provider: YuSayProvider()) { entry in
       MediumWidgetView(entry: entry)
     }
-    .configurationDisplayName("YuSay 미디엄")
+    .configurationDisplayName("UsayO 미디엄")
     .description("오늘 일정 리스트")
     .supportedFamilies([.systemMedium])
   }
@@ -76,7 +76,7 @@ struct YuSayLockScreenWidget: Widget {
     StaticConfiguration(kind: kind, provider: YuSayProvider()) { entry in
       LockScreenWidgetView(entry: entry)
     }
-    .configurationDisplayName("YuSay 잠금화면")
+    .configurationDisplayName("UsayO 잠금화면")
     .description("다음 일정 빠른 확인")
     .supportedFamilies([.accessoryRectangular])
   }

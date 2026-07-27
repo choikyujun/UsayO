@@ -107,7 +107,7 @@ export default function CalendarIntegrationScreen() {
       <View style={styles.infoBox}>
         <Lock size={14} color={colors.textMuted} />
         <Text style={styles.infoText}>
-          연동된 캘린더 데이터는 YuSay 서버에 저장되지 않으며,
+          연동된 캘린더 데이터는 UsayO 서버에 저장되지 않으며,
           동기화 시에만 읽기 권한이 사용됩니다.
         </Text>
       </View>

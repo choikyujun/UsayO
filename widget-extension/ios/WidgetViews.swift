@@ -146,7 +146,7 @@ struct LockScreenWidgetView: View {
           .font(.system(size: 13, weight: .medium))
           .lineLimit(1)
       } else {
-        Text("YuSay · 일정 없음")
+        Text("UsayO · 일정 없음")
           .font(.system(size: 13))
       }
     }

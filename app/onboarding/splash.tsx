@@ -58,7 +58,7 @@ export default function SplashScreen() {
           </View>
         </View>
 
-        <Text style={styles.title}>YuSay</Text>
+        <Text style={styles.title}>UsayO</Text>
         <Text style={styles.tagline}>Yu say. It's done.</Text>
       </View>
 

@@ -28,7 +28,7 @@ if (!isExpoGo) {
   // Android 채널은 앱 시작 시 무조건 생성 (권한 여부와 무관)
   if (Platform.OS === 'android') {
     N.setNotificationChannelAsync('default', {
-      name: 'YuSay 일정 알림',
+      name: 'UsayO 일정 알림',
       importance: N.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#534AB7',

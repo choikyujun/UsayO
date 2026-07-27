@@ -130,7 +130,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       if (!ready) {
         Alert.alert(
           '마이크 권한이 필요해요',
-          'Settings에서 YuSay의 마이크 권한을 켜주세요.',
+          'Settings에서 UsayO의 마이크 권한을 켜주세요.',
           [
             { text: '취소', style: 'cancel' },
             { text: 'Settings 열기', onPress: () => Linking.openSettings() },

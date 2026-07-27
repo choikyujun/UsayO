@@ -108,7 +108,7 @@ export default function NotificationSettingsScreen() {
       <View style={styles.infoBox}>
         <Text style={styles.infoText}>
           알림 권한이 없으면 일부 기능이 동작하지 않을 수 있어요.
-          기기 설정에서 YuSay의 알림을 허용해주세요.
+          기기 설정에서 UsayO의 알림을 허용해주세요.
         </Text>
       </View>
     </ScrollView>

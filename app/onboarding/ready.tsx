@@ -50,7 +50,7 @@ export default function ReadyScreen() {
         </Animated.View>
 
         <Text style={styles.title}>준비 완료!</Text>
-        <Text style={styles.subtitle}>YuSay를 시작할 준비가 됐어요</Text>
+        <Text style={styles.subtitle}>UsayO를 시작할 준비가 됐어요</Text>
 
         {/* Permission status card */}
         <View style={styles.statusCard}>

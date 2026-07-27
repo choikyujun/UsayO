@@ -90,7 +90,7 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
 
   async function handleShare() {
     onClose();
-    await Share.share({ message: `[YuSay] ${startStr} ${ev.title}` });
+    await Share.share({ message: `[UsayO] ${startStr} ${ev.title}` });
   }
 
   return (
