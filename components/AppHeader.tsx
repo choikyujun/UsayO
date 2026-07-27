@@ -30,18 +30,22 @@ function formatTime(d: Date): string {
 
 interface Props {
   currentTab: AppTab;
+  // tabsOnly: 탭 행만 렌더(날짜·시각·힌트 생략). 홈은 이 정보를 대화형 메시지 아래로 강등해
+  // 직접 렌더하므로 홈에서만 true. 다른 화면은 기본(false)으로 기존 레이아웃 유지.
+  tabsOnly?: boolean;
 }
 
-export default function AppHeader({ currentTab }: Props) {
+export default function AppHeader({ currentTab, tabsOnly }: Props) {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const { today } = useCurrentDate(); // midnight-aware date (triggers at 00:00)
 
   const [timeStr, setTimeStr] = useState(() => formatTime(new Date()));
   useEffect(() => {
+    if (tabsOnly) return; // 홈은 시각을 직접 렌더 → 여기 타이머 불필요
     const id = setInterval(() => setTimeStr(formatTime(new Date())), 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [tabsOnly]);
 
   function handleTab(tab: AppTab) {
     if (tab === currentTab) return;
@@ -100,19 +104,22 @@ export default function AppHeader({ currentTab }: Props) {
         })}
       </View>
 
-      {/* ── 날짜 · 시간 ──────────────────────────────────────── */}
-      <View style={styles.dateRow}>
-        <Text style={[styles.dateText, { color: colors.textPrimary }]}>
-          {formatDate(today)}
-        </Text>
-        <Text style={[styles.sep, { color: colors.textSecondary }]}>  ·  </Text>
-        <Text style={[styles.timeText, { color: colors.textSecondary }]}>
-          {timeStr}
-        </Text>
-      </View>
+      {/* ── 날짜 · 시간 + 힌트 (홈은 tabsOnly로 생략 → 메시지 아래로 강등해 직접 렌더) ── */}
+      {!tabsOnly && (
+        <>
+          <View style={styles.dateRow}>
+            <Text style={[styles.dateText, { color: colors.textPrimary }]}>
+              {formatDate(today)}
+            </Text>
+            <Text style={[styles.sep, { color: colors.textSecondary }]}>  ·  </Text>
+            <Text style={[styles.timeText, { color: colors.textSecondary }]}>
+              {timeStr}
+            </Text>
+          </View>
 
-      {/* ── 힌트 ─────────────────────────────────────────────── */}
-      <VoiceHintRotator />
+          <VoiceHintRotator />
+        </>
+      )}
     </View>
   );
 }

@@ -36,6 +36,7 @@ import MultiConfirmCard from '../components/MultiConfirmCard';
 import RecurringBadge from '../components/RecurringBadge';
 import TimeSpine from '../components/TimeSpine';
 import UpcomingSection from '../components/UpcomingSection';
+import VoiceHintRotator from '../components/VoiceHintRotator';
 import { useConversationalMessage } from '../hooks/useConversationalMessage';
 import { useRecurringEvents } from '../hooks/useRecurringEvents';
 import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
@@ -59,6 +60,12 @@ import { Spacing } from '../constants/spacing';
 import { onVoiceTrigger } from '../utils/voiceTrigger';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const FAB_SMALL = 64;
+
+// 강등된 날짜·요일 표기 (기존 AppHeader와 동일 포맷 — 위계만 보조 톤으로 낮춤)
+const KO_DAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+function formatDateLabel(d: Date): string {
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${KO_DAYS[d.getDay()]}`;
+}
 
 const SUCCESS_AUTO_RESET_MS   = 1800;  // 음성 성공 후 idle 복귀 딜레이
 const RESCHEDULE_TOAST_MS     = 10_000; // 일정 이동 토스트 자동 닫힘
@@ -100,7 +107,7 @@ export default function HomeScreen() {
   const voice = useVoiceFlow();
 
   // ── Selected date ─────────────────────────────────────────────
-  const { todayStr: selectedDate } = useCurrentDate();
+  const { todayStr: selectedDate, today } = useCurrentDate();
   const anchorMonth = useMemo(() => toYearMonth(new Date(selectedDate + 'T00:00:00')), [selectedDate]);
 
   // ── Clock ──────────────────────────────────────────────────────
@@ -496,8 +503,8 @@ export default function HomeScreen() {
       {/* ── 컨텐츠 레이어 (음성 활성 시 페이드) ─────────────────── */}
       <ReAnimated.View style={[{ flex: 1 }, contentAnimStyle]}>
 
-        {/* ── 통합 헤더 (5탭 + 날짜/시간) ──────────────────────────── */}
-        <AppHeader currentTab="home" />
+        {/* ── 통합 헤더 (홈: 5탭만 — 날짜·시각·힌트는 아래로 강등) ──── */}
+        <AppHeader currentTab="home" tabsOnly />
 
         {/* ── 설정 아이콘 (우상단 절대 위치) ──────────────────────── */}
         <View style={[styles.avatarRow, { top: insets.top + 6 }]}>
@@ -510,13 +517,21 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* ── 컨버세이셔널 메시지 ────────────────────────────────── */}
+        {/* ── 1. 대화형 메시지 (화면의 주인공, 헤더급 타이포) ───────── */}
         <View style={styles.header}>
-          <Text style={styles.conversational}>
-            <Text>{message.primary}</Text>
-            {'\n'}
-            <Text style={styles.conversationalSecondary}>{message.secondary}</Text>
-          </Text>
+          <Text style={styles.msgPrimary}>{message.primary}</Text>
+          {/* "다음은 N시간 후, ~이에요"가 핵심 정보 → 첫 줄과 같거나 높은 강조(accent+SemiBold) */}
+          <Text style={styles.msgSecondary}>{message.secondary}</Text>
+        </View>
+
+        {/* ── 2. 힌트 배너 (메시지 아래) ──────────────────────────── */}
+        <VoiceHintRotator />
+
+        {/* ── 3. 날짜·요일·시각 (배너 아래, 타임라인 위) ───────────── */}
+        <View style={styles.dateRow}>
+          <Text style={styles.dateText}>{formatDateLabel(today)}</Text>
+          <Text style={styles.dateSep}>  ·  </Text>
+          <Text style={styles.dateTime}>{currentTime}</Text>
         </View>
 
         <UsageWarningBanner feature="voice_create" />
@@ -744,17 +759,48 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       paddingBottom: Spacing.sm,
       alignItems:        'flex-start',
     },
-    conversational: {
-      fontSize: 18,
-      lineHeight: 28,
+    // 대화형 메시지 — 화면의 주인공. 날짜 헤더(20)급으로 승격.
+    msgPrimary: {
+      fontSize: 21,
+      lineHeight: 29,
       color: c.textPrimary,
-      fontFamily: 'Pretendard-Regular',
-      fontWeight: '400',
-    },
-    conversationalSecondary: {
-      color: c.accent,
       fontFamily: 'Pretendard-Medium',
       fontWeight: '500',
+    },
+    // 둘째 줄("다음은 ~이에요")이 핵심 → 첫 줄과 같은 크기에 accent+SemiBold로 강조 우위.
+    msgSecondary: {
+      fontSize: 21,
+      lineHeight: 29,
+      marginTop: 2,
+      color: c.accent,
+      fontFamily: 'Pretendard-SemiBold',
+      fontWeight: '600',
+    },
+    // 날짜·요일·시각 — 타이포 강화(14 → 21, 1.5배 + Bold). 색상 토큰은 기존 유지.
+    dateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: Spacing.xs,
+      paddingBottom: Spacing.xs,
+    },
+    dateText: {
+      fontSize: 21,
+      color: c.textSecondary,
+      fontFamily: 'Pretendard-Bold',
+      fontWeight: '700',
+    },
+    dateSep: {
+      fontSize: 21,
+      color: c.textTertiary,
+      fontFamily: 'Pretendard-Bold',
+      fontWeight: '700',
+    },
+    dateTime: {
+      fontSize: 21,
+      color: c.textSecondary,
+      fontFamily: 'Pretendard-Bold',
+      fontWeight: '700',
     },
     divider: {
       height: 0.5,
