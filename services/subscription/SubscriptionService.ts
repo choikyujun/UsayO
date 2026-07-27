@@ -83,19 +83,13 @@ export class SubscriptionService {
     return 'free';
   }
 
-  private async _syncPlanToSupabase(plan: PlanType, info: CustomerInfo): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const proEntitlement = info.entitlements.active[ENTITLEMENTS.pro];
-    const teamEntitlement = info.entitlements.active[ENTITLEMENTS.team];
-    const activeEntitlement = teamEntitlement ?? proEntitlement;
-    const expiresAt = activeEntitlement?.expirationDate ?? null;
-
-    await supabase
-      .from('profiles')
-      .update({ plan, plan_expires_at: expiresAt, updated_at: new Date().toISOString() })
-      .eq('id', user.id);
+  // profiles.plan은 클라이언트가 쓰지 않는다 (스푸핑 벡터 제거).
+  // 권한 판정용 플랜은 RevenueCat 웹훅(서비스 롤)이 profiles/subscriptions에 기록하고,
+  // 서버(stt-proxy)는 subscriptions만 신뢰한다. DB 트리거(protect_profile_plan)로도 클라 변경은 무력화됨.
+  // (구매 직후 즉시 반영이 필요하면 웹훅 수신까지 store.plan을 로컬로만 갱신 — DB 기록 안 함.)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async _syncPlanToSupabase(_plan: PlanType, _info: CustomerInfo): Promise<void> {
+    /* no-op: 서버 권위. 클라 profiles.plan 쓰기 제거됨. */
   }
 }
 

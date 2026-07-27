@@ -85,6 +85,7 @@ function friendlyErrorMessage(error: VoiceFlowError | null): string {
     case 'noSpeech':  return '잘 못 들었어요';
     case 'network':   return '인터넷이 불안정해요';
     case 'lowConfidence': return '이해하지 못했어요';
+    case 'quotaExceeded': return '이번 달 음성 사용 횟수를 모두 사용했어요';
     default:          return '처리에 실패했어요';
   }
 }
@@ -95,6 +96,7 @@ function friendlyErrorSubtitle(error: VoiceFlowError | null): string {
     case 'noSpeech':      return '조용한 곳에서 다시 말씀해주세요';
     case 'network':       return '연결을 확인 후 다시 시도해주세요';
     case 'lowConfidence': return '조금 다르게 말씀해주실래요?';
+    case 'quotaExceeded': return 'Pro로 업그레이드하면 무제한으로 사용할 수 있어요';
     default:              return '다시 시도해주세요';
   }
 }
@@ -330,6 +332,8 @@ export default function HomeScreen() {
     if (voice.phase === 'fail') {
       const ttsMsg = friendlyErrorMessage(voice.error ?? null);
       ttsService.speak(ttsMsg).catch(() => {});
+      // 쿼터 초과: 조용히 실패하지 않도록 업그레이드 모달까지 표시 (TTS는 위에서 안내됨).
+      if (voice.error?.type === 'quotaExceeded') setUpgradeVisible(true);
       const t = setTimeout(() => voice.retryVoice(), 2500);
       return () => clearTimeout(t);
     }

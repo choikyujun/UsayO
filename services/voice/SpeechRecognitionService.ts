@@ -1,6 +1,19 @@
 import { File } from 'expo-file-system';
 import { STTResult } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { useSubscriptionStore } from '../../stores/useSubscriptionStore';
+
+// 서버 쿼터 초과 신호를 상류 오류와 구분하기 위한 전용 에러.
+export class QuotaExceededError extends Error {
+  used: number;
+  limit: number;
+  constructor(used: number, limit: number) {
+    super('QUOTA_EXCEEDED');
+    this.name = 'QuotaExceededError';
+    this.used = used;
+    this.limit = limit;
+  }
+}
 
 // language 검증만 클라이언트에서 유지. Whisper 호출/키/prompt(default·confirm 분기)는 stt-proxy(서버)가 담당.
 const SUPPORTED_LANGUAGES = ['ko', 'en', 'ja', 'th', 'id', 'vi'] as const;
@@ -42,6 +55,18 @@ export class SpeechRecognitionService {
     // 네트워크/인증/릴레이 오류 → 상위 catch가 네트워크로 처리
     if (proxyError) {
       throw new Error('인터넷 연결을 확인해주세요.');
+    }
+
+    // 서버 쿼터 초과 → 전용 에러(상류 상태와 구분). 상류 호출 없이 즉시 반환된 신호.
+    if (proxyData?.quotaExceeded) {
+      const used = proxyData.used ?? 0;
+      const limit = proxyData.limit ?? 0;
+      useSubscriptionStore.getState().setCommandUsage(used, limit);
+      throw new QuotaExceededError(used, limit);
+    }
+    // 서버 권위 사용량 반영 (default 모드 성공 시에만 quota가 실림)
+    if (proxyData?.quota) {
+      useSubscriptionStore.getState().setCommandUsage(proxyData.quota.used, proxyData.quota.limit);
     }
 
     // 프록시는 항상 200으로 {upstreamStatus, body} 래핑 (1단계와 동일)

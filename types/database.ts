@@ -404,6 +404,7 @@ export type Database = {
           create_count: number;
           modify_count: number;
           query_count: number;
+          command_count: number;
           updated_at: string;
         };
         Insert: {
@@ -412,12 +413,14 @@ export type Database = {
           create_count?: number;
           modify_count?: number;
           query_count?: number;
+          command_count?: number;
           updated_at?: string;
         };
         Update: {
           create_count?: number;
           modify_count?: number;
           query_count?: number;
+          command_count?: number;
           updated_at?: string;
         };
         Relationships: [];

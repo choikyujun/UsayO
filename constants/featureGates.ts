@@ -1,8 +1,13 @@
+// 무료 플랜 월 음성 명령 상한 (단일 버킷). 서버 stt-proxy FREE_COMMAND_LIMIT와 동일 값 유지.
+// 1 음성 명령 = STT(default) 1회 + 인텐트 1회를 1로 계수. confirm STT·멀티 저장은 미계수.
+export const FREE_COMMAND_LIMIT = 60;
+
 export const FEATURE_GATES = {
-  // ── 음성 사용량: Free 월 50회 / Pro·Team 무제한 ────────────
-  voice_create:      { free: { limit: 50 },    pro: 'unlimited',     team: 'unlimited'  },
-  voice_modify:      { free: { limit: 20 },    pro: 'unlimited',     team: 'unlimited'  },
-  voice_query:       { free: { limit: 30 },    pro: 'unlimited',     team: 'unlimited'  },
+  // ── 음성 사용량: 단일 "월 음성 명령" 버킷(FREE_COMMAND_LIMIT) / Pro·Team 무제한 ──
+  // (create/modify/query 3버킷은 폐기 — 서버는 command 단일 버킷만 강제. 아래 값은 표시/호환용)
+  voice_create:      { free: { limit: FREE_COMMAND_LIMIT }, pro: 'unlimited', team: 'unlimited' },
+  voice_modify:      { free: { limit: FREE_COMMAND_LIMIT }, pro: 'unlimited', team: 'unlimited' },
+  voice_query:       { free: { limit: FREE_COMMAND_LIMIT }, pro: 'unlimited', team: 'unlimited' },
 
   // ── 캘린더 연동: 모든 플랜 무료 ───────────────────────────
   google_sync:       { free: true,             pro: true,            team: true         },

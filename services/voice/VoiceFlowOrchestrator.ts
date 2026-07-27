@@ -1,5 +1,5 @@
 import { ClassifiedIntent, STTResult } from '../../types';
-import { speechService } from './SpeechRecognitionService';
+import { speechService, QuotaExceededError } from './SpeechRecognitionService';
 import { intentService } from './IntentClassifierService';
 import { ttsService } from './TTSService';
 
@@ -10,6 +10,7 @@ export type VoiceFlowError =
   | { type: 'network'; message: string }
   | { type: 'lowConfidence'; sttResult: STTResult }
   | { type: 'noSpeech'; message: string }
+  | { type: 'quotaExceeded'; used: number; limit: number }
   | { type: 'unknown'; message: string };
 
 export interface VoiceFlowResult {
@@ -39,6 +40,11 @@ export async function runVoiceFlow(
   try {
     sttResult = await speechService.transcribe(audioUri, language);
   } catch (e) {
+    // 쿼터 초과: TTS·모달은 호출자(HomeScreen)가 담당 → 여기선 신호만 반환(이중 발화 방지).
+    if (e instanceof QuotaExceededError) {
+      console.log('[VoiceFlow] 쿼터 초과 — used:', e.used, 'limit:', e.limit);
+      return { success: false, error: { type: 'quotaExceeded', used: e.used, limit: e.limit } };
+    }
     const message = e instanceof Error ? e.message : '음성 인식 실패';
     console.error('[VoiceFlow] STT 오류:', message);
     const isNetworkError = message.includes('Network request failed') || message.includes('연결');
