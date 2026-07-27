@@ -1,5 +1,7 @@
 import { ClassifiedIntent, ParsedDateTime } from '../../types';
 import { KoreanDateParser } from '../nlp/KoreanDateParser';
+import { supabase } from '../../lib/supabase';
+import { activityWindowHour24 } from '../../utils/timeHelpers';
 
 const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-haiku-4-5-20251001';  // 실시간 처리 → 속도 우선 (Claude Haiku 4.5)
@@ -39,13 +41,13 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
   * "낮 12시" → 12:00, ambiguous: false
   * "밤 12시" / "자정" → 00:00, ambiguous: false
   * "점심" = 12:00, "퇴근 후" = 18:00, "아침" = 08:00 → 모두 ambiguous: false
-- 단독 숫자만 ("6시", "3시", "11시" 등, AM/PM 명시어 전혀 없음) → 반드시 ambiguous: true
-  * 1~6시 → suggestedMeridiem: "PM" (오후 추정), date는 해당 PM 시각으로 설정
-  * 7~12시 → suggestedMeridiem: "AM" (오전 추정), date는 해당 AM 시각으로 설정
-  * 단, 추정 시각이 현재({currentDateTime}) 기준으로 이미 지났으면 ambiguous: false로 처리 후 다음 날로 이월
-  * 예: "6시 회의" → 18:00 추정, ambiguous: true, suggestedMeridiem: "PM"
-  * 예: "11시 약속" → 11:00 추정, ambiguous: true, suggestedMeridiem: "AM"
-  * 예: 22:30에 "11시 약속" → 이미 지남 → 내일 11:00, ambiguous: false
+- 단독 숫자 ("6시", "3시", "11시" 등, AM/PM 명시어 전혀 없음) → 활동 시간대 규칙으로 확정(ambiguous: false, 절대 되묻지 않음):
+  * 9·10·11시 → 오전 (09:00, 10:00, 11:00)
+  * 12시 → 12:00 (정오)
+  * 1·2·3·4·5·6·7·8시 → 오후 (13:00 ~ 20:00)
+  * 즉 9·10·11만 오전, 12·1·2·3·4·5·6·7·8은 오후. 모든 입력이 유일하게 결정됨.
+  * 예: "3시 미용실" → 15:00 / "5시 약속" → 17:00 / "10시 회의" → 10:00 / "12시 점심" → 12:00 / "8시 약속" → 20:00
+  * date는 위 규칙으로 확정한 24시간제 시각, ambiguous는 항상 false, suggestedMeridiem은 출력하지 말 것.
 - 시간 미지정 → 해당 날 09:00, confidence 0.6, ambiguous: false
 - 날짜 미지정 → 오늘, confidence 0.5
 - 반복 일정 인식 (isRecurring: true, recurrenceRule에 RRULE 형식 반환):
@@ -95,8 +97,8 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 → {"intent":"CREATE","title":"팀 회의","startDateTime":{"date":"{exampleTomorrow}T15:00:00+09:00","isRecurring":false,"confidence":0.95,"originalText":"내일 3시"},"location":"강남역 스타벅스","notes":"자료 준비","attendees":["김부장"],"category":"work","confidence":0.95}
 
 발화: "오늘 7시 친구랑 저녁, 카드 챙기기"
-→ {"intent":"CREATE","title":"저녁","startDateTime":{"date":"{exampleToday}T07:00:00+09:00","isRecurring":false,"confidence":0.9,"originalText":"오늘 7시"},"location":null,"notes":"카드 챙기기","attendees":["친구"],"category":"personal","confidence":0.9,"ambiguous":true,"suggestedMeridiem":"AM"}
-(주의: "7시" 뒤에 오는 "저녁"은 제목이지 시간 수식어가 아님 → ambiguous: true)
+→ {"intent":"CREATE","title":"저녁","startDateTime":{"date":"{exampleToday}T19:00:00+09:00","isRecurring":false,"confidence":0.9,"originalText":"오늘 7시"},"location":null,"notes":"카드 챙기기","attendees":["친구"],"category":"personal","confidence":0.9,"ambiguous":false}
+(주의: "7시" 뒤 "저녁"은 제목이지 수식어 아님 → 단독 7시 → 활동 규칙으로 오후 19:00, ambiguous: false)
 
 발화: "오늘 저녁 7시 친구랑 식사"
 → {"intent":"CREATE","title":"식사","startDateTime":{"date":"{exampleToday}T19:00:00+09:00","isRecurring":false,"confidence":0.95,"originalText":"오늘 저녁 7시"},"location":null,"notes":null,"attendees":["친구"],"category":"personal","confidence":0.95,"ambiguous":false}
@@ -126,25 +128,15 @@ const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리
 - 후보가 2개 이상이면 'targetEventId'는 null, 'targetEventQuery'만 반환 (호출자가 모호성 처리)
 - 목록에 없는 일정이면 'targetEventId'는 null
 
-## 시간 모호성 규칙 (ambiguous 플래그)
-발화에 오전/오후/새벽/밤/아침/저녁 등 명시적 표현이 숫자 시간 **앞에** 위치할 때만 → ambiguous: false, 정확한 AM/PM으로 date 설정
-  * "저녁 7시", "오전 11시", "밤 10시" (수식어가 숫자 앞) → ambiguous: false ✓
-  * "7시 저녁", "6시 밥집", "6시 운동" (숫자 뒤 단어는 제목) → ambiguous: true (아래 규칙 적용)
-발화에 1~12 사이 숫자만 ("6시", "3시") → 아래 기본 규칙으로 해석하되 ambiguous: true + suggestedMeridiem 설정:
-  * 1~6 → suggestedMeridiem: "PM" (오후로 추정)
-  * 7~12 → suggestedMeridiem: "AM" (오전으로 추정)
-  * **절대 금지**: 현재 시간 기준으로 "이미 지난 시간이니까 PM" 또는 "이미 지났으니 내일"로 ambiguous: false 처리 금지. 날짜 키워드(오늘/내일/요일 등) 유무와 무관하게, 단독 N시는 무조건 ambiguous: true.
-  * "오늘 6시 운동" → 현재 시간이 오후여도 ambiguous: true, suggestedMeridiem: "PM" ← 절대 ambiguous: false 금지
-  * "내일 6시 운동" → ambiguous: true, suggestedMeridiem: "PM"
-  * "6시 운동" (날짜 미명시) → ambiguous: true, suggestedMeridiem: "PM"
-ambiguous: true이면 사용자가 AM/PM을 UI에서 선택하므로 date는 suggestedMeridiem에 맞게 설정
-
-**중요 — 제목 단어로 시간 추론 절대 금지**: 숫자 시간('N시') 뒤에 오는 단어('밥집', '저녁식사', '저녁', '운동', '회의', '약속', '식사' 등)는 제목이지 시간 수식어가 아닙니다. 이 단어들이 있어도 명시적 AM/PM 표현(숫자 앞에 위치)이 없으면 무조건 ambiguous: true.
-  * "6시 밥집" → 6시 단독 → ambiguous: true, suggestedMeridiem: "PM"
-  * "6시 운동" → 6시 단독 → ambiguous: true, suggestedMeridiem: "PM"
-  * "오늘 6시 운동" → 6시 단독 (오늘은 날짜, 수식어 아님) → ambiguous: true, suggestedMeridiem: "PM"
-  * "7시 저녁 약속" → 7시 단독 → ambiguous: true, suggestedMeridiem: "AM"
-  * "저녁 7시 약속" → 저녁이 숫자 앞 → PM, ambiguous: false ✓
+## 시간 해석 규칙 (오전/오후) — 되묻지 않고 항상 유일하게 확정(ambiguous: false)
+1) 명시적 표현이 숫자 **앞**에 있으면 그대로 확정: "저녁 7시"→19:00, "오전 11시"→11:00, "밤 10시"→22:00, "낮 12시"→12:00. 독립 키워드: "점심"=12:00, "퇴근 후"=18:00, "정오"=12:00, "자정"=00:00.
+2) 24시간제 표기("15시", "21시")는 그대로 확정.
+3) 그 외 단독 숫자 N시(1~12, 오전/오후 미명시)는 **활동 시간대 규칙**으로 확정:
+  * 9·10·11시 → 오전(09:00·10:00·11:00) / 12시 → 12:00(정오) / 1~8시 → 오후(+12, 13:00~20:00)
+  * 즉 9·10·11만 오전, 12·1·2·3·4·5·6·7·8은 오후.
+  * "3시 미용실"→15:00 / "10시 회의"→10:00 / "12시 점심"→12:00 / "8시 약속"→20:00 / "6시 운동"→18:00 / "7시 저녁 약속"→19:00
+  * 숫자 뒤 단어(밥집/저녁/운동/회의/약속/식사 등)는 제목일 뿐 시간 수식어가 아님. 그래도 위 규칙으로 확정.
+  * ambiguous는 항상 false, suggestedMeridiem은 출력하지 않는다.
 
 ## 반환 JSON 형식
 {
@@ -174,7 +166,6 @@ ambiguous: true이면 사용자가 AM/PM을 UI에서 선택하므로 date는 sug
   "queryType": "list|free_slots|specific",
   "navigationTarget": "today|calendar|upcoming|settings",
   "ambiguous": false,
-  "suggestedMeridiem": "AM|PM (ambiguous: true일 때만 설정)",
   "notificationOffsetMinutes": null
 }
 
@@ -212,12 +203,6 @@ export class IntentClassifierService {
     nearbyEventsContext?: string,
   ): Promise<ClassifiedIntent> {
     const _t0 = Date.now(); // [임시 계측 · voice-verify]
-    if (!this.apiKey) {
-      console.log('[Intent] API 키 없음 — regex fallback 사용');
-      const _r = this.regexFallback(transcript, prefillContext);
-      console.log(`[VOICE][3-INTENT] PATH=FALLBACK reason=키없음 elapsedMs=${Date.now() - _t0} json=${JSON.stringify(_r)}`);
-      return _r;
-    }
 
     const currentDateTime = new Date().toLocaleString('ko-KR', {
       timeZone: userTimezone,
@@ -255,14 +240,9 @@ export class IntentClassifierService {
       .replace(/{exampleNext15th}/g, exampleNext15th);
 
     try {
-      const response = await fetch(CLAUDE_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
+      // API 키는 서버(intent-proxy Edge Function)에만 존재. 세션 JWT로 호출.
+      const { data: proxyData, error: proxyError } = await supabase.functions.invoke('intent-proxy', {
+        body: {
           model: MODEL,
           max_tokens: 512,
           system: systemPrompt,
@@ -272,23 +252,31 @@ export class IntentClassifierService {
               content: this.buildUserMessage(transcript, language, prefillContext, nearbyEventsContext),
             },
           ],
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const errBody = await response.text();
-        console.error('[Intent] Claude API 오류:', response.status, errBody);
-        if (response.status >= 500) {
-          throw new Error(`Claude API 서버 오류: ${response.status}`);
+      // 네트워크/인증/릴레이 오류 → 기존 네트워크 오류 경로
+      if (proxyError) {
+        console.error('[Intent] intent-proxy 호출 오류:', proxyError.message);
+        throw new Error('인터넷 연결을 확인해주세요.');
+      }
+
+      // 프록시는 항상 200으로 {upstreamStatus, body} 래핑 → 상류 상태로 4xx/5xx 분기 재현
+      const upstreamStatus: number = proxyData?.upstreamStatus ?? 0;
+      const data = proxyData?.body ?? {};
+
+      if (upstreamStatus < 200 || upstreamStatus >= 300) {
+        console.error('[Intent] Claude(proxy) 오류:', upstreamStatus);
+        if (upstreamStatus >= 500) {
+          throw new Error(`Claude API 서버 오류: ${upstreamStatus}`);
         }
-        // 4xx (모델 ID 오류, 키 오류 등) → regex fallback으로 음성 입력 유지
-        console.log('[Intent] Claude API 4xx — regex fallback 사용');
+        // 4xx → regex fallback으로 음성 입력 유지
+        console.log('[Intent] Claude 4xx(proxy) — regex fallback 사용');
         const _r = this.postProcessAmbiguous(this.regexFallback(transcript, prefillContext), transcript);
-        console.log(`[VOICE][3-INTENT] PATH=FALLBACK reason=4xx(${response.status}) elapsedMs=${Date.now() - _t0} json=${JSON.stringify(_r)}`);
+        console.log(`[VOICE][3-INTENT] PATH=FALLBACK reason=4xx(${upstreamStatus}) elapsedMs=${Date.now() - _t0} json=${JSON.stringify(_r)}`);
         return _r;
       }
 
-      const data = await response.json();
       const rawText: string = data.content?.[0]?.text ?? '{}';
 
       // JSON 파싱 (마크다운 코드블록 제거)
@@ -441,72 +429,62 @@ export class IntentClassifierService {
     };
   }
 
-  // LLM 무관하게 N시(1-12) + 수식어 없으면 ambiguous: true 강제
+  // 단독 N시(1-12, 수식어 없음)를 활동 시간대 규칙으로 확정. 규칙 적용 시 보정된 ISO, 아니면 null.
+  // 명시적 수식어(오전/오후/새벽/밤/아침/저녁/낮 + N시)와 독립 시간 키워드(점심/퇴근/정오/자정/출근)는 LLM 해석 신뢰.
+  private ruleAdjustedDate(dateIso: string, segment: string): string | null {
+    const timeMatch = segment.match(/(\d{1,2})\s*시/);
+    if (!timeMatch) return null;                                   // 숫자+시 없음(STT 한글 숫자 등)
+    const hourNum = parseInt(timeMatch[1]);
+    if (hourNum < 1 || hourNum > 12) return null;                  // 24시 표기 등 범위 밖
+    if (/(오전|오후|새벽|밤|아침|저녁|낮)\s*\d{1,2}\s*시/.test(segment)) return null; // 명시적 수식어
+    if (/(점심|퇴근|정오|자정|출근)/.test(segment)) return null;    // 독립 시간 키워드
+    const h24 = activityWindowHour24(hourNum);
+    const d = new Date(dateIso);
+    d.setHours(h24, d.getMinutes(), 0, 0);
+    return d.toISOString();
+  }
+
+  // LLM 무관하게 단독 N시(1-12)를 활동 시간대 규칙으로 확정 (LLM + postProcess 이중 일관성).
+  // 단일 startDateTime과 멀티 events[] 양쪽 경로 모두 같은 규칙 함수를 통과시킨다.
   private postProcessAmbiguous(parsed: ClassifiedIntent, transcript: string): ClassifiedIntent {
     console.log('[Intent] postProcess 진입 — intent:', parsed.intent, '| ambiguous:', parsed.ambiguous, '| transcript:', transcript);
 
-    if (parsed.intent !== 'CREATE' || !parsed.startDateTime) {
-      console.log('[Intent] postProcess bail: CREATE 아님 or startDateTime 없음');
-      return parsed;
-    }
-    // 발화에 N시 (1-12) 패턴 있는지 확인
-    const timeMatch = transcript.match(/(\d{1,2})\s*시/);
-    if (!timeMatch) {
-      console.log('[Intent] postProcess bail: 숫자+시 패턴 없음 (STT에 한글 숫자?)');
-      return parsed;
-    }
-    const hourNum = parseInt(timeMatch[1]);
-    if (hourNum < 1 || hourNum > 12) {
-      console.log('[Intent] postProcess bail: hourNum 범위 밖 —', hourNum);
+    if (parsed.intent !== 'CREATE') {
+      console.log('[Intent] postProcess bail: CREATE 아님');
       return parsed;
     }
 
-    // 명시적 수식어가 시간 앞에 있으면 신뢰 ("오후 6시", "저녁 6시" 등)
-    if (/(오전|오후|새벽|밤|아침|저녁)\s*\d{1,2}\s*시/.test(transcript)) {
-      console.log('[Intent] postProcess bail: 수식어+숫자 패턴 (명시적 AM/PM)');
+    // 멀티 이벤트: 각 이벤트의 originalText(없으면 전체 발화)로 규칙 적용
+    if (parsed.events?.length) {
+      const events = parsed.events.map((ev, i) => {
+        if (!ev.startDateTime) return ev;
+        const segment = ev.startDateTime.originalText ?? transcript;
+        const adj = this.ruleAdjustedDate(ev.startDateTime.date, segment);
+        if (!adj) return ev;
+        console.log(`[Intent] postProcess(multi[${i}]): 활동 규칙 적용 | ${segment} →`, adj);
+        return { ...ev, ambiguous: false, suggestedMeridiem: undefined,
+          startDateTime: { ...ev.startDateTime, date: adj } };
+      });
+      return { ...parsed, events };
+    }
+
+    if (!parsed.startDateTime) {
+      console.log('[Intent] postProcess bail: startDateTime 없음');
       return parsed;
     }
-
-    // 독립 시간 키워드 ("점심", "퇴근", "정오", "자정")
-    if (/(점심|퇴근|정오|자정)/.test(transcript)) {
-      console.log('[Intent] postProcess bail: 독립 시간 키워드');
+    // 단독 N시 → 활동 시간대 규칙으로 확정(되묻지 않음). LLM의 날짜/분은 유지, 시각(hour)만 규칙으로 보정.
+    const adj = this.ruleAdjustedDate(parsed.startDateTime.date, transcript);
+    if (!adj) {
+      console.log('[Intent] postProcess bail: 규칙 미적용(수식어/키워드/패턴 없음)');
       return parsed;
     }
-
-    // 1~6 → PM 추정, 7~12 → AM 추정 (JS 규칙 — LLM 무관)
-    const suggested: 'AM' | 'PM' = hourNum <= 6 ? 'PM' : 'AM';
-
-    // LLM이 이미 ambiguous:true 반환 → ambiguous 플래그는 신뢰하되,
-    // suggestedMeridiem은 JS 규칙으로 교정 (LLM이 11시→PM 같이 틀리게 줄 수 있음)
-    if (parsed.ambiguous === true) {
-      if (parsed.suggestedMeridiem !== suggested) {
-        console.log('[Intent] postProcess: LLM suggestedMeridiem 교정',
-          parsed.suggestedMeridiem, '→', suggested, '(hourNum:', hourNum, ')');
-        return { ...parsed, suggestedMeridiem: suggested };
-      }
-      console.log('[Intent] postProcess bail: LLM ambiguous:true + suggestedMeridiem 일치 —', suggested);
-      return parsed;
-    }
-
-    // LLM이 ambiguous:false 반환 → JS 규칙으로 강제 여부 판단
-    const hasDateKeyword = /(내일|모레|오늘|다음\s*주|이번\s*주|\d+일\s*후|월요일|화요일|수요일|목요일|금요일|토요일|일요일)/.test(transcript);
-    console.log('[Intent] postProcess hasDateKeyword:', hasDateKeyword, '| hourNum:', hourNum, '| suggested:', suggested);
-
-    if (!hasDateKeyword) {
-      // 날짜 미명시: 추정 시각이 이미 지났으면 LLM 롤오버 판단 신뢰
-      const now = new Date();
-      const h24 = suggested === 'PM'
-        ? (hourNum === 12 ? 12 : hourNum + 12)
-        : (hourNum === 12 ? 0 : hourNum);
-      const todayEst = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h24, 0, 0, 0);
-      if (todayEst <= now) {
-        console.log('[Intent] postProcess bail: 날짜 미명시 + 추정 시각 이미 지남 (todayEst:', todayEst.toISOString(), ')');
-        return parsed;
-      }
-    }
-
-    console.log('[Intent] postProcess: ambiguous 강제 —', transcript, '→ suggestedMeridiem:', suggested);
-    return { ...parsed, ambiguous: true, suggestedMeridiem: suggested };
+    console.log('[Intent] postProcess: 활동 규칙 적용 |', transcript, '→', adj);
+    return {
+      ...parsed,
+      ambiguous: false,
+      suggestedMeridiem: undefined,
+      startDateTime: { ...parsed.startDateTime, date: adj },
+    };
   }
 
   // 발화에서 제목 키워드 추출 (DELETE/UPDATE 검색용)

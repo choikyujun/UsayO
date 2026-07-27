@@ -369,6 +369,12 @@ allow_dynamic_registration = false
 [functions.device-auth]
 verify_jwt = false
 
+[functions.intent-proxy]
+verify_jwt = true
+
+[functions.stt-proxy]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

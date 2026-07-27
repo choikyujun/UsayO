@@ -38,6 +38,11 @@ export interface STTResult {
   confidence: number;     // 0~1
   language: string;
   alternatives?: Array<{ transcript: string; confidence: number }>;
+  // 환각 판별 신호 (verbose_json에서 추출, 확인 응답 방어용)
+  avgLogprob?: number;        // 평균 로그확률 (낮을수록 저신뢰; < -1.0 환각 의심)
+  compressionRatio?: number;  // 최대 압축비 (높을수록 반복; > 2.4 환각 의심)
+  noSpeechProb?: number;      // 평균 무음 확률 (높은데 텍스트 있으면 환각)
+  durationSec?: number;       // 오디오 길이(초)
 }
 
 export type IntentType = 'CREATE' | 'UPDATE' | 'DELETE' | 'COMPLETE' | 'QUERY' | 'NAVIGATION' | 'RESCHEDULE_UNDO' | 'NOTIFICATION_UPDATE' | 'UNKNOWN';

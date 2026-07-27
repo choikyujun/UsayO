@@ -336,15 +336,8 @@ export function useSchedules(date: string, daysAhead = 0) {
     console.log('[Schedules] applyClassifiedIntent userId:', userId);
 
     if (intent.intent === 'CREATE' && intent.startDateTime) {
-      // ambiguous가 아직 true면 (사용자가 토글 안 건드림) suggestedMeridiem을 date에 반영
-      let resolvedStartDate = intent.startDateTime.date;
-      if (intent.ambiguous && intent.suggestedMeridiem) {
-        const d = new Date(intent.startDateTime.date);
-        const h12 = d.getHours() % 12;
-        d.setHours(intent.suggestedMeridiem === 'PM' ? h12 + 12 : h12);
-        resolvedStartDate = d.toISOString();
-        console.log('[Save] ambiguous → suggestedMeridiem 적용:', intent.suggestedMeridiem, resolvedStartDate);
-      }
+      // 시각은 IntentClassifier postProcess에서 활동 시간대 규칙으로 이미 확정됨 → date를 그대로 사용
+      const resolvedStartDate = intent.startDateTime.date;
 
       const endAt = intent.endDateTime?.date
         ?? new Date(new Date(resolvedStartDate).getTime() + 3_600_000).toISOString();

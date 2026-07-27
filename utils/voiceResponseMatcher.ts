@@ -1,3 +1,5 @@
+import { STTResult } from '../types';
+
 export type AmbiguousResponse = 'confirm' | 'am' | 'pm' | 'cancel' | 'unknown';
 export type MultiConfirmResponse = 'confirm' | 'cancel' | 'unknown';
 export type NotifOffsetMatch =
@@ -51,6 +53,64 @@ export function matchMultiConfirmResponse(transcript: string): MultiConfirmRespo
   console.log('[Matcher/Multi] input:', JSON.stringify(transcript), '→', kind);
   return kind;
 }
+
+// ── 확인 응답 환각 방어 ────────────────────────────────────────────
+// 확인(저장/취소)은 되돌리기 어려운 동작 → 키워드 매칭 전에 환각 신호를 엄격히 거른다.
+// 정상 응답("응/그래/오케이/저장해줘/아니")은 통과, 환각("그래. 캠핑을 다닌 사람이…")은 거부.
+const CONFIRM_MAX_CHARS = 8;          // [3] 공백·문장부호 제거 후 이보다 길면 환각(확인 응답은 본질적으로 짧음)
+const CONFIRM_MIN_CONFIDENCE = 0.5;   // 저신뢰 매칭 거부(되돌리기 어려운 동작이라 0.4→0.5 상향)
+const HALLUCINATION_MIN_AVG_LOGPROB = -1.0;  // [2] 이보다 낮으면 저신뢰/환각
+const HALLUCINATION_MAX_COMPRESSION = 2.4;   // [2] 이보다 높으면 반복/환각
+const CONFIRM_MAX_NO_SPEECH = 0.6;    // [4] 무음 확률 높은데 텍스트 있으면 환각
+const CONFIRM_MIN_DURATION_SEC = 0.35; // [4] 극히 짧은 오디오에 긴 텍스트 = 물리적 불가
+
+// ── 공통 환각 방어 ──────────────────────────────────────────────
+// 확인성 음성 응답(카드 confirm/cancel, AM/PM am/pm/cancel)에서 키워드 매칭 전에
+// 환각 신호를 거르는 공통 판정. 통과(ok)면 raw(정규화 전 트림 텍스트)를 함께 반환.
+export interface HallucinationVerdict { ok: boolean; reason?: string; raw: string }
+export interface HallucinationOpts { minConfidence?: number; maxChars?: number }
+
+export function hallucinationVerdict(stt: STTResult, opts?: HallucinationOpts): HallucinationVerdict {
+  const minConf = opts?.minConfidence ?? CONFIRM_MIN_CONFIDENCE;
+  const maxChars = opts?.maxChars ?? CONFIRM_MAX_CHARS;
+  const raw = (stt.transcript ?? '').trim();
+  if (!raw) return { ok: false, reason: 'empty', raw };
+  // [4] 무음/이상
+  if ((stt.noSpeechProb ?? 0) > CONFIRM_MAX_NO_SPEECH) {
+    return { ok: false, reason: `no_speech=${(stt.noSpeechProb ?? 0).toFixed(2)}`, raw };
+  }
+  if (stt.durationSec !== undefined && stt.durationSec < CONFIRM_MIN_DURATION_SEC) {
+    return { ok: false, reason: `duration=${stt.durationSec.toFixed(2)}s`, raw };
+  }
+  // [2] 환각 신호
+  if (stt.avgLogprob !== undefined && stt.avgLogprob < HALLUCINATION_MIN_AVG_LOGPROB) {
+    return { ok: false, reason: `avg_logprob=${stt.avgLogprob.toFixed(2)}`, raw };
+  }
+  if (stt.compressionRatio !== undefined && stt.compressionRatio > HALLUCINATION_MAX_COMPRESSION) {
+    return { ok: false, reason: `compression=${stt.compressionRatio.toFixed(2)}`, raw };
+  }
+  // [3] 길이 (핵심): 키워드 포함돼도 전체가 길면 환각
+  const compact = raw.replace(/[\s.,!?~…"'·]/g, '');
+  if (compact.length > maxChars) {
+    return { ok: false, reason: `len=${compact.length}`, raw };
+  }
+  // 저신뢰 (AM/PM은 hadSpeech+프롬프트에코차단이 주 방어라 임계를 낮춤)
+  if (stt.confidence > 0 && stt.confidence < minConf) {
+    return { ok: false, reason: `conf=${stt.confidence.toFixed(2)}`, raw };
+  }
+  return { ok: true, raw };
+}
+
+export interface ConfirmEval { action: MultiConfirmResponse; reason?: string }
+
+// 카드(멀티/단일) 확인 응답: 환각 방어 → confirm/cancel/unknown. (동작 불변 — 방어만 공통 함수로 추출)
+export function evaluateConfirmSTT(stt: STTResult): ConfirmEval {
+  const v = hallucinationVerdict(stt);
+  if (!v.ok) return { action: 'unknown', reason: v.reason };
+  return { action: confirmResponseKind(v.raw) };
+}
+
+// (AM/PM 음성 확인은 활동 시간대 규칙으로 대체되어 제거됨. 공통 유틸 confirmListen/hallucinationVerdict는 유지)
 
 export function matchNotificationOffset(transcript: string): NotifOffsetMatch {
   const text = transcript.trim();

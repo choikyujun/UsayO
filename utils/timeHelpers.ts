@@ -19,6 +19,26 @@ export function formatTimeKo(date: Date): string {
   return `${ampm} ${h12}:${String(m).padStart(2, '0')}`;
 }
 
+/**
+ * 활동 시간대 규칙: 오전/오후 미명시 1~12시를 09:00~20:00 창으로 유일하게 확정.
+ * 9·10·11시만 오전(그대로), 12시=정오, 1~8시는 오후(+12). 되묻지 않는 단일 규칙.
+ * 시각 해석의 단일 소스 — LLM 프롬프트와 postProcess가 동일 규칙을 사용한다.
+ */
+export function activityWindowHour24(hour12: number): number {
+  const h = ((hour12 % 12) + 12) % 12 || 12; // 1..12로 정규화(방어적)
+  if (h >= 9 && h <= 11) return h;           // 오전 9,10,11
+  return (h % 12) + 12;                       // 12→12(정오), 1~8→13~20(오후)
+}
+
+/** "오전 9:00", "오후 12:30" — 12시간제 + 오전/오후(24시간제 혼동 제거). 홈 일정 항목 시각 표시용. */
+export function formatClockKo(date: Date): string {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  const ampm = h < 12 ? '오전' : '오후';
+  const h12 = h % 12 || 12;
+  return `${ampm} ${h12}:${String(m).padStart(2, '0')}`;
+}
+
 export type Period = '오전' | '오후' | '저녁';
 
 export function getPeriod(date: Date): Period {

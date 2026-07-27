@@ -1,10 +1,13 @@
 import * as Speech from 'expo-speech';
 import { ClassifiedIntent } from '../../types';
+import { formatRelativeDay } from '../../utils/dateHelpers';
+import { formatTimeKo } from '../../utils/timeHelpers';
 
 export class TTSService {
   private _lastMsg = '';
   private _lastAt  = 0;
   private _speaking = false;                      // 실제 재생 중 여부(onDone/onStopped/onError로 해제)
+  private _speakSeq = 0;                           // 발화 시작 시퀀스(특정 발화 완료 바인딩용)
   private _settleListeners: Array<() => void> = []; // 발화 종료(정착) 1회 알림 대기열
 
   // bypassDedup: 사용자 응답을 요구하는 확인 질문 등은 절대 skip되지 않아야 함
@@ -17,14 +20,16 @@ export class TTSService {
     this._lastMsg = text;
     this._lastAt  = now;
     this._speaking = true;
+    this._speakSeq++;
+    console.log('[TTS] speak start', Date.now(), JSON.stringify(text.slice(0, 16))); // [진단] 타임스탬프
     return new Promise((resolve, reject) => {
-      const done = () => { this._settle(); resolve(); };
+      const done = (via: string) => { console.log('[TTS] settled', Date.now(), 'via', via); this._settle(); resolve(); }; // [진단]
       Speech.speak(text, {
         language,
         rate,
-        onDone: done,
-        onStopped: done,
-        onError: (e) => { this._settle(); reject(new Error(String(e) ?? 'TTS 오류')); },
+        onDone: () => done('onDone'),
+        onStopped: () => done('onStopped'),
+        onError: (e) => { console.log('[TTS] settled', Date.now(), 'via onError'); this._settle(); reject(new Error(String(e) ?? 'TTS 오류')); },
       });
     });
   }
@@ -47,8 +52,28 @@ export class TTSService {
     return () => { this._settleListeners = this._settleListeners.filter(f => f !== cb); };
   }
 
-  // 확인 카드가 마이크를 열기 전 사용: 확인 발화가 끝나면 resolve. 발화가 끝내 안 오면
-  // timeoutMs 후 폴백 resolve → 교착 방지(버튼은 항상 사용 가능).
+  // 확인 카드가 마이크를 열기 전 사용 (권장):
+  // 카드 마운트 직후 호출 → "새로(다음) 시작되는 발화"가 시작될 때까지 기다린 뒤,
+  // 그 발화가 완전히 끝나면 resolve. "아무 발화나 첫 settle"이 아니라 그 확인 발화에 바인딩.
+  // - startWindowMs 내에 새 발화가 시작되지 않으면 폴백 resolve(TTS 실패 시 교착 방지, 버튼 사용 가능).
+  // - 발화 시작 후엔 maxWaitMs 상한.
+  async waitForNextSpeechToFinish(startWindowMs = 1500, maxWaitMs = 8000): Promise<void> {
+    const seqAtCall = this._speakSeq;
+    const t0 = Date.now();
+    // 1) 새 발화 시작 대기 (부모 effect가 speak를 호출할 시간). _speakSeq는 speak 시작 시 증가.
+    while (this._speakSeq === seqAtCall && Date.now() - t0 < startWindowMs) {
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    if (this._speakSeq === seqAtCall) return; // 새 발화 없음 → 폴백
+    if (!this._speaking) return;              // 이미 끝남
+    // 2) 그 발화가 끝날 때까지 대기 (settle 이벤트 + 상한)
+    await new Promise<void>((resolve) => {
+      const unsub = this.onSpeechSettled(() => { clearTimeout(timer); resolve(); });
+      const timer = setTimeout(() => { unsub(); resolve(); }, maxWaitMs);
+    });
+  }
+
+  // (레거시) 아무 발화나 첫 settle에 resolve — 조기 오픈 문제로 확인 카드에서는 사용하지 않음.
   awaitSpeechSettled(timeoutMs = 6000): Promise<void> {
     return new Promise((resolve) => {
       let done = false;
@@ -166,8 +191,10 @@ export class TTSService {
     switch (intent.intent) {
       case 'CREATE': {
         const title = intent.title ?? '일정';
+        // [활동 시간대 규칙] 확정된 시각을 반드시 오전/오후로 읽어줌(originalText는 오전/오후 누락 →
+        // 규칙/의도 불일치를 사용자가 귀로 잡을 수 있는 유일한 지점이라 생략·모호 금지).
         const dateStr = intent.startDateTime
-          ? this.formatDateTime(intent.startDateTime.date, intent.startDateTime.originalText)
+          ? this.formatResultDateTime(intent.startDateTime.date)
           : '';
         const recurStr = intent.startDateTime?.isRecurring ? ' 반복 일정으로' : '';
         return dateStr ? `${dateStr}${recurStr} ${title} 등록했어요.` : `${title} 등록했어요.`;
@@ -205,6 +232,17 @@ export class TTSService {
       }
       default: return ''; // 미지원 intent에 거짓 성공 문구를 발화하지 않음
     }
+  }
+
+  // 저장 결과 발화용: 상대 날짜(오늘/내일/모레/M월 D일) + 오전/오후 시각. 항상 오전/오후 명시.
+  private formatResultDateTime(iso: string): string {
+    const d = new Date(iso);
+    const now = new Date();
+    const isToday = d.getFullYear() === now.getFullYear()
+      && d.getMonth() === now.getMonth()
+      && d.getDate() === now.getDate();
+    const day = isToday ? '오늘' : formatRelativeDay(d, now);
+    return `${day} ${formatTimeKo(d)}`;
   }
 
   private formatDateTime(iso: string, originalText?: string): string {

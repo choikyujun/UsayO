@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { MicStatus } from '../types';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측 · voice-verify]
@@ -28,10 +28,16 @@ export interface UseVoiceRecorderReturn extends VoiceRecorderState {
   start: () => Promise<void>;
   stop: () => Promise<string | null>;
   reset: () => void;
+  hadSpeech: () => boolean; // 이번(직전) 녹음 중 유효 발화(-40dB 이상)가 감지됐는지 — 침묵/발화 구분용
 }
 
 export interface VoiceRecorderOptions {
   onAutoStop?: (uri: string | null) => void;
+  silenceMs?: number;  // 무음 자동종료 임계 override (미지정 시 일반 발화 기본값)
+  warmupMs?: number;   // 워밍업(무음 감지 제외) 구간 override
+  // hadSpeech 판정 강화 옵션 (미지정 시 기존 동작 = 유효 샘플 1회로 true, 카드 경로 보존)
+  minSpeechMs?: number;    // 이만큼의 누적 유효 발화가 있어야 hadSpeech=true (TTS 잔향/블립 배제)
+  speechWarmupMs?: number; // 녹음 시작 후 이 구간은 hadSpeech 집계 제외(잔향/마이크 트랜지언트 배제)
 }
 
 export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecorderReturn {
@@ -50,6 +56,15 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
   const autoStopRef      = useRef<(() => Promise<string | null>) | null>(null);
   const onAutoStopRef    = useRef(options?.onAutoStop);
   onAutoStopRef.current  = options?.onAutoStop;
+  const speechMsRef      = useRef(0); // 누적 유효 발화 시간(ms)
+  const minSpeechMsRef   = useRef(options?.minSpeechMs ?? LEVEL_INTERVAL); // 기본: 1샘플=현행
+  minSpeechMsRef.current = options?.minSpeechMs ?? LEVEL_INTERVAL;
+  const speechWarmupMsRef = useRef(options?.speechWarmupMs ?? 0);
+  speechWarmupMsRef.current = options?.speechWarmupMs ?? 0;
+  const silenceMsRef     = useRef(options?.silenceMs ?? SILENCE_MS);
+  silenceMsRef.current   = options?.silenceMs ?? SILENCE_MS;
+  const warmupMsRef      = useRef(options?.warmupMs ?? WARMUP_MS);
+  warmupMsRef.current    = options?.warmupMs ?? WARMUP_MS;
 
   const clearTimers = useCallback(() => {
     if (levelTimerRef.current) clearInterval(levelTimerRef.current);
@@ -81,8 +96,8 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       let recBytes = -1;
       if (uri) {
         try {
-          const fi = await FileSystem.getInfoAsync(uri);
-          recBytes = (fi as { size?: number }).size ?? -1;
+          const f = new File(uri); // SDK 54 File API (deprecated getInfoAsync 대체)
+          recBytes = f.exists ? f.size : -1;
         } catch { /* 크기 조회 실패 무시 */ }
       }
       console.log(`[VOICE][1-REC] bytes=${recBytes} durationMs=${recMs}`);
@@ -135,6 +150,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       recordingRef.current = recording;
       startTimeRef.current = Date.now();
       silenceStartRef.current = null;
+      speechMsRef.current = 0; // 새 녹음 시작 시 누적 발화 리셋
       setStatus('recording');
 
       // 4. 100ms 인터벌: 오디오 레벨 + 무음 카운트다운
@@ -153,9 +169,14 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
         const normalized = Math.max(0, Math.min(1, (db + 160) / 160));
         setAudioLevel(normalized);
 
-        // 워밍업 기간(첫 1초) 또는 소리가 있는 경우 → 무음 타이머 리셋
-        const inWarmup = elapsed < WARMUP_MS;
+        // 워밍업 기간 또는 소리가 있는 경우 → 무음 타이머 리셋
+        const inWarmup = elapsed < warmupMsRef.current;
         const isSilent = db < SILENCE_DB;
+
+        // 누적 유효 발화 집계 — speechWarmup 구간(잔향/트랜지언트)은 제외. 지속성 기반 판정.
+        if (!isSilent && elapsed >= speechWarmupMsRef.current) {
+          speechMsRef.current += LEVEL_INTERVAL;
+        }
 
         if (inWarmup || !isSilent) {
           if (silenceStartRef.current !== null) {
@@ -171,12 +192,12 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
         }
 
         const silenceElapsed = now - silenceStartRef.current;
-        const progress = Math.min(1, silenceElapsed / SILENCE_MS);
+        const progress = Math.min(1, silenceElapsed / silenceMsRef.current);
         setSilenceProgress(progress);
 
-        console.log(`[Recorder] silence ${silenceElapsed}ms / ${SILENCE_MS}ms (${Math.round(progress * 100)}%)`);
+        console.log(`[Recorder] silence ${silenceElapsed}ms / ${silenceMsRef.current}ms (${Math.round(progress * 100)}%)`);
 
-        if (silenceElapsed >= SILENCE_MS) {
+        if (silenceElapsed >= silenceMsRef.current) {
           silenceStartRef.current = null;
           setSilenceProgress(0);
           console.log('[Voice] stopRecording triggered: silence auto-stop');
@@ -236,6 +257,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
     start: startRecording,
     stop: stopRecording,
     reset: cancelRecording,
+    hadSpeech: () => speechMsRef.current >= minSpeechMsRef.current,
   };
 }
 

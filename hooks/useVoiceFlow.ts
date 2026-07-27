@@ -6,8 +6,7 @@ import { noiseDetector } from '../services/voice/NoiseDetectorService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { intentService } from '../services/voice/IntentClassifierService';
 import { ttsService } from '../services/voice/TTSService';
-import { speechService } from '../services/voice/SpeechRecognitionService';
-import { matchAmbiguousResponse } from '../utils/voiceResponseMatcher';
+import { formatTimeKo } from '../utils/timeHelpers';
 import { ClassifiedIntent } from '../types';
 
 type OnAutoSave = (intent: ClassifiedIntent) => Promise<string | undefined>;
@@ -27,24 +26,15 @@ export function useVoiceFlow() {
     ((uri: string | null, onAutoSave?: OnAutoSave) => Promise<void>) | null
   >(null);
 
-  // AM/PM 인라인 처리를 위한 refs
-  const isAmbiguousResolutionRef  = useRef(false);
-  const ambiguousUriResolveRef    = useRef<((uri: string | null) => void) | null>(null);
-
   const recorder = useVoiceRecorder({
     onAutoStop: useCallback((uri: string | null) => {
-      // AM/PM 응답 녹음 중이면 메인 파이프라인 대신 ambiguous 핸들러로 라우팅
-      if (isAmbiguousResolutionRef.current) {
-        ambiguousUriResolveRef.current?.(uri);
-        ambiguousUriResolveRef.current = null;
-        return;
-      }
       console.log('[VoiceFlow] auto-stop received URI:', uri);
       store.setPhase('processing');
       // onAutoSaveRef.current를 함께 전달 → 0.85+ 패스가 auto-stop에서도 동작
       processUriRef.current?.(uri, onAutoSaveRef.current);
     }, [store]),
   });
+
 
   const startVoice = useCallback(async (
     onAutoSave?: OnAutoSave,
@@ -137,66 +127,8 @@ export function useVoiceFlow() {
 
     const confidence = result.intent.confidence;
 
-    // ── AM/PM 모호한 시간 → 팝업 없이 인라인 음성 해결 ────────────
-    let resolvedIntent = result.intent;
-    if (result.intent.ambiguous && result.intent.startDateTime) {
-      ttsService.speak('오전인가요? 오후인가요?').catch(() => {});
-      await ttsService.waitForSpeech();
-      await new Promise<void>(r => setTimeout(r, 600));
-
-      const ambiguousUri = await new Promise<string | null>((resolve) => {
-        let settled = false;
-        let timeoutId: ReturnType<typeof setTimeout>;
-
-        ambiguousUriResolveRef.current = (u) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timeoutId);
-          isAmbiguousResolutionRef.current = false;
-          resolve(u);
-        };
-
-        isAmbiguousResolutionRef.current = true;
-        recorder.startRecording().catch(() => {
-          if (settled) return;
-          settled = true;
-          isAmbiguousResolutionRef.current = false;
-          ambiguousUriResolveRef.current = null;
-          resolve(null);
-        });
-
-        timeoutId = setTimeout(() => {
-          if (settled) return;
-          settled = true;
-          ambiguousUriResolveRef.current = null;
-          isAmbiguousResolutionRef.current = false;
-          recorder.stopRecording().then(resolve).catch(() => resolve(null));
-        }, 5000);
-      });
-
-      const suggestedMeridiem = result.intent.suggestedMeridiem ?? 'AM';
-      let resolvedMeridiem: 'AM' | 'PM' = suggestedMeridiem;
-
-      if (ambiguousUri) {
-        try {
-          const stt    = await speechService.transcribe(ambiguousUri, 'ko');
-          const action = matchAmbiguousResponse(stt.transcript);
-          console.log('[VoiceFlow] 모호 응답 STT:', JSON.stringify(stt.transcript), '→ action:', action);
-          if (action === 'am') resolvedMeridiem = 'AM';
-          else if (action === 'pm') resolvedMeridiem = 'PM';
-        } catch { /* 실패 시 suggestedMeridiem 유지 */ }
-      }
-
-      const d = new Date(result.intent.startDateTime.date);
-      const h = d.getHours() % 12;
-      d.setHours(resolvedMeridiem === 'PM' ? h + 12 : h);
-      resolvedIntent = {
-        ...result.intent,
-        ambiguous: false,
-        startDateTime: { ...result.intent.startDateTime, date: d.toISOString() },
-      };
-      console.log('[VoiceFlow] 모호 해결 완료:', resolvedMeridiem, '| 최종 시간:', d.toISOString());
-    }
+    // AM/PM은 IntentClassifier(활동 시간대 규칙)에서 이미 확정됨 → 되묻지 않는다.
+    const resolvedIntent = result.intent;
 
     // ── QUERY: 저장이 아니라 조회 경로. 실제 DB 조회 결과를 음성으로 안내 ──
     if (resolvedIntent.intent === 'QUERY') {
@@ -411,7 +343,16 @@ export function useVoiceFlow() {
     try {
       await onSave(events);
       store.setPhase('success');
-      ttsService.speak(`${events.length}개 일정을 등록했어요`).catch(() => {});
+      // [활동 시간대 규칙] 각 일정의 확정 시각을 오전/오후로 읽어줌 — 규칙/의도 불일치를 귀로 잡는 지점.
+      const summary = events
+        .map((e) => {
+          const iso = e.startDateTime?.date;
+          const t = iso ? formatTimeKo(new Date(iso)) : '';
+          const title = e.title ?? '일정';
+          return t ? `${t} ${title}` : title;
+        })
+        .join(', ');
+      ttsService.speak(`${summary}, 총 ${events.length}개 등록했어요`).catch(() => {});
     } catch (e) {
       const msg = e instanceof Error ? e.message : '저장 실패';
       store.setPhase('fail');
