@@ -43,6 +43,10 @@ const DEFAULT_PROMPT = CALENDAR_TERMS.join(', ');
 const CONFIRM_PROMPT =
   '응. 어. 네. 그래. 맞아. 오케이. 저장. 저장해. 저장해줘. 해줘. 좋아. 아니. 아니야. 취소. 취소해. 안해. 하지마. 됐어.';
 
+// 알림 오프셋 선택 전용 프롬프트 (짧은 시간 표현 인식률 향상)
+const NOTIF_PROMPT =
+  '알림 없음. 시작 시. 5분 전. 10분 전. 15분 전. 30분 전. 1시간 전. 2시간 전. 1일 전. 1주 전. 꺼줘.';
+
 function json(obj: unknown, status: number): Response {
   return new Response(JSON.stringify(obj), {
     status,
@@ -80,11 +84,13 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) return json({ error: 'Server misconfigured: OPENAI_API_KEY' }, 500);
 
-  // 3. mode/language 분기 (confirm 모드는 항상 ko)
-  const lang = mode === 'confirm'
+  // 3. mode/language 분기 (confirm·notif 모드는 항상 ko)
+  const lang = (mode === 'confirm' || mode === 'notif')
     ? 'ko'
     : (SUPPORTED_LANGUAGES.includes(language ?? '') ? (language as string) : 'ko');
-  const prompt = mode === 'confirm' ? CONFIRM_PROMPT : DEFAULT_PROMPT;
+  const prompt = mode === 'confirm' ? CONFIRM_PROMPT
+    : mode === 'notif' ? NOTIF_PROMPT
+    : DEFAULT_PROMPT;
 
   // 3a. 오디오 디코드 먼저 — 인코딩 오류는 쿼터 카운트 이전에 걸러 손해 방지.
   let bytes: Uint8Array;
@@ -95,12 +101,12 @@ Deno.serve(async (req) => {
   }
 
   // 3b. 서버 사이드 쿼터 강제 — default 모드(1 음성 명령 = 1 카운트)만.
-  //     confirm 모드 STT는 같은 명령의 일부라 검사·카운트 제외.
+  //     confirm(확인 응답)·notif(알림 오프셋 선택)는 같은/부수 상호작용이라 검사·카운트 제외.
   const month = new Date().toISOString().slice(0, 7); // UTC 'YYYY-MM'
   let quotaInfo: { used: number; limit: number } | null = null;
   let incremented = false;
 
-  if (mode !== 'confirm') {
+  if (mode !== 'confirm' && mode !== 'notif') {
     // 플랜 판정은 subscriptions만 신뢰(profiles.plan은 클라 수정 가능 → 사용 금지).
     const { data: sub } = await supabase
       .from('subscriptions')

@@ -19,7 +19,8 @@ export class QuotaExceededError extends Error {
 const SUPPORTED_LANGUAGES = ['ko', 'en', 'ja', 'th', 'id', 'vi'] as const;
 type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
 
-export type TranscribeMode = 'default' | 'confirm';
+// 'notif' = 알림 오프셋 음성 선택. 기존 일정 속성 변경이라 서버 쿼터 미차감(confirm과 동일 처리).
+export type TranscribeMode = 'default' | 'confirm' | 'notif';
 
 export class SpeechRecognitionService {
   // API 키는 클라이언트에 두지 않는다. Whisper 호출/키는 stt-proxy(서버 secret)가 전담.
@@ -36,8 +37,8 @@ export class SpeechRecognitionService {
       }
     } catch { /* File 접근 실패 시 계속 진행 */ }
 
-    // 확인 모드는 항상 한국어로 강제(짧은 응답은 언어 추정이 흔들림).
-    const lang = mode === 'confirm'
+    // 확인/알림 모드는 항상 한국어로 강제(짧은 응답은 언어 추정이 흔들림).
+    const lang = (mode === 'confirm' || mode === 'notif')
       ? 'ko'
       : (SUPPORTED_LANGUAGES.includes(language as SupportedLanguage) ? language : 'ko');
 

@@ -75,7 +75,7 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
     if (!isVoiceActiveRef.current) return;
     try {
       if (uri) {
-        const stt   = await speechService.transcribe(uri, 'ko');
+        const stt   = await speechService.transcribe(uri, 'ko', { mode: 'notif' }); // 쿼터 미차감
         const match = matchNotificationOffset(stt.transcript);
         if (!isVoiceActiveRef.current) return;
         if (match.type === 'offset') {
