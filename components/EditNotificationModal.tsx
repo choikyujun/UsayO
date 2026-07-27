@@ -148,11 +148,11 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
             {startStr}  {event.title}
           </Text>
 
-          {/* 옵션 리스트 */}
+          {/* 옵션 리스트 — 각 옵션 = [라벨(좌, flex) … 체크(우)] 한 행 고정 */}
           <ScrollView
             style={styles.listWrap}
             bounces={false}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator
           >
             {options.map((opt, i) => {
               const selected = opt.offsetMinutes === currentOffset;
@@ -162,19 +162,22 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
                   style={({ pressed }) => [
                     styles.optionRow,
                     i < options.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-                    { opacity: pressed ? 0.6 : 1 },
+                    pressed && { backgroundColor: colors.card2 },
                   ]}
                   onPress={() => handleSelect(opt)}
                 >
-                  <Text style={[
-                    styles.optionLabel,
-                    { color: selected ? colors.primary : colors.textPrimary },
-                    selected && { fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
-                  ]}>
+                  <Text
+                    style={[
+                      styles.optionLabel,
+                      { color: selected ? colors.primary : colors.textPrimary },
+                      selected && { fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
+                    ]}
+                    numberOfLines={1}
+                  >
                     {opt.label}
                   </Text>
                   {selected && (
-                    <Check size={18} color={colors.primary} strokeWidth={2.5} />
+                    <Check size={18} color={colors.primary} strokeWidth={2} style={styles.optionCheck} />
                   )}
                 </Pressable>
               );
@@ -222,15 +225,19 @@ function makeStyles(c: AppTheme) {
       marginBottom: Spacing.sm,
     },
     heading:    { fontSize: 18, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
-    eventInfo:  { fontSize: 14, marginBottom: 16 },
-    listWrap:   { maxHeight: 360 },
+    eventInfo:  { fontSize: 13, marginBottom: Spacing.sm },
+    // 340 = 약 6.5행 → 마지막 행이 살짝 잘려 스크롤 가능함이 드러남
+    listWrap:   { maxHeight: 340 },
     optionRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 14,
+      minHeight: 52,             // 일정한 행 높이 + 충분한 터치 영역
+      paddingVertical: 12,
+      paddingHorizontal: 4,      // 좌우 동일 인셋(모달 패딩 위에)
     },
-    optionLabel: { fontSize: 16 },
+    optionLabel: { flex: 1, fontSize: 16 }, // 좌측 flex → 체크는 항상 같은 행 우측 끝
+    optionCheck: { marginLeft: Spacing.sm },
     cancelBtn: {
       marginTop: Spacing.base,
       height: 48,
