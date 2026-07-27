@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Square } from 'lucide-react-native';
+import { Mic, Square } from 'lucide-react-native';
 import { useCallback, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
@@ -201,7 +201,7 @@ function PhaseListening({
           ]}
         />
         <View style={[styles.micBtn, styles.micBtnActive]}>
-          <Text style={styles.micIcon}>🎙</Text>
+          <Mic size={32} color="#fff" />
         </View>
       </View>
 
@@ -304,9 +304,6 @@ const styles = StyleSheet.create({
   },
   micBtnActive: {
     backgroundColor: Colors.error,
-  },
-  micIcon: {
-    fontSize: 32,
   },
   tapHint: {
     fontSize: 13,

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Mic } from 'lucide-react-native';
+import { Lightbulb, Mic, Sparkles } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -239,7 +239,7 @@ function MonthView({
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.weekScroll}>
       <View style={styles.insightCard}>
-        <Text style={styles.insightIcon}>✨</Text>
+        <Sparkles size={20} color={colors.accent} />
         <View style={{ flex: 1 }}>
           <Text style={styles.insightTitle}>이번 달 가장 여유로운 주는 {freestWeek}주차예요</Text>
           <Text style={styles.insightSub}>그때 중요한 약속을 잡아보는 건 어떨까요?</Text>
@@ -286,9 +286,12 @@ function AISlotView({ freeSlots }: { freeSlots: FreeSlot[] }) {
   return (
     <FeatureGate feature="ai_slot">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.weekScroll}>
-        <Text style={styles.aiSlotHint}>
-          💡 음성으로 &apos;이번 주 빈 시간 찾아줘&apos;라고 말해도 돼요
-        </Text>
+        <View style={styles.aiSlotHintRow}>
+          <Lightbulb size={14} color={colors.textMuted} style={{ marginTop: 1 }} />
+          <Text style={[styles.aiSlotHint, { flex: 1 }]}>
+            음성으로 &apos;이번 주 빈 시간 찾아줘&apos;라고 말해도 돼요
+          </Text>
+        </View>
         {freeSlots.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>빈 시간이 없어요</Text>
@@ -351,7 +354,7 @@ function FreeSlotCard({ slot, index }: { slot: FreeSlot; index: number }) {
     return h < 12 ? `오전 ${h}시` : h === 12 ? '정오' : `오후 ${h - 12}시`;
   }
 
-  const labels = ['🥇 가장 긴 여유', '🥈 두 번째', '🥉 세 번째'];
+  const labels = ['가장 긴 여유', '두 번째', '세 번째'];
 
   return (
     <View style={styles.slotCard}>
@@ -492,13 +495,17 @@ function makeStyles(c: AppTheme) {
       padding: 14,
       marginBottom: Spacing.base,
     },
-    insightIcon: { fontSize: 22 },
     insightTitle: { fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700', color: c.textPrimary, marginBottom: 3 },
     insightSub: { fontSize: 11, color: c.textMuted },
+    aiSlotHintRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 6,
+      marginBottom: Spacing.md,
+    },
     aiSlotHint: {
       fontSize: 12,
       color: c.textMuted,
-      marginBottom: Spacing.md,
       lineHeight: 18,
     },
     slotCard: {

@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { HelpCircle, Pencil, VolumeX } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Colors } from '../constants/colors';
 import { HybridInputState } from '../types';
@@ -22,19 +23,19 @@ interface Props {
   onDismiss: () => void;
 }
 
-const REASON_HEADER: Record<HybridInputState['fallbackReason'], { icon: string; title: string; subtitle: string }> = {
+const REASON_HEADER: Record<HybridInputState['fallbackReason'], { Icon: typeof VolumeX; title: string; subtitle: string }> = {
   noise: {
-    icon: '🔇',
+    Icon: VolumeX,
     title: '소음 환경 감지됨',
     subtitle: '텍스트로 직접 입력해주세요',
   },
   low_confidence: {
-    icon: '🤔',
+    Icon: HelpCircle,
     title: '음성 인식이 불확실해요',
     subtitle: '아래 내용을 확인·수정 후 확인해주세요',
   },
   user_choice: {
-    icon: '✏️',
+    Icon: Pencil,
     title: '텍스트 입력 모드',
     subtitle: '명령을 직접 입력해주세요',
   },
@@ -65,6 +66,7 @@ export default function HybridInputModal({ visible, hybridState, onConfirm, onRe
   }, [visible]);
 
   const header = REASON_HEADER[hybridState.fallbackReason];
+  const HeaderIcon = header.Icon;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onDismiss}>
@@ -81,7 +83,7 @@ export default function HybridInputModal({ visible, hybridState, onConfirm, onRe
           {/* 헤더 */}
           <View style={styles.handle} />
           <View style={styles.header}>
-            <Text style={styles.headerIcon}>{header.icon}</Text>
+            <HeaderIcon size={26} color={Colors.primary} />
             <View style={styles.headerText}>
               <Text style={styles.headerTitle}>{header.title}</Text>
               <Text style={styles.headerSubtitle}>{header.subtitle}</Text>
@@ -159,9 +161,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     marginBottom: 20,
-  },
-  headerIcon: {
-    fontSize: 28,
   },
   headerText: {
     flex: 1,
