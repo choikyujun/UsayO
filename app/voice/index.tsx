@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmCard from '../../components/ConfirmCard';
 import { Colors, useColors } from '../../constants/colors';
 import { useVoiceFlow } from '../../hooks/useVoiceFlow';
+import { useRecorderTelemetryStore } from '../../stores/useRecorderTelemetryStore';
 import { useSchedules } from '../../hooks/useSchedules';
 import { ttsService } from '../../services/voice/TTSService';
 import { useCurrentDate } from '../../hooks/useCurrentDate';
@@ -32,8 +33,7 @@ export default function VoiceModal() {
   const pulseOpacity = useRef(new Animated.Value(0.4)).current;
   const pulseAnim = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Audio level bar animation
-  const levelWidth = useRef(new Animated.Value(0)).current;
+  // 오디오 레벨바는 PhaseListening 리프가 텔레메트리 스토어를 직접 구독(고빈도 격리).
 
   // prevMicStatus: stopRecording()은 recording→processing→idle 순서로 전환되므로
   // prev==='recording'||prev==='processing' 모두 체크해야 자동 무음 종료가 감지됨.
@@ -62,14 +62,6 @@ export default function VoiceModal() {
     }
     return () => { pulseAnim.current?.stop(); };
   }, [voice.phase]);
-
-  useEffect(() => {
-    Animated.timing(levelWidth, {
-      toValue: voice.audioLevel,
-      duration: 80,
-      useNativeDriver: false,
-    }).start();
-  }, [voice.audioLevel]);
 
   // Auto-stop: stopRecording()이 recording→processing→idle을 거치므로
   // prev가 'recording' 또는 'processing'이고 idle로 전환된 경우 모두 감지.
@@ -141,8 +133,6 @@ export default function VoiceModal() {
           <PhaseListening
             pulseScale={pulseScale}
             pulseOpacity={pulseOpacity}
-            levelWidth={levelWidth}
-            silenceProgress={voice.silenceProgress}
             onStop={voice.stopAndProcess}
           />
         )}
@@ -176,16 +166,20 @@ export default function VoiceModal() {
 function PhaseListening({
   pulseScale,
   pulseOpacity,
-  levelWidth,
-  silenceProgress,
   onStop,
 }: {
   pulseScale: Animated.Value;
   pulseOpacity: Animated.Value;
-  levelWidth: Animated.Value;
-  silenceProgress: number;
   onStop: () => void;
 }) {
+  // 고빈도 텔레메트리를 이 리프에서만 구독 → 100ms 리렌더가 상위로 전파되지 않음.
+  const audioLevel = useRecorderTelemetryStore((s) => s.audioLevel);
+  const silenceProgress = useRecorderTelemetryStore((s) => s.silenceProgress);
+  const levelWidth = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(levelWidth, { toValue: audioLevel, duration: 80, useNativeDriver: false }).start();
+  }, [audioLevel, levelWidth]);
+
   const silenceOpacity = silenceProgress > 0 ? 1 : 0;
   const silenceSeconds = Math.ceil((1 - silenceProgress) * 3);
 

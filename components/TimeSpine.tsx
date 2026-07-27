@@ -1,5 +1,5 @@
 import { haptic } from '../utils/haptics';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   LayoutAnimation,
@@ -319,6 +319,22 @@ export default function TimeSpine({
     };
   }, [deletedItem]);
 
+  // 모달 콜백 안정화(early-return 이전에 선언) → memo 모달이 bail-out.
+  const closeEditTitle = useCallback(() => setEditTitleVisible(false), []);
+  const savedEditTitle = useCallback(() => { setEditTitleVisible(false); onRefresh?.(); }, [onRefresh]);
+  const closeEditTime = useCallback(() => setEditTimeVisible(false), []);
+  const savedEditTime = useCallback(() => {
+    setEditTimeVisible(false);
+    if (editEvent) {
+      supabase.from('events').select('*').eq('id', editEvent.id).single()
+        .then(({ data }) => {
+          if (data) rescheduleEventNotification(data as Event).catch(e =>
+            console.log('[Notifications] reschedule 실패:', e));
+        });
+    }
+    onRefresh?.();
+  }, [editEvent, onRefresh]);
+
   // ── Loading / empty states ─────────────────────────────────────────────────
   const showSkeleton = useSkeletonDelay(!!loading);
   if (loading && showSkeleton) {
@@ -445,24 +461,14 @@ export default function TimeSpine({
       <EditTitleModal
         visible={editTitleVisible}
         event={editEvent}
-        onClose={() => setEditTitleVisible(false)}
-        onSaved={() => { setEditTitleVisible(false); onRefresh?.(); }}
+        onClose={closeEditTitle}
+        onSaved={savedEditTitle}
       />
       <EditTimeModal
         visible={editTimeVisible}
         event={editEvent}
-        onClose={() => setEditTimeVisible(false)}
-        onSaved={() => {
-          setEditTimeVisible(false);
-          if (editEvent) {
-            supabase.from('events').select('*').eq('id', editEvent.id).single()
-              .then(({ data }) => {
-                if (data) rescheduleEventNotification(data as Event).catch(e =>
-                  console.log('[Notifications] reschedule 실패:', e));
-              });
-          }
-          onRefresh?.();
-        }}
+        onClose={closeEditTime}
+        onSaved={savedEditTime}
       />
     </View>
   );

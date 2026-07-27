@@ -4,6 +4,7 @@ import { Audio } from 'expo-av';
 import { File } from 'expo-file-system';
 import { MicStatus } from '../types';
 import { audioSessionService } from '../services/voice/AudioSessionService';
+import { useRecorderTelemetryStore } from '../stores/useRecorderTelemetryStore';
 import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측 · voice-verify]
 
 const MAX_DURATION_MS = 30_000;
@@ -15,10 +16,8 @@ const LEVEL_INTERVAL  = 100;     // 측정 인터벌 (ms)
 
 export interface VoiceRecorderState {
   status: MicStatus;
-  audioLevel: number;      // 0~1 (정규화)
-  silenceProgress: number; // 0~1 (0=소리 있음, 1=1.5초 무음 → 자동 종료 직전)
-  duration: number;        // ms
   error: string | null;
+  // audioLevel/silenceProgress/duration은 useRecorderTelemetryStore로 이관(고빈도 격리).
 }
 
 export interface UseVoiceRecorderReturn extends VoiceRecorderState {
@@ -42,10 +41,10 @@ export interface VoiceRecorderOptions {
 
 export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecorderReturn {
   const [status, setStatus] = useState<MicStatus>('idle');
-  const [audioLevel, setAudioLevel] = useState(0);
-  const [silenceProgress, setSilenceProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // 고빈도(100ms) 레벨/무음/경과는 외부 텔레메트리 스토어에 발행 → 화면 트리 리렌더 방지.
+  // 스토어 setter는 불변이라 getState()로 1회 취득(구독 아님). 기존 호출부 이름 유지.
+  const { setLevel: setAudioLevel, setSilenceProgress, setDuration } = useRecorderTelemetryStore.getState();
 
   const recordingRef     = useRef<Audio.Recording | null>(null);
   const lastUriRef       = useRef<string | null>(null);
@@ -247,9 +246,6 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
 
   return {
     status,
-    audioLevel,
-    silenceProgress,
-    duration,
     error,
     startRecording,
     stopRecording,

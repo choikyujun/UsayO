@@ -1,5 +1,5 @@
 import { X } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated, KeyboardAvoidingView, Modal, Platform,
   Pressable, StyleSheet, Text, TextInput, View,
@@ -25,7 +25,7 @@ interface Props {
   onSaved: () => void;
 }
 
-export default function EditTitleModal({ visible, event, onClose, onSaved }: Props) {
+function EditTitleModal({ visible, event, onClose, onSaved }: Props) {
   console.log('[EditTitleModal] render, visible:', visible, 'event:', event?.id ?? null);
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -261,3 +261,6 @@ function makeStyles(c: AppTheme) {
     scopeText:    { fontSize: 16 },
   });
 }
+
+// visible=false일 때 부모 리렌더에서 bail-out. onClose/onSaved는 부모가 useCallback으로 안정화해야 유효.
+export default memo(EditTitleModal);

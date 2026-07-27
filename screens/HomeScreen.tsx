@@ -37,6 +37,7 @@ import RecurringBadge from '../components/RecurringBadge';
 import TimeSpine from '../components/TimeSpine';
 import UpcomingSection from '../components/UpcomingSection';
 import VoiceHintRotator from '../components/VoiceHintRotator';
+import ListeningLevelBar from '../components/ListeningLevelBar';
 import { useConversationalMessage } from '../hooks/useConversationalMessage';
 import { useRecurringEvents } from '../hooks/useRecurringEvents';
 import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
@@ -233,15 +234,7 @@ export default function HomeScreen() {
     opacity: interpolate(onboardPulseV.value, [1, 1.4], [0.5, 0]),
   }));
 
-  // ── Audio level bar (RN Animated — width % can't use native driver) ──
-  const levelAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(levelAnim, {
-      toValue: voice.audioLevel,
-      duration: 80,
-      useNativeDriver: false,
-    }).start();
-  }, [voice.audioLevel]);
+  // 오디오 레벨바는 ListeningLevelBar 리프가 텔레메트리 스토어를 직접 구독 → 여기선 audioLevel 미참조.
 
   // ── Phase-driven animations ───────────────────────────────────
   useEffect(() => {
@@ -497,6 +490,12 @@ export default function HomeScreen() {
     voice.startVoice();
   }, [voice]);
 
+  // 모달 콜백 안정화 → React.memo가 visible=false에서 bail-out하도록.
+  const closeEditTitle = useCallback(() => { setEditTitleVisible(false); setEditEvent(null); }, []);
+  const savedEditTitle = useCallback(() => { setEditTitleVisible(false); setEditEvent(null); reloadForDate().catch(() => {}); reloadSchedules().catch(() => {}); }, [reloadForDate, reloadSchedules]);
+  const closeEditTime = useCallback(() => { setEditTimeVisible(false); setEditEvent(null); }, []);
+  const savedEditTime = useCallback(() => { setEditTimeVisible(false); setEditEvent(null); reloadForDate().catch(() => {}); reloadSchedules().catch(() => {}); }, [reloadForDate, reloadSchedules]);
+
   const isVoiceActive = voice.phase !== 'idle';
   const hybridState = voice.hybridInputState ?? FALLBACK_HYBRID;
 
@@ -567,19 +566,7 @@ export default function HomeScreen() {
       {voice.phase === 'listening' && (
         <View style={styles.listeningInfo} pointerEvents="none">
           <Text style={styles.listeningLabel}>듣고 있어요...</Text>
-          <View style={styles.levelTrack}>
-            <Animated.View
-              style={[
-                styles.levelFill,
-                {
-                  width: levelAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0%', '100%'],
-                  }),
-                },
-              ]}
-            />
-          </View>
+          <ListeningLevelBar />
         </View>
       )}
 
@@ -706,14 +693,14 @@ export default function HomeScreen() {
       <EditTitleModal
         visible={editTitleVisible}
         event={editEvent}
-        onClose={() => { setEditTitleVisible(false); setEditEvent(null); }}
-        onSaved={() => { setEditTitleVisible(false); setEditEvent(null); reloadForDate().catch(() => {}); reloadSchedules().catch(() => {}); }}
+        onClose={closeEditTitle}
+        onSaved={savedEditTitle}
       />
       <EditTimeModal
         visible={editTimeVisible}
         event={editEvent}
-        onClose={() => { setEditTimeVisible(false); setEditEvent(null); }}
-        onSaved={() => { setEditTimeVisible(false); setEditEvent(null); reloadForDate().catch(() => {}); reloadSchedules().catch(() => {}); }}
+        onClose={closeEditTime}
+        onSaved={savedEditTime}
       />
       <EditNotificationModal
         visible={editNotifVisible}
@@ -828,18 +815,6 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       fontWeight: '700',
       color: c.textPrimary,
       letterSpacing: 0.3,
-    },
-    levelTrack: {
-      width: '80%',
-      height: 5,
-      backgroundColor: c.card2,
-      borderRadius: 3,
-      overflow: 'hidden',
-    },
-    levelFill: {
-      height: '100%',
-      backgroundColor: c.primary,
-      borderRadius: 3,
     },
 
     // ── Processing ───────────────────────────────────────────────

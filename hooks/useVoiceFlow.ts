@@ -367,8 +367,6 @@ export function useVoiceFlow() {
     classifiedIntent: store.classifiedIntent,
     confirmMessage: store.confirmMessage,
     confirmSource: store.confirmSource,
-    audioLevel: recorder.audioLevel,
-    silenceProgress: recorder.silenceProgress,
     isHybridMode: store.isHybridMode,
     hybridInputState: store.hybridInputState,
     noiseAnalysis: store.noiseAnalysis,

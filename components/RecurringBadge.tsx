@@ -1,5 +1,5 @@
 import { Repeat } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   LayoutAnimation, Platform, Pressable, StyleSheet, Text, UIManager, View,
 } from 'react-native';
@@ -31,6 +31,21 @@ export default function RecurringBadge({ events, onDeleted }: Props) {
   const [editEvent,        setEditEvent]        = useState<Event | null>(null);
   const [editTitleVisible, setEditTitleVisible] = useState(false);
   const [editTimeVisible,  setEditTimeVisible]  = useState(false);
+
+  // 모달 콜백 안정화(early-return 이전 선언) → memo 모달이 bail-out.
+  const closeEditTitle = useCallback(() => setEditTitleVisible(false), []);
+  const savedEditTitle = useCallback(() => setEditTitleVisible(false), []);
+  const closeEditTime = useCallback(() => setEditTimeVisible(false), []);
+  const savedEditTime = useCallback(() => {
+    setEditTimeVisible(false);
+    if (editEvent) {
+      supabase.from('events').select('*').eq('id', editEvent.id).single()
+        .then(({ data }) => {
+          if (data) rescheduleEventNotification(data as Event).catch(e =>
+            console.log('[Notifications] reschedule 실패:', e));
+        });
+    }
+  }, [editEvent]);
 
   if (events.length === 0) return null;
 
@@ -82,23 +97,14 @@ export default function RecurringBadge({ events, onDeleted }: Props) {
       <EditTitleModal
         visible={editTitleVisible}
         event={editEvent}
-        onClose={() => setEditTitleVisible(false)}
-        onSaved={() => setEditTitleVisible(false)}
+        onClose={closeEditTitle}
+        onSaved={savedEditTitle}
       />
       <EditTimeModal
         visible={editTimeVisible}
         event={editEvent}
-        onClose={() => setEditTimeVisible(false)}
-        onSaved={() => {
-          setEditTimeVisible(false);
-          if (editEvent) {
-            supabase.from('events').select('*').eq('id', editEvent.id).single()
-              .then(({ data }) => {
-                if (data) rescheduleEventNotification(data as Event).catch(e =>
-                  console.log('[Notifications] reschedule 실패:', e));
-              });
-          }
-        }}
+        onClose={closeEditTime}
+        onSaved={savedEditTime}
       />
     </View>
   );
