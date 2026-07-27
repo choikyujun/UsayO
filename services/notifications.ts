@@ -138,7 +138,7 @@ async function _doSchedule(event: Event): Promise<string | null> {
     try {
       const notifId = await N.scheduleNotificationAsync({
         content: {
-          title:     '📅 ' + event.title,
+          title:     event.title,
           body:      buildNotifBody(eventWithOffset),
           data:      { eventId: event.id },
           channelId: 'default',

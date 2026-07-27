@@ -125,7 +125,7 @@ async function notifyTeamBroadcast(event: TeamEventRecord) {
   });
 
   const notification = {
-    title: '📢 팀 전체 공지 일정',
+    title: '팀 전체 공지 일정',
     body: `${creator?.name ?? '관리자'}: "${event.title}" — ${startDate}`,
     data: { type: 'team_broadcast', teamEventId: event.id },
   };
