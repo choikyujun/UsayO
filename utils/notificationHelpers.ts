@@ -1,14 +1,20 @@
 import { Event } from '../types/database';
 
+// notification_offset_minutes 3-상태 구분:
+//   null        = 미설정 → 앱 설정 기본값(10/60분) 사용  (기존 데이터 해석 유지)
+//   NOTIF_OFF(-1) = 명시적 "알림 없음" → 예약하지 않음
+//   >= 0        = per-event 오프셋(분)
+export const NOTIF_OFF = -1;
+
 // ── 알림 시점 옵션 정의 ─────────────────────────────────────────────
 
 export interface NotifOption {
   label: string;
-  offsetMinutes: number | null; // null = 알림 없음
+  offsetMinutes: number | null; // NOTIF_OFF(-1) = 명시적 알림 없음
 }
 
 export const TIMED_NOTIF_OPTIONS: NotifOption[] = [
-  { label: '알림 없음',  offsetMinutes: null },
+  { label: '알림 없음',  offsetMinutes: NOTIF_OFF },
   { label: '시작 시',    offsetMinutes: 0    },
   { label: '5분 전',     offsetMinutes: 5    },
   { label: '10분 전',    offsetMinutes: 10   },
@@ -35,7 +41,7 @@ export const TIMED_NOTIF_OPTIONS: NotifOption[] = [
 // 종일 전날 옵션은 부호 없이 구분하기 위해 99xxx 네임스페이스 사용.
 
 export const ALLDAY_NOTIF_OPTIONS: NotifOption[] = [
-  { label: '알림 없음',  offsetMinutes: null  },
+  { label: '알림 없음',  offsetMinutes: NOTIF_OFF },
   { label: '당일 9AM',   offsetMinutes: 540   },  // 당일 09:00
   { label: '당일 12PM',  offsetMinutes: 720   },  // 당일 12:00
   { label: '전날 9AM',   offsetMinutes: 99540 },  // sentinel: 전날 09:00
@@ -100,6 +106,7 @@ export function calcNotifDate(event: Event): Date | null {
  * offsetMinutes → 사용자 표시 레이블.
  */
 export function offsetToLabel(offset: number | null, isAllDay: boolean): string {
+  if (offset === null || offset === undefined) return '기본 알림'; // 미설정 = 앱 기본값
   const options = isAllDay ? ALLDAY_NOTIF_OPTIONS : TIMED_NOTIF_OPTIONS;
   return options.find(o => o.offsetMinutes === offset)?.label ?? '알림 없음';
 }

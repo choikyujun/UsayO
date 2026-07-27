@@ -5,11 +5,12 @@ import {
 } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
-import { cancelEventNotification, rescheduleEventNotification } from '../services/notifications';
+import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset } from '../services/notifications';
 import { Event } from '../types/database';
 import RecurringEventRow from './RecurringEventRow';
 import EditTimeModal from './EditTimeModal';
 import EditTitleModal from './EditTitleModal';
+import EditNotificationModal from './EditNotificationModal';
 import EventActionSheet from './EventActionSheet';
 import { Spacing } from '../constants/spacing';
 
@@ -31,6 +32,7 @@ export default function RecurringBadge({ events, onDeleted }: Props) {
   const [editEvent,        setEditEvent]        = useState<Event | null>(null);
   const [editTitleVisible, setEditTitleVisible] = useState(false);
   const [editTimeVisible,  setEditTimeVisible]  = useState(false);
+  const [editNotifVisible, setEditNotifVisible] = useState(false);
 
   // 모달 콜백 안정화(early-return 이전 선언) → memo 모달이 bail-out.
   const closeEditTitle = useCallback(() => setEditTitleVisible(false), []);
@@ -46,6 +48,11 @@ export default function RecurringBadge({ events, onDeleted }: Props) {
         });
     }
   }, [editEvent]);
+  const closeEditNotif = useCallback(() => setEditNotifVisible(false), []);
+  const savedEditNotif = useCallback(async (updated: Event) => {
+    await persistNotificationOffset(updated);
+    setEditNotifVisible(false);
+  }, []);
 
   if (events.length === 0) return null;
 
@@ -92,6 +99,7 @@ export default function RecurringBadge({ events, onDeleted }: Props) {
         onClose={() => setSheetEvent(null)}
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
+        onEditNotification={ev => { setEditEvent(ev); setSheetEvent(null); setEditNotifVisible(true); }}
         onDeleted={onDeleted}
       />
       <EditTitleModal
@@ -105,6 +113,12 @@ export default function RecurringBadge({ events, onDeleted }: Props) {
         event={editEvent}
         onClose={closeEditTime}
         onSaved={savedEditTime}
+      />
+      <EditNotificationModal
+        visible={editNotifVisible}
+        event={editEvent}
+        onClose={closeEditNotif}
+        onSaved={savedEditNotif}
       />
     </View>
   );

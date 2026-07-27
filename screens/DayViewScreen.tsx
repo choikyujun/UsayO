@@ -37,7 +37,7 @@ import { useDayEvents } from '../hooks/useDayEvents';
 import { useSchedules } from '../hooks/useSchedules';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { supabase } from '../lib/supabase';
-import { cancelEventNotification, rescheduleEventNotification } from '../services/notifications';
+import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset } from '../services/notifications';
 import { Event } from '../types/database';
 import { ttsService } from '../services/voice/TTSService';
 import { useTheme } from '../contexts/ThemeContext';
@@ -417,19 +417,9 @@ export default function DayViewScreen() {
         event={editEvent}
         onClose={() => setEditNotifVisible(false)}
         onSaved={async updatedEvent => {
-          const { error } = await supabase
-            .from('events')
-            .update({ notification_offset_minutes: updatedEvent.notification_offset_minutes, updated_at: new Date().toISOString() })
-            .eq('id', updatedEvent.id);
-          if (error) {
-            console.error('[DayView] notification update failed:', error.message);
-          } else {
-            rescheduleEventNotification(updatedEvent).catch(e =>
-              console.log('[Notifications] reschedule 실패:', e),
-            );
-            reload();
-          }
+          const ok = await persistNotificationOffset(updatedEvent);
           setEditNotifVisible(false);
+          if (ok) reload();
         }}
       />
     </View>

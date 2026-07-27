@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
-import { calcNotifDate, buildNotifBody } from '../utils/notificationHelpers';
+import { calcNotifDate, buildNotifBody, NOTIF_OFF } from '../utils/notificationHelpers';
 
 // Expo Go SDK 53+에서는 expo-notifications 모듈 로드 시 console.error를 방출.
 // require 전에 실행 환경을 확인해 Expo Go에서는 아예 로드하지 않음.
@@ -102,12 +103,15 @@ async function _doSchedule(event: Event): Promise<string | null> {
   // 설정에서 활성화된 offset 목록 가져오기
   const settingsOffsets = await getEnabledOffsets();
 
-  // 이벤트에 per-event override가 있으면 그것만 사용, 없으면 설정값 사용
+  // per-event 값 3-상태: NOTIF_OFF(-1)=명시적 off, null/undefined=미설정(기본값), >=0=오프셋
   let offsets: number[];
-  if (event.notification_offset_minutes !== null && event.notification_offset_minutes !== undefined) {
-    offsets = [event.notification_offset_minutes];
+  const off = event.notification_offset_minutes;
+  if (off === NOTIF_OFF) {
+    offsets = []; // 명시적 알림 없음 — 위에서 cancel 완료 상태로 새 예약 생략
+  } else if (off !== null && off !== undefined) {
+    offsets = [off];
   } else {
-    offsets = settingsOffsets;
+    offsets = settingsOffsets; // 미설정 → 앱 기본값
   }
 
   if (offsets.length === 0) {
@@ -193,6 +197,24 @@ export async function cancelEventNotification(eventId: string): Promise<void> {
 
 export async function rescheduleEventNotification(event: Event): Promise<string | null> {
   return scheduleEventNotification(event);
+}
+
+// ── per-event 알림 오프셋 저장 + 재예약 (공통 경로) ───────────────
+// 모든 화면(홈/일간/주간/타임라인/반복)의 EditNotificationModal onSaved가 공통으로 사용.
+// event.notification_offset_minutes에 확정된 값(오프셋 / NOTIF_OFF / null)이 이미 병합돼 있어야 함.
+// 성공 시 true 반환 → 호출 화면이 필요하면 그때 목록 갱신.
+export async function persistNotificationOffset(event: Event): Promise<boolean> {
+  const { error } = await supabase
+    .from('events')
+    .update({ notification_offset_minutes: event.notification_offset_minutes, updated_at: new Date().toISOString() })
+    .eq('id', event.id);
+  if (error) {
+    console.error('[Notifications] offset 저장 실패:', error.message);
+    return false;
+  }
+  await rescheduleEventNotification(event).catch(e =>
+    console.log('[Notifications] reschedule 실패:', e));
+  return true;
 }
 
 // ── 알림 탭 핸들러 등록 ───────────────────────────────────────

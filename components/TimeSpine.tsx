@@ -18,7 +18,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { isKoreanHoliday } from '../hooks/useHolidays';
 import { isLunchHour } from '../utils/timeHelpers';
 import { supabase } from '../lib/supabase';
-import { cancelEventNotification, rescheduleEventNotification } from '../services/notifications';
+import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset } from '../services/notifications';
 import { Event } from '../types/database';
 import { formatTimeRow, MONO } from '../utils/timeHelpers';
 import { calculateNewTime, EventPosition } from '../utils/rescheduleHelpers';
@@ -30,6 +30,7 @@ import SkeletonSpine from './SkeletonSpine';
 import { useSkeletonDelay } from './Skeleton';
 import EditTimeModal from './EditTimeModal';
 import EditTitleModal from './EditTitleModal';
+import EditNotificationModal from './EditNotificationModal';
 import EventActionSheet, { RecurringDeleteScope } from './EventActionSheet';
 import { Spacing } from '../constants/spacing';
 
@@ -96,6 +97,7 @@ export default function TimeSpine({
   const [editEvent,        setEditEvent]        = useState<Event | null>(null);
   const [editTitleVisible, setEditTitleVisible] = useState(false);
   const [editTimeVisible,  setEditTimeVisible]  = useState(false);
+  const [editNotifVisible, setEditNotifVisible] = useState(false);
   const toastOpacity = useRef(new Animated.Value(0)).current;
 
   // events prop이 업데이트되면 completed_at이 null인 미래 이벤트만 uncompletedIds에서 제거
@@ -334,6 +336,12 @@ export default function TimeSpine({
     }
     onRefresh?.();
   }, [editEvent, onRefresh]);
+  const closeEditNotif = useCallback(() => setEditNotifVisible(false), []);
+  const savedEditNotif = useCallback(async (updated: Event) => {
+    const ok = await persistNotificationOffset(updated);
+    setEditNotifVisible(false);
+    if (ok) onRefresh?.();
+  }, [onRefresh]);
 
   // ── Loading / empty states ─────────────────────────────────────────────────
   const showSkeleton = useSkeletonDelay(!!loading);
@@ -456,6 +464,7 @@ export default function TimeSpine({
         onClose={() => setSheetEvent(null)}
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
+        onEditNotification={ev => { setEditEvent(ev); setSheetEvent(null); setEditNotifVisible(true); }}
         onDeleted={onRefresh}
       />
       <EditTitleModal
@@ -469,6 +478,12 @@ export default function TimeSpine({
         event={editEvent}
         onClose={closeEditTime}
         onSaved={savedEditTime}
+      />
+      <EditNotificationModal
+        visible={editNotifVisible}
+        event={editEvent}
+        onClose={closeEditNotif}
+        onSaved={savedEditNotif}
       />
     </View>
   );

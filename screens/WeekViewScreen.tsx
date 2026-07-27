@@ -23,6 +23,7 @@ import InlineConfirmCard from '../components/InlineConfirmCard';
 import MultiConfirmCard from '../components/MultiConfirmCard';
 import EditTimeModal from '../components/EditTimeModal';
 import EditTitleModal from '../components/EditTitleModal';
+import EditNotificationModal from '../components/EditNotificationModal';
 import EventActionSheet, { RecurringDeleteScope } from '../components/EventActionSheet';
 import EventDetailSheet from '../components/EventDetailSheet';
 import VoiceInputOverlay from '../components/VoiceInputOverlay';
@@ -35,7 +36,7 @@ import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useWeekEvents } from '../hooks/useWeekEvents';
 import { useSchedules } from '../hooks/useSchedules';
 import { supabase } from '../lib/supabase';
-import { cancelEventNotification, rescheduleEventNotification } from '../services/notifications';
+import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset } from '../services/notifications';
 import { Event } from '../types/database';
 import { GRID_TOTAL_H, getNowY, scrollTargetForHour, yToTime, TIME_LABEL_W } from '../utils/dayViewLayout';
 import { localDateStr, todayDateStr } from '../utils/timeHelpers';
@@ -114,6 +115,7 @@ export default function WeekViewScreen() {
   const [editEvent,         setEditEvent]         = useState<Event | null>(null);
   const [editTitleVisible,  setEditTitleVisible]  = useState(false);
   const [editTimeVisible,   setEditTimeVisible]   = useState(false);
+  const [editNotifVisible,  setEditNotifVisible]  = useState(false);
   const [detailEvent,       setDetailEvent]       = useState<Event | null>(null);
   const [detailVisible,     setDetailVisible]     = useState(false);
 
@@ -289,6 +291,7 @@ export default function WeekViewScreen() {
         onClose={() => setSheetEvent(null)}
         onEditTitle={ev => { setEditEvent(ev); setSheetEvent(null); setEditTitleVisible(true); }}
         onEditTime={ev  => { setEditEvent(ev); setSheetEvent(null); setEditTimeVisible(true);  }}
+        onEditNotification={ev => { setEditEvent(ev); setSheetEvent(null); setEditNotifVisible(true); }}
         onDeleted={reload}
       />
       <EditTitleModal
@@ -311,6 +314,16 @@ export default function WeekViewScreen() {
               });
           }
           reload();
+        }}
+      />
+      <EditNotificationModal
+        visible={editNotifVisible}
+        event={editEvent}
+        onClose={() => setEditNotifVisible(false)}
+        onSaved={async updated => {
+          const ok = await persistNotificationOffset(updated);
+          setEditNotifVisible(false);
+          if (ok) reload();
         }}
       />
       <EventDetailSheet

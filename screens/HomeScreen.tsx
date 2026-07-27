@@ -52,6 +52,7 @@ import { useOnboarding } from '../hooks/useOnboarding';
 import { useSchedules } from '../hooks/useSchedules';
 import { useVoiceFlow } from '../hooks/useVoiceFlow';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
+import { persistNotificationOffset } from '../services/notifications';
 import { ttsService } from '../services/voice/TTSService';
 import { ClassifiedIntent, HybridInputState } from '../types';
 import type { Event as CalEvent } from '../types/database';
@@ -706,7 +707,12 @@ export default function HomeScreen() {
         visible={editNotifVisible}
         event={editEvent}
         onClose={() => { setEditNotifVisible(false); setEditEvent(null); }}
-        onSaved={_updated => { setEditNotifVisible(false); setEditEvent(null); }}
+        onSaved={async updated => {
+          const ok = await persistNotificationOffset(updated);
+          setEditNotifVisible(false);
+          setEditEvent(null);
+          if (ok) { reloadForDate().catch(() => {}); reloadSchedules().catch(() => {}); }
+        }}
       />
 
       {/* ── 업그레이드 모달 ───────────────────────────────────────── */}

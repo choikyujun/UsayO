@@ -1,4 +1,5 @@
 import { STTResult } from '../types';
+import { NOTIF_OFF } from './notificationHelpers';
 
 export type AmbiguousResponse = 'confirm' | 'am' | 'pm' | 'cancel' | 'unknown';
 export type MultiConfirmResponse = 'confirm' | 'cancel' | 'unknown';
@@ -116,7 +117,7 @@ export function matchNotificationOffset(transcript: string): NotifOffsetMatch {
   const text = transcript.trim();
   if (!text) return { type: 'unknown' };
   if (/취소|그만|닫아/.test(text)) return { type: 'cancel' };
-  if (/없음|안\s*함|안\s*해|꺼줘|끄기|알림\s*없음|알림\s*꺼/.test(text)) return { type: 'offset', offsetMinutes: null };
+  if (/없음|안\s*함|안\s*해|꺼줘|끄기|알림\s*없음|알림\s*꺼/.test(text)) return { type: 'offset', offsetMinutes: NOTIF_OFF };
   const minM  = text.match(/(\d+)\s*분\s*전/);
   if (minM)  return { type: 'offset', offsetMinutes: parseInt(minM[1]) };
   const hourM = text.match(/(\d+)\s*시간\s*전/);
