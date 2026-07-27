@@ -1,4 +1,4 @@
-import { CheckCircle, RotateCcw, Trash2 } from 'lucide-react-native';
+import { CheckCircle, FileText, MapPin, Repeat, RotateCcw, Trash2, Users } from 'lucide-react-native';
 import { useMemo, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -113,7 +113,7 @@ export default function UpcomingEventRow({
               {event.title}
             </Text>
             {event.is_recurring && !isCompleted && (
-              <Text style={[styles.recurIcon, { color: colors.accent }]}>🔁</Text>
+              <Repeat size={11} color={colors.accent} />
             )}
             {/* 시각을 제목 오른쪽 행 끝으로 이동(오전/오후 명시). 제목이 길면 제목만 말줄임, 시각은 고정폭 유지. */}
             <Text style={[styles.timeText, isCompleted && styles.textCompleted]} numberOfLines={1}>
@@ -123,17 +123,33 @@ export default function UpcomingEventRow({
           {expanded && (
             <View style={styles.expandedArea}>
               {event.is_recurring && event.recurrence_rule ? (
-                <Text style={styles.meta}>🔁 {humanReadableRRule(event.recurrence_rule)}</Text>
+                <View style={styles.metaRow}>
+                  <Repeat size={12} color={colors.textMuted} style={styles.metaIcon} />
+                  <Text style={[styles.meta, styles.metaFlex]}>{humanReadableRRule(event.recurrence_rule)}</Text>
+                </View>
               ) : null}
               {event.end_at && (
                 <Text style={styles.meta}>
                   {formatTimeRow(new Date(event.start_at))} – {formatTimeRow(new Date(event.end_at))}
                 </Text>
               )}
-              {event.location   ? <Text style={styles.meta}>📍 {event.location}</Text>   : null}
-              {event.description ? <Text style={styles.meta}>💭 {event.description}</Text> : null}
+              {event.location ? (
+                <View style={styles.metaRow}>
+                  <MapPin size={12} color={colors.textMuted} style={styles.metaIcon} />
+                  <Text style={[styles.meta, styles.metaFlex]}>{event.location}</Text>
+                </View>
+              ) : null}
+              {event.description ? (
+                <View style={styles.metaRow}>
+                  <FileText size={12} color={colors.textMuted} style={styles.metaIcon} />
+                  <Text style={[styles.meta, styles.metaFlex]}>{event.description}</Text>
+                </View>
+              ) : null}
               {event.attendees?.length ? (
-                <Text style={styles.meta}>👥 {event.attendees.join(', ')}</Text>
+                <View style={styles.metaRow}>
+                  <Users size={12} color={colors.textMuted} style={styles.metaIcon} />
+                  <Text style={[styles.meta, styles.metaFlex]}>{event.attendees.join(', ')}</Text>
+                </View>
               ) : null}
             </View>
           )}
@@ -185,8 +201,10 @@ function makeStyles(c: AppTheme) {
     titleCompleted: { textDecorationLine: 'line-through', color: c.textMuted },
     // 제목 오른쪽 시각 슬롯 — 우측 정렬 + 고정폭으로 여러 행의 시각이 세로 정렬되도록.
     timeText:    { minWidth: 62, textAlign: 'right', fontSize: 12.5, color: c.textSecondary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
-    recurIcon:   { fontSize: 10 },
     expandedArea: { marginTop: Spacing.xs, gap: 2 },
+    metaRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+    metaIcon: { marginTop: 1 },
+    metaFlex: { flex: 1 },
     meta: { fontSize: 12, color: c.textMuted, fontFamily: MONO },
     actionDelete: {
       backgroundColor:   c.error,

@@ -1,4 +1,4 @@
-import { CheckCircle, RotateCcw, Trash2 } from 'lucide-react-native';
+import { CheckCircle, FileText, MapPin, Repeat, RotateCcw, Trash2, Users } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import { Animated as RNAnimated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -217,7 +217,7 @@ export default function SpineEvent({
                   {event.title}
                 </Text>
                 {event.is_recurring && (
-                  <Text style={[styles.recurIcon, { color: colors.accent }]}>🔁</Text>
+                  <Repeat size={11} color={colors.accent} />
                 )}
                 {/* 시각을 제목 오른쪽 행 끝으로 이동(오전/오후 명시). 제목이 길면 제목만 말줄임, 시각은 고정폭 유지. */}
                 <View style={styles.timeInline}>
@@ -237,18 +237,28 @@ export default function SpineEvent({
               {expanded && (
                 <View style={styles.expandedArea}>
                   {event.is_recurring && event.recurrence_rule ? (
-                    <Text style={styles.expandedLine}>
-                      🔁 {humanReadableRRule(event.recurrence_rule)}
-                    </Text>
+                    <View style={styles.expandedRow}>
+                      <Repeat size={12} color={colors.textSecondary} style={styles.expandedIcon} />
+                      <Text style={styles.expandedLine}>{humanReadableRRule(event.recurrence_rule)}</Text>
+                    </View>
                   ) : null}
                   {event.location ? (
-                    <Text style={styles.expandedLine}>📍 {event.location}</Text>
+                    <View style={styles.expandedRow}>
+                      <MapPin size={12} color={colors.textSecondary} style={styles.expandedIcon} />
+                      <Text style={styles.expandedLine}>{event.location}</Text>
+                    </View>
                   ) : null}
                   {event.description ? (
-                    <Text style={styles.expandedLine}>💭 {event.description}</Text>
+                    <View style={styles.expandedRow}>
+                      <FileText size={12} color={colors.textSecondary} style={styles.expandedIcon} />
+                      <Text style={styles.expandedLine}>{event.description}</Text>
+                    </View>
                   ) : null}
                   {event.attendees?.length ? (
-                    <Text style={styles.expandedLine}>👥 {event.attendees.join(', ')}</Text>
+                    <View style={styles.expandedRow}>
+                      <Users size={12} color={colors.textSecondary} style={styles.expandedIcon} />
+                      <Text style={styles.expandedLine}>{event.attendees.join(', ')}</Text>
+                    </View>
                   ) : null}
                   {!event.is_recurring && !event.location && !event.description && !event.attendees?.length && (
                     <Text style={styles.expandedEmpty}>메모나 장소가 없어요</Text>
@@ -306,7 +316,6 @@ function makeStyles(c: AppTheme, state: EventState) {
     },
     titleArea:    { flex: 1, gap: 2 },
     titleRow:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    recurIcon:    { fontSize: 10 },
     title: {
       flex:       1,
       fontSize:   isNext ? 15 : 13,
@@ -324,7 +333,9 @@ function makeStyles(c: AppTheme, state: EventState) {
     currentTag:    { fontSize: 11, color: c.primary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     timeText:      { minWidth: 62, textAlign: 'right', fontSize: 12.5, color: c.textSecondary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     expandedArea:  { paddingTop: 6, gap: 3 },
-    expandedLine:  { fontSize: 12, color: c.textSecondary, lineHeight: 17 },
+    expandedRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+    expandedIcon:  { marginTop: 2 },
+    expandedLine:  { flex: 1, fontSize: 12, color: c.textSecondary, lineHeight: 17 },
     expandedEmpty: { fontSize: 12, color: c.textMuted, fontStyle: 'italic' },
     actionLeft: {
       backgroundColor:   c.success,
