@@ -98,7 +98,7 @@ export default function PrivacySettingsScreen() {
             }
           >
             <Row
-              icon="📱"
+              icon={<Smartphone size={20} color={colors.textMuted} />}
               label="온디바이스 처리"
               sub="음성 처리를 기기에서만 수행해요"
               value={true}

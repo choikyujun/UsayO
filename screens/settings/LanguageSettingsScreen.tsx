@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Play } from 'lucide-react-native';
+import { Globe, Play } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Platform,
@@ -18,15 +18,14 @@ const SPEED_KEY = 'yusay_tts_speed';
 
 interface LangOption {
   id:    string;
-  flag:  string;
   label: string;
 }
 
 const LANGUAGES: LangOption[] = [
-  { id: 'ko',  flag: '🇰🇷', label: '한국어' },
-  { id: 'en',  flag: '🇺🇸', label: 'English' },
-  { id: 'ja',  flag: '🇯🇵', label: '日本語' },
-  { id: 'sea', flag: '🌏',  label: '동남아어' },
+  { id: 'ko',  label: '한국어' },
+  { id: 'en',  label: 'English' },
+  { id: 'ja',  label: '日本語' },
+  { id: 'sea', label: '동남아어' },
 ];
 
 const SPEED_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
@@ -81,7 +80,7 @@ export default function LanguageSettingsScreen() {
               style={[styles.langRow, i > 0 && styles.langRowBorder]}
               onPress={() => selectLang(lang.id)}
             >
-              <Text style={styles.langFlag}>{lang.flag}</Text>
+              <Globe size={18} color={colors.textMuted} />
               <Text style={styles.langLabel}>{lang.label}</Text>
               {selectedLang === lang.id && <View style={styles.checkDot} />}
             </Pressable>
@@ -146,7 +145,6 @@ function makeStyles(c: AppTheme) {
       gap: Spacing.md,
     },
     langRowBorder: { borderTopWidth: 0.5, borderTopColor: c.border },
-    langFlag:      { fontSize: 22 },
     langLabel:     { flex: 1, fontSize: 15, color: c.textPrimary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     checkDot: {
       width: 8, height: 8,

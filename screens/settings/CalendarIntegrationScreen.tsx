@@ -1,4 +1,4 @@
-import { Lock } from 'lucide-react-native';
+import { CalendarDays, Lock } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   Alert,
@@ -14,7 +14,6 @@ import { Spacing } from '../../constants/spacing';
 interface CalendarProvider {
   id: string;
   name: string;
-  icon: string;
   connected: boolean;
   lastSync?: string;
   available: boolean;
@@ -25,9 +24,9 @@ export default function CalendarIntegrationScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [providers, setProviders] = useState<CalendarProvider[]>([
-    { id: 'google', name: 'Google Calendar', icon: '🗓️', connected: false, available: true },
-    { id: 'apple',  name: 'Apple Calendar',  icon: '🍎', connected: false, available: true },
-    { id: 'naver',  name: 'Naver Calendar',  icon: '🟢', connected: false, available: false },
+    { id: 'google', name: 'Google Calendar', connected: false, available: true },
+    { id: 'apple',  name: 'Apple Calendar',  connected: false, available: true },
+    { id: 'naver',  name: 'Naver Calendar',  connected: false, available: false },
   ]);
 
   function handleConnect(id: string) {
@@ -75,7 +74,7 @@ export default function CalendarIntegrationScreen() {
       {providers.map(p => (
         <View key={p.id} style={[styles.card, !p.available && styles.cardDisabled]}>
           <View style={styles.cardLeft}>
-            <Text style={styles.providerIcon}>{p.icon}</Text>
+            <CalendarDays size={22} color={colors.textMuted} />
             <View>
               <Text style={[styles.providerName, !p.available && styles.textDisabled]}>
                 {p.name}
@@ -134,7 +133,6 @@ function makeStyles(c: AppTheme) {
     },
     cardDisabled:       { opacity: 0.45 },
     cardLeft:           { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flex: 1 },
-    providerIcon:       { fontSize: 26 },
     providerName:       { fontSize: 15, fontFamily: 'Pretendard-SemiBold', fontWeight: '600', color: c.textPrimary, marginBottom: 3 },
     textDisabled:       { color: c.textMuted },
     comingSoon:         { fontSize: 11, color: c.textMuted },
