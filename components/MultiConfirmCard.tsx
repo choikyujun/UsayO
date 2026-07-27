@@ -6,7 +6,7 @@ import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { speechService } from '../services/voice/SpeechRecognitionService';
 import { ttsService } from '../services/voice/TTSService';
 import { ClassifiedIntent } from '../types';
-import { matchMultiConfirmResponse } from '../utils/voiceResponseMatcher';
+import { evaluateConfirmSTT } from '../utils/voiceResponseMatcher';
 import { Spacing } from '../constants/spacing';
 
 interface Props {
@@ -41,7 +41,6 @@ export default function MultiConfirmCard({ events, transcript, onConfirm, onCanc
   const startRecordRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const reAskCountRef  = useRef(0);
   const MAX_REASK = 2;                   // 재질문 최대 2회, 이후 버튼 대기로 정지
-  const CONFIRM_MIN_CONFIDENCE = 0.4;    // 저신뢰 매칭은 재질문(오저장 방지). 주 판정은 unknown
 
   // 미인식/저신뢰/무음 → 조용히 재녹음하지 않고 "재질문"(사용자가 미인식을 인지). 한도 초과 시 버튼 대기.
   const reAskOrStop = useCallback(async () => {
@@ -66,22 +65,22 @@ export default function MultiConfirmCard({ events, transcript, onConfirm, onCanc
     if (!isActiveRef.current) return;
     try {
       if (uri) {
-        const stt     = await speechService.transcribe(uri, 'ko', { mode: 'confirm' });
-        const action  = matchMultiConfirmResponse(stt.transcript);
-        const lowConf = stt.confidence > 0 && stt.confidence < CONFIRM_MIN_CONFIDENCE;
+        const stt = await speechService.transcribe(uri, 'ko', { mode: 'confirm' });
+        const { action, reason } = evaluateConfirmSTT(stt); // 환각 방어(길이/신호/무음/신뢰) 후 키워드 판정
         if (!isActiveRef.current) return;
-        if (action === 'confirm' && !lowConf) { onConfirm(); return; }
-        if (action === 'cancel'  && !lowConf) { onCancel();  return; }
-        console.log('[MultiConfirm] 미인식/저신뢰 →', JSON.stringify(stt.transcript), '| conf=', stt.confidence, '| action=', action);
+        if (action === 'confirm') { onConfirm(); return; }
+        if (action === 'cancel')  { onCancel();  return; }
+        console.log('[MultiConfirm] 거부/미인식 →', JSON.stringify(stt.transcript), '| reason=', reason, '| conf=', stt.confidence);
       }
-      // unknown / 저신뢰 / no-audio → 재질문
+      // unknown(환각/미인식/무음) → 재질문
       await reAskOrStop();
     } catch {
       await reAskOrStop();
     }
   }, [onConfirm, onCancel, reAskOrStop]);
 
-  const recorder = useVoiceRecorder({ onAutoStop: handleAutoStop });
+  // 확인 응답은 짧고 반응 지연이 있어 무음 임계를 약간 넉넉히(일반 발화 파라미터는 불변).
+  const recorder = useVoiceRecorder({ onAutoStop: handleAutoStop, silenceMs: 2000 });
   startRecordRef.current = recorder.startRecording;
 
   useEffect(() => {
@@ -90,12 +89,15 @@ export default function MultiConfirmCard({ events, transcript, onConfirm, onCanc
     const openMic = () => {
       if (opened || !isActiveRef.current) return;
       opened = true;
+      console.log('[Mic] open', Date.now(), '(awaitSpeechSettled resolved)'); // [진단] 마이크 오픈 시각
       recorder.startRecording().catch(() => {});
     };
-    // 확인 질문(useVoiceFlow가 발화)이 실제로 끝나면(onDone/onStopped/onError) 마이크를 연다.
-    // isSpeakingAsync 폴링(재생 전/후 구분 불가) 대신 재생 완료 신호를 사용.
-    // 완료 신호가 끝내 안 오면 6s 폴백으로 오픈 → 교착 방지(버튼은 항상 사용 가능).
-    ttsService.awaitSpeechSettled(6000).then(openMic);
+    const _mountAt = Date.now();
+    console.log('[Mic] card mounted, awaitSpeechSettled 등록', _mountAt); // [진단]
+    // 확인 질문(useVoiceFlow가 발화)이 "시작→완전 종료"된 뒤에만 마이크를 연다.
+    // 아무 발화나 첫 settle이 아니라 그 확인 발화에 바인딩 → 질문 재생 중 조기 오픈 방지.
+    // 발화가 끝내 시작 안 하면 폴백 오픈(교착 방지, 버튼 항상 사용 가능).
+    ttsService.waitForNextSpeechToFinish(1500, 8000).then(openMic);
     return () => {
       isActiveRef.current = false;
       recorder.cancelRecording();

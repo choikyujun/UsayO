@@ -4,13 +4,14 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import { AppTheme, useColors } from '../constants/colors';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { speechService } from '../services/voice/SpeechRecognitionService';
-import { matchQuickResponse } from '../services/voice/QuickResponseMatcher';
+import { ttsService } from '../services/voice/TTSService';
+import { evaluateConfirmSTT } from '../utils/voiceResponseMatcher';
 import { ClassifiedIntent } from '../types';
 import { Spacing } from '../constants/spacing';
 
 const AUTO_CONFIRM_MS    = 5000;
-const RECORD_START_DELAY = 500;   // 사양: 500ms
 const RECORD_MAX_MS      = 3500;
+const MAX_REASK          = 2;    // 발화 미인식 시 재질문 최대 횟수
 
 const INTENT_LABEL: Record<string, string> = {
   CREATE:              '일정 추가',
@@ -109,7 +110,9 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
   const confirmedRef   = useRef(false);
   const autoTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordStopRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const recorder = useVoiceRecorder();
+  const reAskCountRef  = useRef(0);
+  const isActiveRef    = useRef(true);
+  const recorder = useVoiceRecorder({ silenceMs: 2000 }); // 확인 응답용 무음 여유(일반 발화 불변)
 
   const slideY  = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -132,45 +135,83 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
     ]).start();
   }, []);
 
-  // ── 5초 자동 저장 타이머 ─────────────────────────────────────
+  // ── 질문 TTS 완료 후 마이크 오픈 → 녹음 → 판정 ──────────────────
+  // 핵심: "무응답(침묵)"과 "발화했으나 미인식"을 구분한다.
+  //  · 침묵(발화 미감지) → 5초 자동확정 허용(사용자 침묵=동의). STT 생략 → 환각 원천 차단.
+  //  · 발화 감지 + confirm/cancel → 즉시 처리.
+  //  · 발화 감지 + unknown(환각/오인식) → 자동확정 금지, 재질문. 초과 시 버튼 대기.
   useEffect(() => {
-    autoTimerRef.current = setTimeout(() => resolve('confirm'), AUTO_CONFIRM_MS);
-    return () => { if (autoTimerRef.current) clearTimeout(autoTimerRef.current); };
-  }, []);
+    isActiveRef.current = true;
 
-  // ── 500ms 뒤 마이크 재활성, 음성 응답 대기 ──────────────────
-  useEffect(() => {
-    let active = true;
+    const buttonWait = async () => {
+      if (autoTimerRef.current) { clearTimeout(autoTimerRef.current); autoTimerRef.current = null; }
+      await ttsService.speak('잘 못 들었어요. 화면의 버튼을 눌러주세요.', undefined, undefined, true).catch(() => {});
+    };
+
+    const recordDone = async () => {
+      if (confirmedRef.current || !isActiveRef.current) return;
+      setMicActive(false);
+      const uri = await recorder.stopRecording();
+      if (confirmedRef.current || !isActiveRef.current) return;
+
+      const spoke = recorder.hadSpeech(); // 녹음 중 유효 발화(-40dB↑) 감지 여부
+      if (!spoke) {
+        // 무응답(침묵). 첫 사이클이면 5초 자동확정 타이머가 처리(사용자 침묵=동의).
+        // 재질문 이후의 무응답이면 자동확정 금지 → 버튼 대기.
+        if (reAskCountRef.current === 0 && autoTimerRef.current) {
+          console.log('[ConfirmCard/Inline] 무응답(침묵) — 5초 자동확정 대기');
+        } else {
+          console.log('[ConfirmCard/Inline] 재질문 후 무응답 — 버튼 대기');
+          await buttonWait();
+        }
+        return;
+      }
+
+      // 발화 감지 → 자동확정 금지(사용자가 말했으므로 반드시 판정 결과를 따른다)
+      if (autoTimerRef.current) { clearTimeout(autoTimerRef.current); autoTimerRef.current = null; }
+
+      let action: 'confirm' | 'cancel' | 'unknown' = 'unknown';
+      if (uri) {
+        try {
+          const stt = await speechService.transcribe(uri, 'ko', { mode: 'confirm' });
+          action = evaluateConfirmSTT(stt).action; // 환각 방어(길이/신호/무음/신뢰) 후 키워드 판정
+        } catch { action = 'unknown'; }
+      }
+      if (confirmedRef.current || !isActiveRef.current) return;
+
+      if (action === 'confirm') { resolve('confirm'); return; }
+      if (action === 'cancel')  { resolve('cancel');  return; }
+
+      // 발화했으나 미인식 → 절대 자동확정하지 않고 재질문(초과 시 버튼 대기)
+      if (reAskCountRef.current >= MAX_REASK) { await buttonWait(); return; }
+      reAskCountRef.current += 1;
+      console.log('[ConfirmCard/Inline] 발화 미인식 — 재질문', reAskCountRef.current);
+      await ttsService.speak('저장할까요? 저장 또는 취소라고 말씀해주세요.', undefined, undefined, true).catch(() => {});
+      if (!isActiveRef.current || confirmedRef.current) return;
+      await recorder.startRecording();
+      if (!isActiveRef.current || confirmedRef.current) { recorder.cancelRecording(); return; }
+      setMicActive(true);
+      recordStopRef.current = setTimeout(recordDone, RECORD_MAX_MS);
+    };
 
     const run = async () => {
-      await new Promise<void>(r => setTimeout(r, RECORD_START_DELAY));
-      if (!active || confirmedRef.current) return;
+      // 확인 질문(useVoiceFlow가 발화)이 시작→종료될 때까지 대기(폴백 포함).
+      await ttsService.waitForNextSpeechToFinish(1500, 8000);
+      if (!isActiveRef.current || confirmedRef.current) return;
 
       await recorder.startRecording();
-      if (!active || confirmedRef.current) { recorder.cancelRecording(); return; }
+      if (!isActiveRef.current || confirmedRef.current) { recorder.cancelRecording(); return; }
       setMicActive(true);
 
-      recordStopRef.current = setTimeout(async () => {
-        if (confirmedRef.current) return;
-        setMicActive(false);
-        const uri = await recorder.stopRecording();
-        if (!uri || confirmedRef.current) return;
-
-        try {
-          const stt    = await speechService.transcribe(uri, 'ko', { mode: 'confirm' });
-          const answer = matchQuickResponse(stt.transcript);
-          if (answer === 'positive')  resolve('confirm');
-          else if (answer === 'negative') resolve('cancel');
-          // 'unknown' → 5초 타이머가 처리
-        } catch {
-          // STT 실패 → 자동 확인 타이머가 처리
-        }
-      }, RECORD_MAX_MS);
+      // 자동 저장 타이머: 마이크 오픈(=질문 재생 후) 기준 5초. 발화 감지 시 recordDone에서 취소됨.
+      autoTimerRef.current = setTimeout(() => resolve('confirm'), AUTO_CONFIRM_MS);
+      recordStopRef.current = setTimeout(recordDone, RECORD_MAX_MS);
     };
 
     run();
     return () => {
-      active = false;
+      isActiveRef.current = false;
+      if (autoTimerRef.current)  clearTimeout(autoTimerRef.current);
       if (recordStopRef.current) clearTimeout(recordStopRef.current);
       recorder.cancelRecording();
     };
