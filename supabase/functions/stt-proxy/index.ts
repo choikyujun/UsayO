@@ -13,6 +13,9 @@ const supabase = createClient(
 const WHISPER_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const SUPPORTED_LANGUAGES = ['ko', 'en', 'ja', 'th', 'id', 'vi'];
 
+// 무료 플랜 월 음성 명령 상한 (단일 버킷). 클라이언트 featureGates.FREE_COMMAND_LIMIT와 동일 값 유지.
+const FREE_COMMAND_LIMIT = 60;
+
 // 일반 발화용 도메인 어휘 프롬프트 (constants/voiceVocabulary.ts와 동일 소스)
 const CALENDAR_TERMS = [
   '잡아줘', '등록해줘', '추가해줘', '만들어줘',
@@ -83,7 +86,7 @@ Deno.serve(async (req) => {
     : (SUPPORTED_LANGUAGES.includes(language ?? '') ? (language as string) : 'ko');
   const prompt = mode === 'confirm' ? CONFIRM_PROMPT : DEFAULT_PROMPT;
 
-  // 4. base64 → multipart 재구성 → Whisper 호출
+  // 3a. 오디오 디코드 먼저 — 인코딩 오류는 쿼터 카운트 이전에 걸러 손해 방지.
   let bytes: Uint8Array;
   try {
     bytes = base64ToBytes(audioBase64);
@@ -91,6 +94,46 @@ Deno.serve(async (req) => {
     return json({ error: 'Invalid audio encoding' }, 400);
   }
 
+  // 3b. 서버 사이드 쿼터 강제 — default 모드(1 음성 명령 = 1 카운트)만.
+  //     confirm 모드 STT는 같은 명령의 일부라 검사·카운트 제외.
+  const month = new Date().toISOString().slice(0, 7); // UTC 'YYYY-MM'
+  let quotaInfo: { used: number; limit: number } | null = null;
+  let incremented = false;
+
+  if (mode !== 'confirm') {
+    // 플랜 판정은 subscriptions만 신뢰(profiles.plan은 클라 수정 가능 → 사용 금지).
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('plan, status, current_period_end')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const nowMs = Date.now();
+    const isPaid = !!sub
+      && (sub.plan === 'pro' || sub.plan === 'team')
+      && (sub.status === 'active' || sub.status === 'trial')
+      && (!sub.current_period_end || new Date(sub.current_period_end).getTime() > nowMs);
+
+    if (!isPaid) {
+      const { data: q, error: qErr } = await supabase.rpc('check_and_increment_quota', {
+        p_user_id: user.id, p_month: month, p_limit: FREE_COMMAND_LIMIT,
+      });
+      if (qErr) {
+        // RPC 실패 → 가용성 우선(fail-open): 막지 않고 카운트만 스킵. 키/PII 없이 사유만 로그.
+        console.error('[stt-proxy] quota rpc error:', qErr.message);
+      } else if (q && q.allowed === false) {
+        // 상한 초과 → 상류(Whisper) 호출 없이 즉시 차단 신호 반환.
+        return json({ quotaExceeded: true, used: q.used, limit: q.limit }, 200);
+      } else if (q) {
+        quotaInfo = { used: q.used, limit: q.limit };
+        incremented = true;
+      }
+    }
+  }
+
+  // 4. multipart 재구성 → Whisper 호출
   const form = new FormData();
   form.append('file', new Blob([bytes], { type: 'audio/m4a' }), 'recording.m4a');
   form.append('model', 'whisper-1');
@@ -100,6 +143,14 @@ Deno.serve(async (req) => {
   // 확인 모드만 temperature=0으로 결정성 확보(환각 억제). 일반 발화는 불변.
   if (mode === 'confirm') form.append('temperature', '0');
 
+  // 상류 실패/무음 시 증가분을 되돌리기 위한 헬퍼 (사용자가 손해 보지 않도록)
+  const rollback = async () => {
+    if (!incremented) return;
+    incremented = false;
+    await supabase.rpc('decrement_quota', { p_user_id: user.id, p_month: month }).catch(() => {});
+    if (quotaInfo) quotaInfo = { ...quotaInfo, used: Math.max(0, quotaInfo.used - 1) };
+  };
+
   let upstream: Response;
   try {
     upstream = await fetch(WHISPER_URL, {
@@ -108,6 +159,7 @@ Deno.serve(async (req) => {
       body: form,
     });
   } catch (_e) {
+    await rollback(); // 네트워크 실패 → 카운트 롤백
     return json({ upstreamStatus: 502, body: { error: 'upstream fetch failed' } }, 200);
   }
 
@@ -119,6 +171,16 @@ Deno.serve(async (req) => {
     body = { raw: text };
   }
 
-  // 상류 상태를 실어 200 래핑 → 클라이언트가 파싱/에러 분기를 기존과 동일하게 처리
-  return json({ upstreamStatus: upstream.status, body }, 200);
+  // 실패(비 2xx) 또는 무음(빈 텍스트)은 명령으로 카운트하지 않음 → 롤백.
+  const okStatus = upstream.status >= 200 && upstream.status < 300;
+  const transcript =
+    body && typeof (body as { text?: unknown }).text === 'string'
+      ? ((body as { text: string }).text).trim()
+      : '';
+  if (!okStatus || !transcript) {
+    await rollback();
+  }
+
+  // 상류 상태 + 서버 권위 사용량(quota)을 실어 200 래핑.
+  return json({ upstreamStatus: upstream.status, body, quota: quotaInfo }, 200);
 });
