@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { ACCENT_PALETTES, useTheme } from '../contexts/ThemeContext';
 
@@ -78,17 +79,20 @@ const lightText = {
 export function useColors(): AppTheme {
   const scheme = useColorScheme();
   const { accentId } = useTheme();
-  const isDark = scheme === 'dark';
-  const palette = ACCENT_PALETTES.find(p => p.id === accentId) ?? ACCENT_PALETTES[0];
-  const v = isDark ? palette.dark : palette.light;
-  const t = isDark ? darkText : lightText;
-  return {
-    bg: v.bg, card: v.card, card2: v.card2, border: v.border, nav: v.nav,
-    primary: v.primary, accent: v.accent,
-    ...t,
-    lunchHint:  isDark ? 'rgba(244,208,63,0.11)'  : 'rgba(244,208,63,0.09)',
-    dinnerHint: isDark ? 'rgba(230,126,34,0.11)'  : 'rgba(230,126,34,0.09)',
-  };
+  // [scheme, accentId]가 바뀔 때만 새 객체 → 트리 전역의 useMemo([colors]) 무효화 방지.
+  return useMemo<AppTheme>(() => {
+    const isDark = scheme === 'dark';
+    const palette = ACCENT_PALETTES.find(p => p.id === accentId) ?? ACCENT_PALETTES[0];
+    const v = isDark ? palette.dark : palette.light;
+    const t = isDark ? darkText : lightText;
+    return {
+      bg: v.bg, card: v.card, card2: v.card2, border: v.border, nav: v.nav,
+      primary: v.primary, accent: v.accent,
+      ...t,
+      lunchHint:  isDark ? 'rgba(244,208,63,0.11)'  : 'rgba(244,208,63,0.09)',
+      dinnerHint: isDark ? 'rgba(230,126,34,0.11)'  : 'rgba(230,126,34,0.09)',
+    };
+  }, [scheme, accentId]);
 }
 
 export type ColorKey = keyof typeof Colors;

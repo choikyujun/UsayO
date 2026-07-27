@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY_ACCENT = 'accent_color';
 const STORAGE_KEY_HINT  = 'hint_enabled';
@@ -95,37 +95,44 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }).catch(() => {});
   }, []);
 
-  function setAccentId(id: string) {
+  // 콜백을 useCallback으로 안정화 (setXState는 불변) → context value 참조 안정화의 전제.
+  const setAccentId = useCallback((id: string) => {
     setAccentIdState(id);
     AsyncStorage.setItem(STORAGE_KEY_ACCENT, id).catch(() => {});
-  }
+  }, []);
 
-  function toggleHint() {
+  const toggleHint = useCallback(() => {
     setHintEnabledState(prev => {
       const next = !prev;
       AsyncStorage.setItem(STORAGE_KEY_HINT, String(next)).catch(() => {});
       return next;
     });
-  }
+  }, []);
 
-  function toggleTTS() {
+  const toggleTTS = useCallback(() => {
     setTTSEnabledState(prev => {
       const next = !prev;
       AsyncStorage.setItem(STORAGE_KEY_TTS, String(next)).catch(() => {});
       return next;
     });
-  }
+  }, []);
 
-  function toggleLunar() {
+  const toggleLunar = useCallback(() => {
     setLunarEnabledState(prev => {
       const next = !prev;
       AsyncStorage.setItem(STORAGE_KEY_LUNAR, String(next)).catch(() => {});
       return next;
     });
-  }
+  }, []);
+
+  // value를 메모화 → 상태(accentId/hintEnabled/…)가 실제로 바뀔 때만 새 참조.
+  const value = useMemo(
+    () => ({ accentId, setAccentId, hintEnabled, toggleHint, ttsEnabled, toggleTTS, lunarEnabled, toggleLunar }),
+    [accentId, hintEnabled, ttsEnabled, lunarEnabled, setAccentId, toggleHint, toggleTTS, toggleLunar],
+  );
 
   return (
-    <ThemeContext.Provider value={{ accentId, setAccentId, hintEnabled, toggleHint, ttsEnabled, toggleTTS, lunarEnabled, toggleLunar }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
