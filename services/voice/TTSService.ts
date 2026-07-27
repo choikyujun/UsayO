@@ -9,9 +9,24 @@ export class TTSService {
   private _speaking = false;                      // 실제 재생 중 여부(onDone/onStopped/onError로 해제)
   private _speakSeq = 0;                           // 발화 시작 시퀀스(특정 발화 완료 바인딩용)
   private _settleListeners: Array<() => void> = []; // 발화 종료(정착) 1회 알림 대기열
+  private _enabled = true;                          // 설정 "음성 확인(TTS)" 반영 — ThemeContext가 동기화
+  private _rate = 0.95;                              // 설정 "TTS 속도"(yusay_tts_speed) 반영
+
+  // 설정 토글 반영. OFF면 speak가 실제 발화 없이 즉시 정착(대기 로직 교착 방지).
+  setEnabled(v: boolean): void { this._enabled = v; }
+  // 저장된 TTS 속도 반영. speak 호출 시 rate 미지정이면 이 값을 사용.
+  setRate(v: number): void { if (v > 0) this._rate = v; }
 
   // bypassDedup: 사용자 응답을 요구하는 확인 질문 등은 절대 skip되지 않아야 함
-  async speak(text: string, language = 'ko-KR', rate = 0.95, bypassDedup = false): Promise<void> {
+  // rate 미지정 시 설정값(_rate) 사용.
+  async speak(text: string, language = 'ko-KR', rate?: number, bypassDedup = false): Promise<void> {
+    const effectiveRate = rate ?? this._rate;
+    if (!this._enabled) {
+      // TTS OFF: 발화하지 않되, waitForNextSpeechToFinish가 새 발화로 인식하고 즉시 정착하도록 seq++/settle.
+      this._speakSeq++;
+      this._settle();
+      return;
+    }
     const now = Date.now();
     if (!bypassDedup && text === this._lastMsg && now - this._lastAt < 1200) {
       console.log('[TTS] dedup skip:', text);
@@ -26,7 +41,7 @@ export class TTSService {
       const done = (via: string) => { console.log('[TTS] settled', Date.now(), 'via', via); this._settle(); resolve(); }; // [진단]
       Speech.speak(text, {
         language,
-        rate,
+        rate: effectiveRate,
         onDone: () => done('onDone'),
         onStopped: () => done('onStopped'),
         onError: (e) => { console.log('[TTS] settled', Date.now(), 'via onError'); this._settle(); reject(new Error(String(e) ?? 'TTS 오류')); },

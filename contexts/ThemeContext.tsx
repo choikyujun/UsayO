@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { ttsService } from '../services/voice/TTSService';
 
 const STORAGE_KEY_ACCENT = 'accent_color';
 const STORAGE_KEY_HINT  = 'hint_enabled';
@@ -94,6 +95,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       if (lunar !== null) setLunarEnabledState(lunar === 'true');
     }).catch(() => {});
   }, []);
+
+  // "음성 확인(TTS)" 설정을 ttsService에 동기화 → Home(useVoiceFlow) 포함 모든 speak 경로가 반영.
+  useEffect(() => {
+    ttsService.setEnabled(ttsEnabled);
+  }, [ttsEnabled]);
 
   // 콜백을 useCallback으로 안정화 (setXState는 불변) → context value 참조 안정화의 전제.
   const setAccentId = useCallback((id: string) => {

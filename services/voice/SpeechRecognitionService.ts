@@ -22,6 +22,16 @@ type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
 // 'notif' = 알림 오프셋 음성 선택. 기존 일정 속성 변경이라 서버 쿼터 미차감(confirm과 동일 처리).
 export type TranscribeMode = 'default' | 'confirm' | 'notif';
 
+// [프라이버시] 로컬 녹음(.m4a) 파일 즉시 삭제. STT 소비 후·녹음 취소 시 모든 경로에서 호출.
+// SDK 54 File API. 존재하지 않거나 실패해도 조용히 무시(파일 없음=이미 목적 달성).
+export function deleteAudioFile(uri: string | null | undefined): void {
+  if (!uri) return;
+  try {
+    const f = new File(uri);
+    if (f.exists) f.delete();
+  } catch { /* 삭제 실패 무시 */ }
+}
+
 export class SpeechRecognitionService {
   // API 키는 클라이언트에 두지 않는다. Whisper 호출/키는 stt-proxy(서버 secret)가 전담.
 
@@ -117,6 +127,9 @@ export class SpeechRecognitionService {
         throw new Error('인터넷 연결을 확인해주세요.');
       }
       throw e;
+    } finally {
+      // [프라이버시] STT 전송 완료 후(성공/실패 무관) 로컬 녹음 파일 즉시 삭제.
+      deleteAudioFile(audioUri);
     }
   }
 

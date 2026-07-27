@@ -30,6 +30,7 @@ import { signInWithDevice } from '../services/auth/deviceAuth';
 import { useAuthStore } from '../stores/useAuthStore';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
+import { ttsService } from '../services/voice/TTSService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { noiseDetector } from '../services/voice/NoiseDetectorService';
 import { requestNotificationPermission, setupNotificationTapHandler } from '../services/notifications';
@@ -181,6 +182,9 @@ function AppRoot() {
 
       // 서버 권위 플랜/사용량 로드 (RevenueCat 유무와 무관하게 항상) — 잔여 표시·사전 검사용.
       quotaTracker.refreshFromServer().catch(() => {});
+
+      // 저장된 TTS 속도를 앱 전역에 반영(설정 화면 진입 전에도).
+      AsyncStorage.getItem('yusay_tts_speed').then(v => { if (v) ttsService.setRate(parseFloat(v)); }).catch(() => {});
     })();
   }, []);
 

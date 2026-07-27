@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { AppTheme, useColors } from '../../constants/colors';
 import { ttsService } from '../../services/voice/TTSService';
+import { SETTINGS_FLAGS } from '../../constants/featureFlags';
 import { Spacing } from '../../constants/spacing';
 
 const LANG_KEY  = 'yusay_lang';
@@ -44,7 +45,7 @@ export default function LanguageSettingsScreen() {
       const lang  = await AsyncStorage.getItem(LANG_KEY);
       const speed = await AsyncStorage.getItem(SPEED_KEY);
       if (lang)  setSelectedLang(lang);
-      if (speed) setTtsSpeed(parseFloat(speed));
+      if (speed) { const s = parseFloat(speed); setTtsSpeed(s); ttsService.setRate(s); }
       setLoaded(true);
     })();
   }, []);
@@ -56,6 +57,7 @@ export default function LanguageSettingsScreen() {
 
   async function selectSpeed(speed: number) {
     setTtsSpeed(speed);
+    ttsService.setRate(speed); // 즉시 반영
     await AsyncStorage.setItem(SPEED_KEY, String(speed));
   }
 
@@ -71,22 +73,25 @@ export default function LanguageSettingsScreen() {
       contentContainerStyle={styles.scroll}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>인식 언어</Text>
-        <View style={styles.card}>
-          {LANGUAGES.map((lang, i) => (
-            <Pressable
-              key={lang.id}
-              style={[styles.langRow, i > 0 && styles.langRowBorder]}
-              onPress={() => selectLang(lang.id)}
-            >
-              <Globe size={18} color={colors.textMuted} />
-              <Text style={styles.langLabel}>{lang.label}</Text>
-              {selectedLang === lang.id && <View style={styles.checkDot} />}
-            </Pressable>
-          ))}
+      {/* 인식 언어 선택 — STT가 'ko' 고정이라 숨김. 다국어 엔진 배선 후 SETTINGS_FLAGS.languageSelect=true로 복원 */}
+      {SETTINGS_FLAGS.languageSelect && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>인식 언어</Text>
+          <View style={styles.card}>
+            {LANGUAGES.map((lang, i) => (
+              <Pressable
+                key={lang.id}
+                style={[styles.langRow, i > 0 && styles.langRowBorder]}
+                onPress={() => selectLang(lang.id)}
+              >
+                <Globe size={18} color={colors.textMuted} />
+                <Text style={styles.langLabel}>{lang.label}</Text>
+                {selectedLang === lang.id && <View style={styles.checkDot} />}
+              </Pressable>
+            ))}
+          </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>TTS 속도</Text>

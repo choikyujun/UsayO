@@ -4,6 +4,7 @@ import { Audio } from 'expo-av';
 import { File } from 'expo-file-system';
 import { MicStatus } from '../types';
 import { audioSessionService } from '../services/voice/AudioSessionService';
+import { deleteAudioFile } from '../services/voice/SpeechRecognitionService';
 import { useRecorderTelemetryStore } from '../stores/useRecorderTelemetryStore';
 import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측 · voice-verify]
 
@@ -225,8 +226,12 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
     const rec = recordingRef.current;
     recordingRef.current = null; // 즉시 null — stopRecording 동시 진입 차단
     if (rec) {
-      rec.stopAndUnloadAsync().catch(() => {});
+      const uri = rec.getURI(); // [프라이버시] 취소 경로: 전사 없이 버려지는 녹음 파일도 삭제
+      rec.stopAndUnloadAsync()
+        .then(() => deleteAudioFile(uri))
+        .catch(() => deleteAudioFile(uri));
     }
+    deleteAudioFile(lastUriRef.current);
     lastUriRef.current = null;
     silenceStartRef.current = null;
     audioSessionService.cleanup();
