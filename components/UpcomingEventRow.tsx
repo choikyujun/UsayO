@@ -5,7 +5,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { AppTheme } from '../constants/colors';
 import { haptic } from '../utils/haptics';
 import { Event } from '../types/database';
-import { formatTimeRow, MONO } from '../utils/timeHelpers';
+import { formatTimeRow, formatClockKo, MONO } from '../utils/timeHelpers';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
 import { Spacing } from '../constants/spacing';
 
@@ -115,6 +115,10 @@ export default function UpcomingEventRow({
             {event.is_recurring && !isCompleted && (
               <Text style={[styles.recurIcon, { color: colors.accent }]}>🔁</Text>
             )}
+            {/* 시각을 제목 오른쪽 행 끝으로 이동(오전/오후 명시). 제목이 길면 제목만 말줄임, 시각은 고정폭 유지. */}
+            <Text style={[styles.timeText, isCompleted && styles.textCompleted]} numberOfLines={1}>
+              {formatClockKo(new Date(event.start_at))}
+            </Text>
           </View>
           {expanded && (
             <View style={styles.expandedArea}>
@@ -179,6 +183,8 @@ function makeStyles(c: AppTheme) {
       flex:       1,
     },
     titleCompleted: { textDecorationLine: 'line-through', color: c.textMuted },
+    // 제목 오른쪽 시각 슬롯 — 우측 정렬 + 고정폭으로 여러 행의 시각이 세로 정렬되도록.
+    timeText:    { minWidth: 62, textAlign: 'right', fontSize: 12.5, color: c.textSecondary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     recurIcon:   { fontSize: 10 },
     expandedArea: { marginTop: Spacing.xs, gap: 2 },
     meta: { fontSize: 12, color: c.textMuted, fontFamily: MONO },

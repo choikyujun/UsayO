@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
-import { formatTimeRow, MONO } from '../utils/timeHelpers';
+import { formatTimeRow, formatClockKo, MONO } from '../utils/timeHelpers';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
 import { Spacing } from '../constants/spacing';
 
@@ -219,10 +219,15 @@ export default function SpineEvent({
                 {event.is_recurring && (
                   <Text style={[styles.recurIcon, { color: colors.accent }]}>🔁</Text>
                 )}
+                {/* 시각을 제목 오른쪽 행 끝으로 이동(오전/오후 명시). 제목이 길면 제목만 말줄임, 시각은 고정폭 유지. */}
+                <View style={styles.timeInline}>
+                  {isCurrent && <Text style={styles.currentTag}>진행 중</Text>}
+                  <Text style={styles.timeText} numberOfLines={1}>
+                    {formatClockKo(new Date(event.start_at))}
+                  </Text>
+                </View>
               </View>
 
-              {isNext    && <Text style={styles.badge}>다음 일정</Text>}
-              {isCurrent && <Text style={[styles.badge, { color: colors.primary }]}>진행 중</Text>}
               {previewTime && (
                 <Text style={[styles.badge, { color: colors.accent }]}>
                   → {previewTime}로 이동
@@ -303,6 +308,7 @@ function makeStyles(c: AppTheme, state: EventState) {
     titleRow:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
     recurIcon:    { fontSize: 10 },
     title: {
+      flex:       1,
       fontSize:   isNext ? 15 : 13,
       fontWeight: isNext ? '600' : '400',
       color:      c.textPrimary,
@@ -313,6 +319,10 @@ function makeStyles(c: AppTheme, state: EventState) {
       color:              c.textMuted,
     },
     badge:         { fontSize: 10, color: c.accent, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
+    // 제목 오른쪽 시각 슬롯 — 우측 정렬 + 고정폭으로 여러 행의 시각이 세로 정렬되도록.
+    timeInline:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+    currentTag:    { fontSize: 11, color: c.primary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
+    timeText:      { minWidth: 62, textAlign: 'right', fontSize: 12.5, color: c.textSecondary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     expandedArea:  { paddingTop: 6, gap: 3 },
     expandedLine:  { fontSize: 12, color: c.textSecondary, lineHeight: 17 },
     expandedEmpty: { fontSize: 12, color: c.textMuted, fontStyle: 'italic' },
