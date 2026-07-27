@@ -1,4 +1,4 @@
-import { Check, RotateCcw } from 'lucide-react-native';
+import { Check, FileText, MapPin, Repeat, RotateCcw, Trash2, Users } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -91,7 +91,7 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
             styles.actionRight,
             { opacity: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 0.65, 1], extrapolate: 'clamp' }) },
           ]}>
-            <Text style={styles.actionIcon}>🗑️</Text>
+            <Trash2 size={16} color="#fff" strokeWidth={2.5} />
             {!isShort && <Text style={styles.actionLabel}>삭제</Text>}
           </Animated.View>
         )}
@@ -136,16 +136,28 @@ export default function DayEventBlock({ event, colors, onLongPress, onDelete, on
               {expanded && (
                 <View style={styles.expandedArea}>
                   {event.is_recurring && event.recurrence_rule ? (
-                    <Text style={styles.meta}>🔁 {humanReadableRRule(event.recurrence_rule)}</Text>
+                    <View style={styles.metaRow}>
+                      <Repeat size={11} color="rgba(255,255,255,0.80)" style={styles.metaIcon} />
+                      <Text style={[styles.meta, styles.metaFlex]}>{humanReadableRRule(event.recurrence_rule)}</Text>
+                    </View>
                   ) : null}
                   {event.location ? (
-                    <Text style={styles.meta}>📍 {event.location}</Text>
+                    <View style={styles.metaRow}>
+                      <MapPin size={11} color="rgba(255,255,255,0.80)" style={styles.metaIcon} />
+                      <Text style={[styles.meta, styles.metaFlex]}>{event.location}</Text>
+                    </View>
                   ) : null}
                   {event.description ? (
-                    <Text style={styles.meta}>💭 {event.description}</Text>
+                    <View style={styles.metaRow}>
+                      <FileText size={11} color="rgba(255,255,255,0.80)" style={styles.metaIcon} />
+                      <Text style={[styles.meta, styles.metaFlex]}>{event.description}</Text>
+                    </View>
                   ) : null}
                   {event.attendees?.length ? (
-                    <Text style={styles.meta}>👥 {event.attendees.join(', ')}</Text>
+                    <View style={styles.metaRow}>
+                      <Users size={11} color="rgba(255,255,255,0.80)" style={styles.metaIcon} />
+                      <Text style={[styles.meta, styles.metaFlex]}>{event.attendees.join(', ')}</Text>
+                    </View>
                   ) : null}
                 </View>
               )}
@@ -211,6 +223,9 @@ function makeStyles(c: AppTheme) {
       marginTop: Spacing.xs,
       gap:       2,
     },
+    metaRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 5 },
+    metaIcon: { marginTop: 1 },
+    metaFlex: { flex: 1 },
     meta: {
       fontSize:   11,
       color:      'rgba(255,255,255,0.80)',
@@ -232,7 +247,6 @@ function makeStyles(c: AppTheme) {
       gap:             2,
     },
     actionUndo:  { backgroundColor: c.primary },
-    actionIcon:  { fontSize: 18, color: '#fff' },
     actionLabel: { fontSize: 11, color: '#fff', fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
   });
 }

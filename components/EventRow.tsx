@@ -1,4 +1,5 @@
 import { haptic } from '../utils/haptics';
+import { Check, FileText, MapPin, Trash2 } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import {
   LayoutAnimation,
@@ -77,7 +78,7 @@ export default function EventRow({
   function renderLeftAction() {
     return (
       <View style={styles.actionLeft}>
-        <Text style={styles.actionLeftIcon}>✓</Text>
+        <Check size={18} color="#fff" />
         <Text style={styles.actionLeftLabel}>완료</Text>
       </View>
     );
@@ -86,7 +87,7 @@ export default function EventRow({
   function renderRightAction() {
     return (
       <View style={styles.actionRight}>
-        <Text style={styles.actionRightIcon}>🗑️</Text>
+        <Trash2 size={16} color="#fff" />
         <Text style={styles.actionRightLabel}>삭제</Text>
       </View>
     );
@@ -154,10 +155,16 @@ export default function EventRow({
             {formatTimeKo(startD)}{endD ? ` – ${formatTimeKo(endD)}` : ''}
           </Text>
           {event.location ? (
-            <Text style={styles.expandedLine}>📍 {event.location}</Text>
+            <View style={styles.expandedRow}>
+              <MapPin size={13} color={colors.textSecondary} style={styles.expandedIcon} />
+              <Text style={styles.expandedLine}>{event.location}</Text>
+            </View>
           ) : null}
           {event.description ? (
-            <Text style={styles.expandedLine}>💭 {event.description}</Text>
+            <View style={styles.expandedRow}>
+              <FileText size={13} color={colors.textSecondary} style={styles.expandedIcon} />
+              <Text style={styles.expandedLine}>{event.description}</Text>
+            </View>
           ) : null}
           {!event.location && !event.description && (
             <Text style={styles.expandedEmpty}>메모나 장소가 없어요</Text>
@@ -229,7 +236,6 @@ function makeStyles(c: AppTheme) {
       paddingHorizontal: Spacing.lg,
       gap: 2,
     },
-    actionLeftIcon:  { fontSize: 18, color: '#fff' },
     actionLeftLabel: { fontSize: 10, color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     actionRight: {
       backgroundColor: c.error,
@@ -238,7 +244,6 @@ function makeStyles(c: AppTheme) {
       paddingHorizontal: Spacing.lg,
       gap: 2,
     },
-    actionRightIcon:  { fontSize: 16 },
     actionRightLabel: { fontSize: 10, color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     // ── Expanded ─────────────────────────────────────────────────
     expanded: {
@@ -248,7 +253,9 @@ function makeStyles(c: AppTheme) {
       gap: Spacing.xs,
     },
     expandedTime:  { fontSize: 11, color: c.textMuted },
-    expandedLine:  { fontSize: 13, color: c.textSecondary, lineHeight: 18 },
+    expandedRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+    expandedIcon:  { marginTop: 2 },
+    expandedLine:  { flex: 1, fontSize: 13, color: c.textSecondary, lineHeight: 18 },
     expandedEmpty: { fontSize: 12, color: c.textMuted, fontStyle: 'italic' },
   });
 }

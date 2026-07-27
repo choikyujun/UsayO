@@ -1,3 +1,4 @@
+import { Repeat } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   LayoutAnimation, Platform, Pressable, StyleSheet, Text, UIManager, View,
@@ -47,9 +48,12 @@ export default function RecurringBadge({ events, onDeleted }: Props) {
     <View style={styles.container}>
       {/* Collapsed pill / header */}
       <Pressable style={styles.pill} onPress={toggle}>
-        <Text style={[styles.pillText, { color: colors.accent }]}>
-          🔁 반복 일정 {events.length}개
-        </Text>
+        <View style={styles.pillLeft}>
+          <Repeat size={13} color={colors.accent} />
+          <Text style={[styles.pillText, { color: colors.accent }]}>
+            반복 일정 {events.length}개
+          </Text>
+        </View>
         <Text style={[styles.chevron, { color: colors.accent }]}>
           {expanded ? '▴' : '▾'}
         </Text>
@@ -118,6 +122,11 @@ function makeStyles(c: AppTheme) {
       justifyContent: 'space-between',
       paddingHorizontal: 14,
       paddingVertical: 10,
+    },
+    pillLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
     },
     pillText: {
       fontSize: 13,

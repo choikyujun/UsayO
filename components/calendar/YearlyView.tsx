@@ -1,3 +1,4 @@
+import { Flame } from 'lucide-react-native';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppTheme, useColors } from '../../constants/colors';
@@ -67,7 +68,12 @@ export default function YearlyView({ year, events, onSelectMonth }: Props) {
                   <Text style={[styles.monthName, isCurrent && styles.monthNameCurrent]}>
                     {MONTHS_KO[m]}
                   </Text>
-                  {isBusiest && <Text style={styles.fireBadge}>🔥 {monthTotals[m]}개</Text>}
+                  {isBusiest && (
+                    <View style={styles.fireBadge}>
+                      <Flame size={10} color={colors.warning} />
+                      <Text style={styles.fireBadgeText}>{monthTotals[m]}개</Text>
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.miniDowRow}>
@@ -154,7 +160,8 @@ function makeStyles(c: AppTheme) {
       color: c.textMuted,
     },
     monthNameCurrent: { color: c.accent },
-    fireBadge: { fontSize: 9, color: c.warning },
+    fireBadge: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    fireBadgeText: { fontSize: 9, color: c.warning },
     miniDowRow: { flexDirection: 'row', marginBottom: 2 },
     miniDow: {
       flex: 1,

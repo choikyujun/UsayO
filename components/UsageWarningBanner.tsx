@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AlertTriangle, X } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
@@ -58,7 +59,7 @@ export default function UsageWarningBanner({ feature }: Props) {
       <Animated.View style={[styles.banner, { opacity }]} pointerEvents="auto">
         <View style={styles.content}>
           <View style={styles.left}>
-            <Text style={styles.warningIcon}>⚠️</Text>
+            <AlertTriangle size={18} color={colors.warning} />
             <View>
               <Text style={styles.title}>이번 달 사용량 {percentage}%</Text>
               <Text style={styles.sub}>남은 횟수 {remaining}회</Text>
@@ -69,8 +70,8 @@ export default function UsageWarningBanner({ feature }: Props) {
             <Pressable style={styles.upgradeBtn} onPress={() => setModalVisible(true)}>
               <Text style={styles.upgradeText}>업그레이드</Text>
             </Pressable>
-            <Pressable onPress={handleDismiss} hitSlop={8}>
-              <Text style={styles.closeBtn}>✕</Text>
+            <Pressable onPress={handleDismiss} hitSlop={8} style={styles.closeBtn}>
+              <X size={16} color={colors.textMuted} />
             </Pressable>
           </View>
         </View>
@@ -110,7 +111,6 @@ function makeStyles(c: AppTheme) {
       paddingVertical: 10,
     },
     left:        { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-    warningIcon: { fontSize: 18 },
     title:       { color: c.warning, fontSize: 13, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     sub:         { color: c.textMuted, fontSize: 11, marginTop: 1 },
     right:       { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -121,7 +121,7 @@ function makeStyles(c: AppTheme) {
       borderRadius: 8,
     },
     upgradeText: { color: '#fff', fontSize: 12, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
-    closeBtn:    { color: c.textMuted, fontSize: 14, paddingHorizontal: 4 },
+    closeBtn:    { paddingHorizontal: 4 },
     progressBar: { height: 3, backgroundColor: c.border },
     progressFill: { height: '100%', backgroundColor: c.warning },
   });

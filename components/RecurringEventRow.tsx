@@ -1,4 +1,5 @@
 import { haptic } from '../utils/haptics';
+import { Pin, Repeat, Square } from 'lucide-react-native';
 import { useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -54,11 +55,11 @@ export default function RecurringEventRow({ event, onLongPress }: Props) {
     return (
       <View style={styles.actions}>
         <Pressable style={[styles.actionBtn, styles.skipBtn]} onPress={handleSkipToday}>
-          <Text style={styles.actionIcon}>📌</Text>
+          <Pin size={16} color="#fff" />
           <Text style={styles.actionLabel}>오늘 건너뜀</Text>
         </Pressable>
         <Pressable style={[styles.actionBtn, styles.stopBtn]} onPress={handleStopAfterToday}>
-          <Text style={styles.actionIcon}>⏹</Text>
+          <Square size={16} color="#fff" />
           <Text style={styles.actionLabel}>중지</Text>
         </Pressable>
       </View>
@@ -77,7 +78,7 @@ export default function RecurringEventRow({ event, onLongPress }: Props) {
         onLongPress={() => onLongPress?.(event)}
         delayLongPress={400}
       >
-        <Text style={[styles.icon, { color: colors.accent }]}>🔁</Text>
+        <Repeat size={14} color={colors.accent} />
         <View style={styles.content}>
           <Text style={styles.label} numberOfLines={1}>{label}</Text>
           <Text style={styles.title} numberOfLines={1}>{event.title}</Text>
@@ -96,9 +97,6 @@ function makeStyles(c: AppTheme) {
       paddingVertical: 10,
       backgroundColor: c.bg,
       gap: 10,
-    },
-    icon: {
-      fontSize: 14,
     },
     content: {
       flex: 1,
@@ -130,9 +128,6 @@ function makeStyles(c: AppTheme) {
     },
     stopBtn: {
       backgroundColor: c.error + 'CC',
-    },
-    actionIcon: {
-      fontSize: 16,
     },
     actionLabel: {
       fontSize: 11,
