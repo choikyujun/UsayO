@@ -47,29 +47,16 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
     }
   }, [visible]);
 
-  if (!event) return null;
-
-  const isAllDay = event.is_all_day;
-  const options: NotifOption[] = isAllDay ? ALLDAY_NOTIF_OPTIONS : TIMED_NOTIF_OPTIONS;
-  const currentOffset = event.notification_offset_minutes ?? null;
-
-  const startStr = isAllDay
-    ? '종일'
-    : formatTimeKo(new Date(event.start_at));
-
-  function handleSelect(option: NotifOption) {
-    const updated: Event = { ...event!, notification_offset_minutes: option.offsetMinutes };
-    onSaved(updated);
-    onClose();
-  }
-
-  // ── Voice STT: TTS → record → match → handleSelect/close/restart ──
+  // ── Voice STT: TTS → record → match → onSaved/close/restart ──
+  // 모든 훅은 조건 없이 호출한다(Hooks 규칙). event는 ref로 안전 참조하고, early-return은 훅 뒤에서.
   const isVoiceActiveRef = useRef(false);
   const startVoiceRef    = useRef<() => Promise<void>>(() => Promise.resolve());
-  const handleSelectRef  = useRef(handleSelect);
-  handleSelectRef.current = handleSelect;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
+  const eventRef = useRef(event);
+  eventRef.current = event;
 
   const handleVoiceAutoStop = useCallback(async (uri: string | null) => {
     if (!isVoiceActiveRef.current) return;
@@ -79,7 +66,11 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
         const match = matchNotificationOffset(stt.transcript);
         if (!isVoiceActiveRef.current) return;
         if (match.type === 'offset') {
-          handleSelectRef.current({ label: '', offsetMinutes: match.offsetMinutes });
+          const ev = eventRef.current;
+          if (ev) {
+            onSavedRef.current({ ...ev, notification_offset_minutes: match.offsetMinutes });
+            onCloseRef.current();
+          }
           return;
         }
         if (match.type === 'cancel') {
@@ -98,7 +89,7 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
   startVoiceRef.current = voiceRecorder.startRecording;
 
   useEffect(() => {
-    if (visible) {
+    if (visible && event) {
       isVoiceActiveRef.current = true;
       (async () => {
         try {
@@ -118,7 +109,23 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
       isVoiceActiveRef.current = false;
       voiceRecorder.cancelRecording();
     };
-  }, [visible]);
+  }, [visible, event]);
+
+  // ── 모든 훅 호출 이후에만 early-return (event null 안전) ──
+  if (!event) return null;
+
+  const isAllDay = event.is_all_day;
+  const options: NotifOption[] = isAllDay ? ALLDAY_NOTIF_OPTIONS : TIMED_NOTIF_OPTIONS;
+  const currentOffset = event.notification_offset_minutes ?? null;
+  const startStr = isAllDay
+    ? '종일'
+    : formatTimeKo(new Date(event.start_at));
+
+  function handleSelect(option: NotifOption) {
+    const updated: Event = { ...event!, notification_offset_minutes: option.offsetMinutes };
+    onSaved(updated);
+    onClose();
+  }
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
