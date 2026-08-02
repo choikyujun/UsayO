@@ -10,7 +10,7 @@ import { humanReadableRRule } from '../utils/recurrenceHelpers';
 import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
-const TIME_W    = 44;  // 24시간제 숫자만("15:00") 기준
+const TIME_W    = 60;  // SpineEvent와 동일(좌측정렬 24h 숫자)
 const DOT_GAP   = 14;
 const DOT_SIZE  = 5;
 
@@ -186,7 +186,7 @@ function makeStyles(c: AppTheme) {
       fontWeight:  '500',
       fontFamily:  'Pretendard-Medium',
       color:       c.textSecondary,
-      textAlign:   'right',
+      textAlign:   'left',
     },
     textCompleted:   { textDecorationLine: 'line-through' },
     dotCol: {

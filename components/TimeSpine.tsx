@@ -42,7 +42,7 @@ if (Platform.OS === 'android') {
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const PADDING_H = 20;
-const SPINE_X   = PADDING_H + 44 + 14 + 9; // = 87. time(44)+gap(14)+ dotSlot(18) 중앙(9). 점을 슬롯 중앙정렬 → 크기 무관 정렬. 시각 뒤 여백 ≈ 23
+const SPINE_X   = PADDING_H + 60 + 9; // = 89. time(60, 좌측정렬)+ dotSlot(18) 중앙(9). 점 슬롯 중앙정렬 → 크기 무관 정렬.
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SpineEventItem { type: 'event'; id: string; event: Event; state: EventState; isCompleted: boolean }
@@ -401,7 +401,10 @@ export default function TimeSpine({
       >
         <View ref={contentWrapperRef} style={styles.contentWrapper}>
           {/* Vertical spine line */}
-          <View style={[styles.spineLine, { backgroundColor: colors.border }]} />
+          <View
+            style={[styles.spineLine, { backgroundColor: colors.border }]}
+            onLayout={e => console.log('[SPINE-MEASURE] spineLine x=%s (SPINE_X=%s)', e.nativeEvent.layout.x.toFixed(1), SPINE_X)}
+          />
 
           {spineItems.map(item =>
             item.type === 'now' ? (
@@ -508,7 +511,7 @@ function NowMarkerRow({ nowDate, colors }: { nowDate: Date; colors: AppTheme }) 
   );
 }
 
-const TIME_W  = 44;  // SpineEvent 시각 컬럼 폭과 동일(24시간제 숫자) — NOW 마커 정렬 유지
+const TIME_W  = 60;  // SpineEvent 시각 컬럼 폭과 동일 — NOW 마커 정렬 유지
 const DOT_GAP = 14;
 
 const nowRowStyles = StyleSheet.create({
@@ -517,14 +520,13 @@ const nowRowStyles = StyleSheet.create({
     alignItems:        'center',
     paddingHorizontal: PADDING_H,
     marginVertical: Spacing.base,
-    gap:               DOT_GAP,
   },
   time: {
     width:       TIME_W,
     fontSize:    11,
     fontFamily:  'Pretendard-Medium',
     fontWeight:  '500',
-    textAlign:   'right',
+    textAlign:   'left',
   },
   lineWrap: {
     flex:          1,

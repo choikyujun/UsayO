@@ -18,7 +18,7 @@ import { humanReadableRRule } from '../utils/recurrenceHelpers';
 import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
-const TIME_W    = 44;  // 24시간제 숫자만("15:00") 기준. 스파인 SPINE_X와 동기화 유지.
+const TIME_W    = 60;  // 24h 숫자만. 좌측정렬이라 컬럼 확대분이 텍스트 뒤 여백으로 남음(선과의 간격 확보).
 const DOT_GAP   = 14;
 
 export type EventState = 'past' | 'current' | 'next' | 'future';
@@ -199,13 +199,20 @@ export default function SpineEvent({
             accessibilityLabel={`${event.title}, ${formatTimeRow(new Date(event.start_at))}${isCompleted ? ', 완료됨' : isCurrent ? ', 진행 중' : isNext ? ', 다음 일정' : ''}`}
             accessibilityHint={isPast ? undefined : '길게 누르면 옵션, 좌로 밀면 완료, 우로 밀면 삭제'}
           >
-            {/* Time column (좌측 시각축 — 24시간제 숫자만) */}
-            <Text style={[styles.time, isHoliday && styles.timeHoliday]} numberOfLines={1}>
+            {/* Time column (좌측 시각축 — 24시간제 숫자만, 좌측정렬) */}
+            <Text
+              style={[styles.time, isHoliday && styles.timeHoliday]}
+              numberOfLines={1}
+              onLayout={e => { const l = e.nativeEvent.layout; console.log('[SPINE-MEASURE] timeBox x=%s w=%s right=%s', l.x.toFixed(1), l.width.toFixed(1), (l.x + l.width).toFixed(1)); }}
+            >
               {formatTimeRow(new Date(event.start_at))}
             </Text>
 
             {/* Spine dot — 고정폭 슬롯에 중앙 정렬(점 크기 7/12/18과 무관하게 중심이 SPINE_X에 모임) */}
-            <View style={styles.dotSlot}>
+            <View
+              style={styles.dotSlot}
+              onLayout={e => { const l = e.nativeEvent.layout; console.log('[SPINE-MEASURE] dotSlot x=%s w=%s center=%s', l.x.toFixed(1), l.width.toFixed(1), (l.x + l.width / 2).toFixed(1)); }}
+            >
               <View style={styles.dot} />
             </View>
 
@@ -302,7 +309,6 @@ function makeStyles(c: AppTheme, state: EventState) {
       alignItems:        'flex-start',
       paddingHorizontal: PADDING_H,
       paddingVertical:   10,
-      gap:               DOT_GAP,
       opacity:           isPast ? 0.42 : 1,
       backgroundColor:   'transparent',
     },
@@ -311,13 +317,13 @@ function makeStyles(c: AppTheme, state: EventState) {
       fontSize:    12.5,
       fontWeight:  '500',
       color:       c.textSecondary,
-      textAlign:   'right',
+      textAlign:   'left',   // 우측정렬은 텍스트가 선에 붙음 → 좌측정렬로 뒤쪽 여백 확보
       paddingTop:  2,
       fontFamily:  'Pretendard-Medium',
     },
     timeHoliday: { color: c.error },
-    // 고정폭 슬롯(최대 점 18px 수용) — 모든 점을 가로 중앙 정렬해 SPINE_X와 일치시킴.
-    dotSlot: { width: 18, alignItems: 'center' },
+    // 고정폭 슬롯(최대 점 18px 수용) — 모든 점을 가로 중앙 정렬해 SPINE_X와 일치. marginRight=dot↔제목 간격(기존 row gap 대체).
+    dotSlot: { width: 18, alignItems: 'center', marginRight: DOT_GAP },
     dot: {
       width:           dotSize + dotBorderWidth * 2,
       height:          dotSize + dotBorderWidth * 2,
