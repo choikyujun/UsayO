@@ -42,7 +42,7 @@ if (Platform.OS === 'android') {
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const PADDING_H = 20;
-const SPINE_X   = PADDING_H + 44 + 22; // ≈ 86 (점 중앙 통과: dot-left 83 + 일반 dot 반지름 3.5). 시각 뒤 여백 ≈ 22
+const SPINE_X   = PADDING_H + 44 + 14 + 9; // = 87. time(44)+gap(14)+ dotSlot(18) 중앙(9). 점을 슬롯 중앙정렬 → 크기 무관 정렬. 시각 뒤 여백 ≈ 23
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SpineEventItem { type: 'event'; id: string; event: Event; state: EventState; isCompleted: boolean }
@@ -498,7 +498,9 @@ function NowMarkerRow({ nowDate, colors }: { nowDate: Date; colors: AppTheme }) 
     <View style={nowRowStyles.row}>
       <Text style={[nowRowStyles.time, { color: colors.accent }]} numberOfLines={1}>{timeStr}</Text>
       <View style={nowRowStyles.lineWrap}>
-        <View style={[nowRowStyles.dot,  { backgroundColor: colors.accent }]} />
+        <View style={nowRowStyles.dotSlot}>
+          <View style={[nowRowStyles.dot,  { backgroundColor: colors.accent }]} />
+        </View>
         <View style={[nowRowStyles.line, { backgroundColor: colors.accent }]} />
         <Text style={[nowRowStyles.label, { color: colors.accent }]}>NOW</Text>
       </View>
@@ -519,7 +521,6 @@ const nowRowStyles = StyleSheet.create({
   },
   time: {
     width:       TIME_W,
-    marginRight: 5,    // SpineEvent time과 동일 → NOW 점이 세로선(점 중앙)과 정렬 유지
     fontSize:    11,
     fontFamily:  'Pretendard-Medium',
     fontWeight:  '500',
@@ -530,11 +531,12 @@ const nowRowStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems:    'center',
   },
+  // SpineEvent와 동일한 18px 슬롯 — NOW 점을 가로 중앙 정렬해 SPINE_X와 일치.
+  dotSlot: { width: 18, alignItems: 'center', marginRight: 6 },
   dot: {
     width:        7,
     height:       7,
     borderRadius: 3.5,
-    marginRight:  6,
   },
   line: {
     flex:   1,

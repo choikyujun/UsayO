@@ -204,8 +204,10 @@ export default function SpineEvent({
               {formatTimeRow(new Date(event.start_at))}
             </Text>
 
-            {/* Spine dot */}
-            <View style={styles.dot} />
+            {/* Spine dot — 고정폭 슬롯에 중앙 정렬(점 크기 7/12/18과 무관하게 중심이 SPINE_X에 모임) */}
+            <View style={styles.dotSlot}>
+              <View style={styles.dot} />
+            </View>
 
             {/* Title + meta */}
             <View style={styles.titleArea}>
@@ -306,7 +308,6 @@ function makeStyles(c: AppTheme, state: EventState) {
     },
     time: {
       width:       TIME_W,
-      marginRight: 5,    // 점을 시각 쪽으로 당김. 세로선은 점 중앙에 배치(SPINE_X) → 시각 뒤 여백 ≈ 22
       fontSize:    12.5,
       fontWeight:  '500',
       color:       c.textSecondary,
@@ -315,6 +316,8 @@ function makeStyles(c: AppTheme, state: EventState) {
       fontFamily:  'Pretendard-Medium',
     },
     timeHoliday: { color: c.error },
+    // 고정폭 슬롯(최대 점 18px 수용) — 모든 점을 가로 중앙 정렬해 SPINE_X와 일치시킴.
+    dotSlot: { width: 18, alignItems: 'center' },
     dot: {
       width:           dotSize + dotBorderWidth * 2,
       height:          dotSize + dotBorderWidth * 2,

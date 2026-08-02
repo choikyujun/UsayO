@@ -182,7 +182,6 @@ function makeStyles(c: AppTheme) {
     rowCompleted: { opacity: 0.5 },
     time: {
       width:       TIME_W,
-      marginRight: 5,    // SpineEvent와 동일한 시각 뒤 여백(카드 일관성)
       fontSize:    12.5,
       fontWeight:  '500',
       fontFamily:  'Pretendard-Medium',
