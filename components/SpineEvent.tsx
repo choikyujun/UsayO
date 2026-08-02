@@ -18,8 +18,7 @@ import { humanReadableRRule } from '../utils/recurrenceHelpers';
 import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
-const TIME_W    = 60;  // 24h 숫자만. 좌측정렬이라 컬럼 확대분이 텍스트 뒤 여백으로 남음(선과의 간격 확보).
-const DOT_GAP   = 14;
+const TIME_W    = 44;  // 24h 숫자 우측정렬 폭. marginRight로 세로선·점과의 여백 확보.
 
 export type EventState = 'past' | 'current' | 'next' | 'future';
 
@@ -39,17 +38,13 @@ interface SpineEventProps {
   onLayout?:     (id: string, top: number, bottom: number) => void;
   getDropTime?:  (absoluteY: number) => Promise<Date>;
   onReschedule?: (eventId: string, newTime: Date) => void;
-  // 세로선 자동 정렬용: dot 중심 x를 contentWrapper 좌표계로 측정해 보고
-  contentRef?:    { current: View | null };
-  onDotMeasured?: (centerX: number) => void;
 }
 
 export default function SpineEvent({
   event, state, expanded, isHoliday, isLunch, isCompleted,
   onTap, onLongPress, onDelete, onComplete, colors,
-  onLayout, getDropTime, onReschedule, contentRef, onDotMeasured,
+  onLayout, getDropTime, onReschedule,
 }: SpineEventProps) {
-  const dotSlotRef = useRef<View>(null);
   const swipeRef      = useRef<Swipeable>(null);
   const pendingAction = useRef<'complete' | 'delete' | null>(null);
   const styles        = useMemo(() => makeStyles(colors, state), [colors, state]);
@@ -208,23 +203,8 @@ export default function SpineEvent({
               {formatTimeRow(new Date(event.start_at))}
             </Text>
 
-            {/* Spine dot — 고정폭 슬롯에 중앙 정렬. 실제 중심 x를 측정해 세로선을 그 위치로 자동 정렬 */}
-            <View
-              ref={dotSlotRef}
-              style={styles.dotSlot}
-              onLayout={() => {
-                const node = contentRef?.current;
-                if (node && onDotMeasured && dotSlotRef.current) {
-                  dotSlotRef.current.measureLayout(
-                    node as unknown as number,
-                    (x, _y, w) => onDotMeasured(x + w / 2),
-                    () => {},
-                  );
-                }
-              }}
-            >
-              <View style={styles.dot} />
-            </View>
+            {/* Spine dot — 세로선 오른쪽에 독립 배치(정렬 불필요, 각자 고정 위치) */}
+            <View style={styles.dot} />
 
             {/* Title + meta */}
             <View style={styles.titleArea}>
@@ -324,16 +304,15 @@ function makeStyles(c: AppTheme, state: EventState) {
     },
     time: {
       width:       TIME_W,
+      marginRight: 28,       // 시각↔세로선(16) + 세로선↔점(12) = 점 앞까지의 여백
       fontSize:    12.5,
       fontWeight:  '500',
       color:       c.textSecondary,
-      textAlign:   'left',   // 우측정렬은 텍스트가 선에 붙음 → 좌측정렬로 뒤쪽 여백 확보
+      textAlign:   'right',  // 우측정렬 → "9:00"/"15:00" 끝이 가지런
       paddingTop:  2,
       fontFamily:  'Pretendard-Medium',
     },
     timeHoliday: { color: c.error },
-    // 고정폭 슬롯(최대 점 18px 수용) — 모든 점을 가로 중앙 정렬해 SPINE_X와 일치. marginRight=dot↔제목 간격(기존 row gap 대체).
-    dotSlot: { width: 18, alignItems: 'center', marginRight: DOT_GAP },
     dot: {
       width:           dotSize + dotBorderWidth * 2,
       height:          dotSize + dotBorderWidth * 2,
@@ -341,6 +320,7 @@ function makeStyles(c: AppTheme, state: EventState) {
       backgroundColor: dotColor,
       borderWidth:     dotBorderWidth,
       borderColor:     dotBorderColor,
+      marginRight:     10,   // 점↔제목 여백
       marginTop:       isNext ? 1 : 4,
     },
     titleArea:    { flex: 1, gap: 2 },

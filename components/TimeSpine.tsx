@@ -42,7 +42,7 @@ if (Platform.OS === 'android') {
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const PADDING_H = 20;
-const SPINE_X   = PADDING_H + 60 + 9; // = 89. time(60, 좌측정렬)+ dotSlot(18) 중앙(9). 점 슬롯 중앙정렬 → 크기 무관 정렬.
+const SPINE_X   = PADDING_H + 44 + 16; // = 80. 시각(44) 우측정렬 뒤 16 여백에 세로선. 점은 그 오른쪽(독립).
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SpineEventItem { type: 'event'; id: string; event: Event; state: EventState; isCompleted: boolean }
@@ -128,11 +128,6 @@ export default function TimeSpine({
 
   // ── Coordinate tracking (for drag-to-reschedule) ──────────────────────────
   const contentWrapperRef = useRef<View>(null);
-  // 세로선 x를 dot 실측 중심으로 자동 정렬(계산 오차 제거). 값이 실제로 바뀔 때만 갱신(루프 방지).
-  const [lineX, setLineX] = useState<number | null>(null);
-  const handleDotMeasured = useCallback((centerX: number) => {
-    setLineX(prev => (prev !== null && Math.abs(prev - centerX) < 0.5) ? prev : centerX);
-  }, []);
   const scrollOffsetY     = useRef(0);
   const eventLayoutMap    = useRef<Map<string, { top: number; bottom: number }>>(new Map());
 
@@ -405,8 +400,8 @@ export default function TimeSpine({
         }
       >
         <View ref={contentWrapperRef} style={styles.contentWrapper}>
-          {/* Vertical spine line — 실측된 dot 중심 x(lineX)에 자동 정렬(계산 오차 제거) */}
-          <View style={[styles.spineLine, { backgroundColor: colors.border, left: lineX ?? SPINE_X }]} />
+          {/* Vertical spine line — 시각과 점 사이 독립 위치(SPINE_X) */}
+          <View style={[styles.spineLine, { backgroundColor: colors.border }]} />
 
           {spineItems.map(item =>
             item.type === 'now' ? (
@@ -426,8 +421,6 @@ export default function TimeSpine({
                 onComplete={handleComplete}
                 colors={colors}
                 onLayout={handleEventLayout}
-                contentRef={contentWrapperRef}
-                onDotMeasured={handleDotMeasured}
                 getDropTime={
                   item.state === 'past'
                     ? makeGetDropTime(
@@ -505,9 +498,7 @@ function NowMarkerRow({ nowDate, colors }: { nowDate: Date; colors: AppTheme }) 
     <View style={nowRowStyles.row}>
       <Text style={[nowRowStyles.time, { color: colors.accent }]} numberOfLines={1}>{timeStr}</Text>
       <View style={nowRowStyles.lineWrap}>
-        <View style={nowRowStyles.dotSlot}>
-          <View style={[nowRowStyles.dot,  { backgroundColor: colors.accent }]} />
-        </View>
+        <View style={[nowRowStyles.dot,  { backgroundColor: colors.accent }]} />
         <View style={[nowRowStyles.line, { backgroundColor: colors.accent }]} />
         <Text style={[nowRowStyles.label, { color: colors.accent }]}>NOW</Text>
       </View>
@@ -515,8 +506,7 @@ function NowMarkerRow({ nowDate, colors }: { nowDate: Date; colors: AppTheme }) 
   );
 }
 
-const TIME_W  = 60;  // SpineEvent 시각 컬럼 폭과 동일 — NOW 마커 정렬 유지
-const DOT_GAP = 14;
+const TIME_W  = 44;  // SpineEvent 시각 컬럼 폭과 동일(우측정렬)
 
 const nowRowStyles = StyleSheet.create({
   row: {
@@ -527,22 +517,22 @@ const nowRowStyles = StyleSheet.create({
   },
   time: {
     width:       TIME_W,
+    marginRight: 28,   // SpineEvent time과 동일(시각↔선 16 + 선↔점 12)
     fontSize:    11,
     fontFamily:  'Pretendard-Medium',
     fontWeight:  '500',
-    textAlign:   'left',
+    textAlign:   'right',
   },
   lineWrap: {
     flex:          1,
     flexDirection: 'row',
     alignItems:    'center',
   },
-  // SpineEvent와 동일한 18px 슬롯 — NOW 점을 가로 중앙 정렬해 SPINE_X와 일치.
-  dotSlot: { width: 18, alignItems: 'center', marginRight: 6 },
   dot: {
     width:        7,
     height:       7,
     borderRadius: 3.5,
+    marginRight:  6,
   },
   line: {
     flex:   1,

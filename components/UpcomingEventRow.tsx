@@ -10,8 +10,7 @@ import { humanReadableRRule } from '../utils/recurrenceHelpers';
 import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
-const TIME_W    = 60;  // SpineEvent와 동일(좌측정렬 24h 숫자)
-const DOT_GAP   = 14;
+const TIME_W    = 44;  // SpineEvent와 동일(우측정렬 24h 숫자)
 const DOT_SIZE  = 5;
 
 interface Props {
@@ -22,17 +21,13 @@ interface Props {
   onLongPress?: () => void;
   onDelete?:    () => void;
   onComplete?:  () => void;
-  // 세로선 자동 정렬용: dotCol 중심 x를 부모 컨테이너 좌표계로 측정해 보고
-  contentRef?:    { current: View | null };
-  onDotMeasured?: (centerX: number) => void;
 }
 
 export default function UpcomingEventRow({
-  event, colors, expanded, onTap, onLongPress, onDelete, onComplete, contentRef, onDotMeasured,
+  event, colors, expanded, onTap, onLongPress, onDelete, onComplete,
 }: Props) {
   const styles        = useMemo(() => makeStyles(colors), [colors]);
   const swipeRef      = useRef<Swipeable>(null);
-  const dotColRef     = useRef<View>(null);
   const pendingAction = useRef<'complete' | 'delete' | null>(null);
   const startTime   = formatTimeRow(new Date(event.start_at)); // 좌측 컬럼 24시간제 숫자
   const isCompleted = !!event.completed_at;
@@ -101,20 +96,7 @@ export default function UpcomingEventRow({
       >
         <Text style={[styles.time, isCompleted && styles.textCompleted]}>{startTime}</Text>
 
-        <View
-          ref={dotColRef}
-          style={styles.dotCol}
-          onLayout={() => {
-            const node = contentRef?.current;
-            if (node && onDotMeasured && dotColRef.current) {
-              dotColRef.current.measureLayout(
-                node as unknown as number,
-                (x, _y, w) => onDotMeasured(x + w / 2),
-                () => {},
-              );
-            }
-          }}
-        >
+        <View style={styles.dotCol}>
           {isCompleted
             ? <CheckCircle size={DOT_SIZE + 4} color={colors.success} />
             : <View style={styles.dot} />
@@ -193,23 +175,24 @@ function makeStyles(c: AppTheme) {
       alignItems:        'center',
       paddingHorizontal: PADDING_H,
       paddingVertical:   Spacing.sm,
-      gap:               DOT_GAP,
       backgroundColor:   'transparent',
     },
     rowCompleted: { opacity: 0.5 },
     time: {
       width:       TIME_W,
+      marginRight: 28,       // 시각↔세로선(16) + 세로선↔점(12)
       fontSize:    12.5,
       fontWeight:  '500',
       fontFamily:  'Pretendard-Medium',
       color:       c.textSecondary,
-      textAlign:   'left',
+      textAlign:   'right',
     },
     textCompleted:   { textDecorationLine: 'line-through' },
     dotCol: {
       width:          DOT_SIZE + 4,
       alignItems:     'center',
       justifyContent: 'center',
+      marginRight:    10,    // 점↔제목 여백
     },
     dot: {
       width:           DOT_SIZE,
