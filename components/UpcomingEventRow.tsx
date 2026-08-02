@@ -10,7 +10,7 @@ import { humanReadableRRule } from '../utils/recurrenceHelpers';
 import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
-const TIME_W    = 38;
+const TIME_W    = 62;  // "오후 12:00" 오전/오후 포함 표기 기준(우측 시각 통합)
 const DOT_GAP   = 14;
 const DOT_SIZE  = 5;
 
@@ -30,7 +30,7 @@ export default function UpcomingEventRow({
   const styles        = useMemo(() => makeStyles(colors), [colors]);
   const swipeRef      = useRef<Swipeable>(null);
   const pendingAction = useRef<'complete' | 'delete' | null>(null);
-  const startTime   = formatTimeRow(new Date(event.start_at));
+  const startTime   = formatClockKo(new Date(event.start_at)); // 좌측 컬럼 오전/오후 표기
   const isCompleted = !!event.completed_at;
 
   async function handleLongPress() {
@@ -124,10 +124,7 @@ export default function UpcomingEventRow({
             {event.is_recurring && !isCompleted && (
               <Repeat size={11} color={colors.accent} />
             )}
-            {/* 시각을 제목 오른쪽 행 끝으로 이동(오전/오후 명시). 제목이 길면 제목만 말줄임, 시각은 고정폭 유지. */}
-            <Text style={[styles.timeText, isCompleted && styles.textCompleted]} numberOfLines={1}>
-              {formatClockKo(new Date(event.start_at))}
-            </Text>
+            {/* 우측 시각 제거 — 좌측 시각 컬럼으로 통합 */}
           </View>
           {expanded && (
             <View style={styles.expandedArea}>
@@ -181,9 +178,10 @@ function makeStyles(c: AppTheme) {
     rowCompleted: { opacity: 0.5 },
     time: {
       width:      TIME_W,
-      fontSize:   11,
-      fontFamily: MONO,
-      color:      c.textMuted,
+      fontSize:   12.5,
+      fontWeight: '500',
+      fontFamily: 'Pretendard-Medium',
+      color:      c.textSecondary,
       textAlign:  'right',
     },
     textCompleted:   { textDecorationLine: 'line-through' },
@@ -212,8 +210,6 @@ function makeStyles(c: AppTheme) {
     titleCompleted: { textDecorationLine: 'line-through', color: c.textMuted },
     locSep:  { flexShrink: 0, marginHorizontal: 5, fontSize: 12, color: c.textMuted },
     locText: { flexShrink: 1, fontSize: 12, color: c.textMuted },
-    // 제목 오른쪽 시각 슬롯 — 우측 정렬 + 고정폭으로 여러 행의 시각이 세로 정렬되도록.
-    timeText:    { minWidth: 62, textAlign: 'right', fontSize: 12.5, color: c.textSecondary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     expandedArea: { marginTop: Spacing.xs, gap: 2 },
     metaRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
     metaIcon: { marginTop: 1 },

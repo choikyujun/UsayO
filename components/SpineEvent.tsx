@@ -13,12 +13,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
-import { formatTimeRow, formatClockKo, MONO } from '../utils/timeHelpers';
+import { formatTimeRow, formatClockKo } from '../utils/timeHelpers';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
 import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
-const TIME_W    = 38;
+const TIME_W    = 62;  // "오후 12:00" 오전/오후 포함 표기 기준(우측 시각 통합). 스파인 SPINE_X와 동기화 유지.
 const DOT_GAP   = 14;
 
 export type EventState = 'past' | 'current' | 'next' | 'future';
@@ -199,9 +199,9 @@ export default function SpineEvent({
             accessibilityLabel={`${event.title}, ${formatTimeRow(new Date(event.start_at))}${isCompleted ? ', 완료됨' : isCurrent ? ', 진행 중' : isNext ? ', 다음 일정' : ''}`}
             accessibilityHint={isPast ? undefined : '길게 누르면 옵션, 좌로 밀면 완료, 우로 밀면 삭제'}
           >
-            {/* Time column */}
-            <Text style={[styles.time, isHoliday && styles.timeHoliday]}>
-              {formatTimeRow(new Date(event.start_at))}
+            {/* Time column (좌측 시각축 — 오전/오후 포함, 우측 시각 통합) */}
+            <Text style={[styles.time, isHoliday && styles.timeHoliday]} numberOfLines={1}>
+              {formatClockKo(new Date(event.start_at))}
             </Text>
 
             {/* Spine dot */}
@@ -228,13 +228,8 @@ export default function SpineEvent({
                 {event.is_recurring && (
                   <Repeat size={11} color={colors.accent} />
                 )}
-                {/* 시각을 제목 오른쪽 행 끝으로 이동(오전/오후 명시). 제목이 길면 제목만 말줄임, 시각은 고정폭 유지. */}
-                <View style={styles.timeInline}>
-                  {isCurrent && <Text style={styles.currentTag}>진행 중</Text>}
-                  <Text style={styles.timeText} numberOfLines={1}>
-                    {formatClockKo(new Date(event.start_at))}
-                  </Text>
-                </View>
+                {/* 우측 시각 제거(좌측 컬럼으로 통합). "진행 중"만 행 끝에 유지. */}
+                {isCurrent && <Text style={styles.currentTag}>진행 중</Text>}
               </View>
 
               {previewTime && (
@@ -307,11 +302,12 @@ function makeStyles(c: AppTheme, state: EventState) {
     },
     time: {
       width:      TIME_W,
-      fontSize:   11,
-      color:      c.textMuted,
+      fontSize:   12.5,
+      fontWeight: '500',
+      color:      c.textSecondary,
       textAlign:  'right',
-      paddingTop: 3,
-      fontFamily: MONO,
+      paddingTop: 2,
+      fontFamily: 'Pretendard-Medium',
     },
     timeHoliday: { color: c.error },
     dot: {
@@ -342,9 +338,7 @@ function makeStyles(c: AppTheme, state: EventState) {
     },
     badge:         { fontSize: 10, color: c.accent, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     // 제목 오른쪽 시각 슬롯 — 우측 정렬 + 고정폭으로 여러 행의 시각이 세로 정렬되도록.
-    timeInline:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-    currentTag:    { fontSize: 11, color: c.primary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
-    timeText:      { minWidth: 62, textAlign: 'right', fontSize: 12.5, color: c.textSecondary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
+    currentTag:    { fontSize: 11, color: c.primary, fontFamily: 'Pretendard-Medium', fontWeight: '500', marginLeft: Spacing.xs },
     expandedArea:  { paddingTop: 6, gap: 3 },
     expandedRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
     expandedIcon:  { marginTop: 2 },
