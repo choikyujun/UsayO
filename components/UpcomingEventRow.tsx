@@ -5,12 +5,12 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { AppTheme } from '../constants/colors';
 import { haptic } from '../utils/haptics';
 import { Event } from '../types/database';
-import { formatTimeRow, formatClockKo, MONO } from '../utils/timeHelpers';
+import { formatTimeRow, MONO } from '../utils/timeHelpers';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
 import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
-const TIME_W    = 62;  // "오후 12:00" 오전/오후 포함 표기 기준(우측 시각 통합)
+const TIME_W    = 44;  // 24시간제 숫자만("15:00") 기준
 const DOT_GAP   = 14;
 const DOT_SIZE  = 5;
 
@@ -30,7 +30,7 @@ export default function UpcomingEventRow({
   const styles        = useMemo(() => makeStyles(colors), [colors]);
   const swipeRef      = useRef<Swipeable>(null);
   const pendingAction = useRef<'complete' | 'delete' | null>(null);
-  const startTime   = formatClockKo(new Date(event.start_at)); // 좌측 컬럼 오전/오후 표기
+  const startTime   = formatTimeRow(new Date(event.start_at)); // 좌측 컬럼 24시간제 숫자
   const isCompleted = !!event.completed_at;
 
   async function handleLongPress() {
@@ -107,6 +107,10 @@ export default function UpcomingEventRow({
         <View style={styles.content}>
           <View style={styles.titleRow}>
             <View style={styles.titleCluster}>
+              {/* 오전/오후 — 제목 앞 보조 라벨(좌측 24h와 중복이나 즉시 스캔용, 톤 낮춤) */}
+              <Text style={styles.ampm}>
+                {new Date(event.start_at).getHours() < 12 ? '오전' : '오후'}
+              </Text>
               <Text
                 style={[styles.title, isCompleted && styles.titleCompleted]}
                 numberOfLines={expanded ? undefined : 1}
@@ -200,6 +204,7 @@ function makeStyles(c: AppTheme) {
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
     // 제목+장소 좌측 클러스터. 시각은 밖(우측 고정). 공간 부족 시 장소가 먼저 줄어듦.
     titleCluster: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    ampm:    { flexShrink: 0, marginRight: 5, fontSize: 11, fontWeight: '500', color: c.textMuted, fontFamily: 'Pretendard-Medium' },
     title: {
       fontSize:   14,
       color:      c.textSecondary,

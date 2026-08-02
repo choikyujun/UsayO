@@ -13,12 +13,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
-import { formatTimeRow, formatClockKo } from '../utils/timeHelpers';
+import { formatTimeRow } from '../utils/timeHelpers';
 import { humanReadableRRule } from '../utils/recurrenceHelpers';
 import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
-const TIME_W    = 62;  // "오후 12:00" 오전/오후 포함 표기 기준(우측 시각 통합). 스파인 SPINE_X와 동기화 유지.
+const TIME_W    = 44;  // 24시간제 숫자만("15:00") 기준. 스파인 SPINE_X와 동기화 유지.
 const DOT_GAP   = 14;
 
 export type EventState = 'past' | 'current' | 'next' | 'future';
@@ -199,9 +199,9 @@ export default function SpineEvent({
             accessibilityLabel={`${event.title}, ${formatTimeRow(new Date(event.start_at))}${isCompleted ? ', 완료됨' : isCurrent ? ', 진행 중' : isNext ? ', 다음 일정' : ''}`}
             accessibilityHint={isPast ? undefined : '길게 누르면 옵션, 좌로 밀면 완료, 우로 밀면 삭제'}
           >
-            {/* Time column (좌측 시각축 — 오전/오후 포함, 우측 시각 통합) */}
+            {/* Time column (좌측 시각축 — 24시간제 숫자만) */}
             <Text style={[styles.time, isHoliday && styles.timeHoliday]} numberOfLines={1}>
-              {formatClockKo(new Date(event.start_at))}
+              {formatTimeRow(new Date(event.start_at))}
             </Text>
 
             {/* Spine dot */}
@@ -211,6 +211,10 @@ export default function SpineEvent({
             <View style={styles.titleArea}>
               <View style={styles.titleRow}>
                 <View style={styles.titleCluster}>
+                  {/* 오전/오후 — 제목 앞 보조 라벨(좌측 24h와 중복이나 즉시 스캔용, 톤 낮춤) */}
+                  <Text style={styles.ampm}>
+                    {new Date(event.start_at).getHours() < 12 ? '오전' : '오후'}
+                  </Text>
                   <Text
                     style={[styles.title, isPast && styles.titleStrike]}
                     numberOfLines={expanded ? undefined : 1}
@@ -323,6 +327,7 @@ function makeStyles(c: AppTheme, state: EventState) {
     titleRow:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
     // 제목+장소 좌측 클러스터. 시각은 이 밖(우측 고정). 공간 부족 시 크기 비례로 장소가 먼저 줄어듦.
     titleCluster: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    ampm:    { flexShrink: 0, marginRight: 5, fontSize: 11, fontWeight: '500', color: c.textMuted, fontFamily: 'Pretendard-Medium' },
     title: {
       flexShrink: 1,
       fontSize:   isNext ? 15 : 13,

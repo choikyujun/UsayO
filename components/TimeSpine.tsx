@@ -20,7 +20,7 @@ import { isLunchHour } from '../utils/timeHelpers';
 import { supabase } from '../lib/supabase';
 import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset } from '../services/notifications';
 import { Event } from '../types/database';
-import { formatClockKo } from '../utils/timeHelpers';
+import { formatTimeRow } from '../utils/timeHelpers';
 import { calculateNewTime, EventPosition } from '../utils/rescheduleHelpers';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
 import SpineEvent from './SpineEvent';
@@ -42,7 +42,7 @@ if (Platform.OS === 'android') {
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const PADDING_H = 20;
-const SPINE_X   = PADDING_H + 62 + 14 / 2; // ≈ 89 (시각 컬럼 폭 38→62 확대와 동기화)
+const SPINE_X   = PADDING_H + 44 + 14 / 2; // ≈ 71 (시각 컬럼 24h 숫자 폭 44와 동기화)
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SpineEventItem { type: 'event'; id: string; event: Event; state: EventState; isCompleted: boolean }
@@ -491,8 +491,8 @@ export default function TimeSpine({
 
 // ── NowMarkerRow ──────────────────────────────────────────────────────────────
 function NowMarkerRow({ nowDate, colors }: { nowDate: Date; colors: AppTheme }) {
-  // 좌측 시각 컬럼과 동일 포맷(오전/오후) — 시간축 표기 일관.
-  const timeStr = formatClockKo(nowDate);
+  // 좌측 시각 컬럼과 동일 포맷(24시간제) — 시간축 표기 일관.
+  const timeStr = formatTimeRow(nowDate);
 
   return (
     <View style={nowRowStyles.row}>
@@ -506,7 +506,7 @@ function NowMarkerRow({ nowDate, colors }: { nowDate: Date; colors: AppTheme }) 
   );
 }
 
-const TIME_W  = 62;  // SpineEvent 시각 컬럼 폭과 동일(오전/오후 포함 표기) — NOW 마커도 정렬 유지
+const TIME_W  = 44;  // SpineEvent 시각 컬럼 폭과 동일(24시간제 숫자) — NOW 마커 정렬 유지
 const DOT_GAP = 14;
 
 const nowRowStyles = StyleSheet.create({
