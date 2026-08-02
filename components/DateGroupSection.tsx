@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { AppTheme } from '../constants/colors';
 import { Event } from '../types/database';
@@ -7,7 +7,7 @@ import UpcomingEventRow from './UpcomingEventRow';
 import { Spacing } from '../constants/spacing';
 
 const PADDING_H = 20;
-const SPINE_X   = PADDING_H + 38 + 14 / 2; // matches TimeSpine spine line position
+const SPINE_X   = PADDING_H + 60 + 9; // 초기 폴백. 실제 위치는 dot 실측(lineX)으로 자동 정렬
 
 interface Props {
   group:        DateGroup<Event>;
@@ -21,6 +21,13 @@ export default function DateGroupSection({ group, colors, onLongPress, onDelete,
   const styles  = useMemo(() => makeStyles(colors), [colors]);
   const label   = formatUpcomingDate(group.date);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // 세로선 x를 dot 실측 중심으로 자동 정렬(계산 오차 제거).
+  const eventsWrapperRef = useRef<View>(null);
+  const [lineX, setLineX] = useState<number | null>(null);
+  const handleDotMeasured = useCallback((centerX: number) => {
+    setLineX(prev => (prev !== null && Math.abs(prev - centerX) < 0.5) ? prev : centerX);
+  }, []);
 
   function toggleExpand(id: string) {
     setExpandedId(prev => (prev === id ? null : id));
@@ -36,9 +43,9 @@ export default function DateGroupSection({ group, colors, onLongPress, onDelete,
       </View>
 
       {/* ── Events with spine line ── */}
-      <View style={styles.eventsWrapper}>
-        {/* Spine continuation line */}
-        <View style={[styles.spineLine, { backgroundColor: colors.border }]} />
+      <View ref={eventsWrapperRef} style={styles.eventsWrapper}>
+        {/* Spine continuation line — dot 실측 중심(lineX)에 정렬 */}
+        <View style={[styles.spineLine, { backgroundColor: colors.border, left: lineX ?? SPINE_X }]} />
 
         {group.events.map(ev => (
           <UpcomingEventRow
@@ -50,6 +57,8 @@ export default function DateGroupSection({ group, colors, onLongPress, onDelete,
             onLongPress={onLongPress ? () => onLongPress(ev) : undefined}
             onDelete={onDelete ? () => onDelete(ev) : undefined}
             onComplete={onComplete ? () => onComplete(ev) : undefined}
+            contentRef={eventsWrapperRef}
+            onDotMeasured={handleDotMeasured}
           />
         ))}
       </View>

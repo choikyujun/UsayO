@@ -22,13 +22,17 @@ interface Props {
   onLongPress?: () => void;
   onDelete?:    () => void;
   onComplete?:  () => void;
+  // 세로선 자동 정렬용: dotCol 중심 x를 부모 컨테이너 좌표계로 측정해 보고
+  contentRef?:    { current: View | null };
+  onDotMeasured?: (centerX: number) => void;
 }
 
 export default function UpcomingEventRow({
-  event, colors, expanded, onTap, onLongPress, onDelete, onComplete,
+  event, colors, expanded, onTap, onLongPress, onDelete, onComplete, contentRef, onDotMeasured,
 }: Props) {
   const styles        = useMemo(() => makeStyles(colors), [colors]);
   const swipeRef      = useRef<Swipeable>(null);
+  const dotColRef     = useRef<View>(null);
   const pendingAction = useRef<'complete' | 'delete' | null>(null);
   const startTime   = formatTimeRow(new Date(event.start_at)); // 좌측 컬럼 24시간제 숫자
   const isCompleted = !!event.completed_at;
@@ -97,7 +101,20 @@ export default function UpcomingEventRow({
       >
         <Text style={[styles.time, isCompleted && styles.textCompleted]}>{startTime}</Text>
 
-        <View style={styles.dotCol}>
+        <View
+          ref={dotColRef}
+          style={styles.dotCol}
+          onLayout={() => {
+            const node = contentRef?.current;
+            if (node && onDotMeasured && dotColRef.current) {
+              dotColRef.current.measureLayout(
+                node as unknown as number,
+                (x, _y, w) => onDotMeasured(x + w / 2),
+                () => {},
+              );
+            }
+          }}
+        >
           {isCompleted
             ? <CheckCircle size={DOT_SIZE + 4} color={colors.success} />
             : <View style={styles.dot} />
