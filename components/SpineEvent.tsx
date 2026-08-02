@@ -305,13 +305,14 @@ function makeStyles(c: AppTheme, state: EventState) {
       backgroundColor:   'transparent',
     },
     time: {
-      width:      TIME_W,
-      fontSize:   12.5,
-      fontWeight: '500',
-      color:      c.textSecondary,
-      textAlign:  'right',
-      paddingTop: 2,
-      fontFamily: 'Pretendard-Medium',
+      width:       TIME_W,
+      marginRight: 12,   // 시각↔세로선 숨통(행 gap 14 + 이 12 = 26, 라인은 그 중앙 → 시각 뒤 13)
+      fontSize:    12.5,
+      fontWeight:  '500',
+      color:       c.textSecondary,
+      textAlign:   'right',
+      paddingTop:  2,
+      fontFamily:  'Pretendard-Medium',
     },
     timeHoliday: { color: c.error },
     dot: {

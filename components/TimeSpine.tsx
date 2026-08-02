@@ -42,7 +42,7 @@ if (Platform.OS === 'android') {
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const PADDING_H = 20;
-const SPINE_X   = PADDING_H + 44 + 14 / 2; // ≈ 71 (시각 컬럼 24h 숫자 폭 44와 동기화)
+const SPINE_X   = PADDING_H + 44 + 13; // ≈ 77 (시각 뒤 여백 7→13 확대: time.marginRight 12 + gap 14 = 26의 중앙)
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SpineEventItem { type: 'event'; id: string; event: Event; state: EventState; isCompleted: boolean }
@@ -518,11 +518,12 @@ const nowRowStyles = StyleSheet.create({
     gap:               DOT_GAP,
   },
   time: {
-    width:      TIME_W,
-    fontSize:   11,
-    fontFamily: 'Pretendard-Medium',
-    fontWeight: '500',
-    textAlign:  'right',
+    width:       TIME_W,
+    marginRight: 12,   // SpineEvent time과 동일한 여백 → NOW 점이 세로선과 정렬 유지
+    fontSize:    11,
+    fontFamily:  'Pretendard-Medium',
+    fontWeight:  '500',
+    textAlign:   'right',
   },
   lineWrap: {
     flex:          1,
