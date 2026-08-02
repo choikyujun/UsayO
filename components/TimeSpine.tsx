@@ -128,6 +128,11 @@ export default function TimeSpine({
 
   // ── Coordinate tracking (for drag-to-reschedule) ──────────────────────────
   const contentWrapperRef = useRef<View>(null);
+  // 세로선 x를 dot 실측 중심으로 자동 정렬(계산 오차 제거). 값이 실제로 바뀔 때만 갱신(루프 방지).
+  const [lineX, setLineX] = useState<number | null>(null);
+  const handleDotMeasured = useCallback((centerX: number) => {
+    setLineX(prev => (prev !== null && Math.abs(prev - centerX) < 0.5) ? prev : centerX);
+  }, []);
   const scrollOffsetY     = useRef(0);
   const eventLayoutMap    = useRef<Map<string, { top: number; bottom: number }>>(new Map());
 
@@ -400,11 +405,8 @@ export default function TimeSpine({
         }
       >
         <View ref={contentWrapperRef} style={styles.contentWrapper}>
-          {/* Vertical spine line */}
-          <View
-            style={[styles.spineLine, { backgroundColor: colors.border }]}
-            onLayout={e => console.log('[SPINE-MEASURE] spineLine x=%s (SPINE_X=%s)', e.nativeEvent.layout.x.toFixed(1), SPINE_X)}
-          />
+          {/* Vertical spine line — 실측된 dot 중심 x(lineX)에 자동 정렬(계산 오차 제거) */}
+          <View style={[styles.spineLine, { backgroundColor: colors.border, left: lineX ?? SPINE_X }]} />
 
           {spineItems.map(item =>
             item.type === 'now' ? (
@@ -424,6 +426,8 @@ export default function TimeSpine({
                 onComplete={handleComplete}
                 colors={colors}
                 onLayout={handleEventLayout}
+                contentRef={contentWrapperRef}
+                onDotMeasured={handleDotMeasured}
                 getDropTime={
                   item.state === 'past'
                     ? makeGetDropTime(

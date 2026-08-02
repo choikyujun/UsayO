@@ -39,13 +39,17 @@ interface SpineEventProps {
   onLayout?:     (id: string, top: number, bottom: number) => void;
   getDropTime?:  (absoluteY: number) => Promise<Date>;
   onReschedule?: (eventId: string, newTime: Date) => void;
+  // 세로선 자동 정렬용: dot 중심 x를 contentWrapper 좌표계로 측정해 보고
+  contentRef?:    { current: View | null };
+  onDotMeasured?: (centerX: number) => void;
 }
 
 export default function SpineEvent({
   event, state, expanded, isHoliday, isLunch, isCompleted,
   onTap, onLongPress, onDelete, onComplete, colors,
-  onLayout, getDropTime, onReschedule,
+  onLayout, getDropTime, onReschedule, contentRef, onDotMeasured,
 }: SpineEventProps) {
+  const dotSlotRef = useRef<View>(null);
   const swipeRef      = useRef<Swipeable>(null);
   const pendingAction = useRef<'complete' | 'delete' | null>(null);
   const styles        = useMemo(() => makeStyles(colors, state), [colors, state]);
@@ -200,18 +204,24 @@ export default function SpineEvent({
             accessibilityHint={isPast ? undefined : '길게 누르면 옵션, 좌로 밀면 완료, 우로 밀면 삭제'}
           >
             {/* Time column (좌측 시각축 — 24시간제 숫자만, 좌측정렬) */}
-            <Text
-              style={[styles.time, isHoliday && styles.timeHoliday]}
-              numberOfLines={1}
-              onLayout={e => { const l = e.nativeEvent.layout; console.log('[SPINE-MEASURE] timeBox x=%s w=%s right=%s', l.x.toFixed(1), l.width.toFixed(1), (l.x + l.width).toFixed(1)); }}
-            >
+            <Text style={[styles.time, isHoliday && styles.timeHoliday]} numberOfLines={1}>
               {formatTimeRow(new Date(event.start_at))}
             </Text>
 
-            {/* Spine dot — 고정폭 슬롯에 중앙 정렬(점 크기 7/12/18과 무관하게 중심이 SPINE_X에 모임) */}
+            {/* Spine dot — 고정폭 슬롯에 중앙 정렬. 실제 중심 x를 측정해 세로선을 그 위치로 자동 정렬 */}
             <View
+              ref={dotSlotRef}
               style={styles.dotSlot}
-              onLayout={e => { const l = e.nativeEvent.layout; console.log('[SPINE-MEASURE] dotSlot x=%s w=%s center=%s', l.x.toFixed(1), l.width.toFixed(1), (l.x + l.width / 2).toFixed(1)); }}
+              onLayout={() => {
+                const node = contentRef?.current;
+                if (node && onDotMeasured && dotSlotRef.current) {
+                  dotSlotRef.current.measureLayout(
+                    node as unknown as number,
+                    (x, _y, w) => onDotMeasured(x + w / 2),
+                    () => {},
+                  );
+                }
+              }}
             >
               <View style={styles.dot} />
             </View>
