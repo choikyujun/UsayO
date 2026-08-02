@@ -210,12 +210,21 @@ export default function SpineEvent({
             {/* Title + meta */}
             <View style={styles.titleArea}>
               <View style={styles.titleRow}>
-                <Text
-                  style={[styles.title, isPast && styles.titleStrike]}
-                  numberOfLines={expanded ? undefined : 1}
-                >
-                  {event.title}
-                </Text>
+                <View style={styles.titleCluster}>
+                  <Text
+                    style={[styles.title, isPast && styles.titleStrike]}
+                    numberOfLines={expanded ? undefined : 1}
+                  >
+                    {event.title}
+                  </Text>
+                  {/* 접힌 카드에서만 제목 옆 장소 표시(펼치면 아래 MapPin 줄과 중복이라 숨김). location 없으면 미표시. */}
+                  {!expanded && event.location ? (
+                    <>
+                      <Text style={styles.locSep} numberOfLines={1}>·</Text>
+                      <Text style={styles.locText} numberOfLines={1}>{event.location}</Text>
+                    </>
+                  ) : null}
+                </View>
                 {event.is_recurring && (
                   <Repeat size={11} color={colors.accent} />
                 )}
@@ -316,13 +325,17 @@ function makeStyles(c: AppTheme, state: EventState) {
     },
     titleArea:    { flex: 1, gap: 2 },
     titleRow:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    // 제목+장소 좌측 클러스터. 시각은 이 밖(우측 고정). 공간 부족 시 크기 비례로 장소가 먼저 줄어듦.
+    titleCluster: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     title: {
-      flex:       1,
+      flexShrink: 1,
       fontSize:   isNext ? 15 : 13,
       fontWeight: isNext ? '600' : '400',
       color:      c.textPrimary,
       lineHeight: 19,
     },
+    locSep:  { flexShrink: 0, marginHorizontal: 5, fontSize: 12, color: c.textMuted },
+    locText: { flexShrink: 1, fontSize: 12, color: c.textMuted },
     titleStrike: {
       textDecorationLine: 'line-through',
       color:              c.textMuted,

@@ -106,12 +106,21 @@ export default function UpcomingEventRow({
 
         <View style={styles.content}>
           <View style={styles.titleRow}>
-            <Text
-              style={[styles.title, isCompleted && styles.titleCompleted]}
-              numberOfLines={expanded ? undefined : 1}
-            >
-              {event.title}
-            </Text>
+            <View style={styles.titleCluster}>
+              <Text
+                style={[styles.title, isCompleted && styles.titleCompleted]}
+                numberOfLines={expanded ? undefined : 1}
+              >
+                {event.title}
+              </Text>
+              {/* 접힌 카드에서만 제목 옆 장소 표시(펼치면 아래 MapPin 줄과 중복이라 숨김). location 없으면 미표시. */}
+              {!expanded && event.location ? (
+                <>
+                  <Text style={styles.locSep} numberOfLines={1}>·</Text>
+                  <Text style={styles.locText} numberOfLines={1}>{event.location}</Text>
+                </>
+              ) : null}
+            </View>
             {event.is_recurring && !isCompleted && (
               <Repeat size={11} color={colors.accent} />
             )}
@@ -191,14 +200,18 @@ function makeStyles(c: AppTheme) {
     },
     content:  { flex: 1 },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+    // 제목+장소 좌측 클러스터. 시각은 밖(우측 고정). 공간 부족 시 장소가 먼저 줄어듦.
+    titleCluster: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     title: {
       fontSize:   14,
       color:      c.textSecondary,
       fontFamily: 'Pretendard-Regular',
       fontWeight: '400',
-      flex:       1,
+      flexShrink: 1,
     },
     titleCompleted: { textDecorationLine: 'line-through', color: c.textMuted },
+    locSep:  { flexShrink: 0, marginHorizontal: 5, fontSize: 12, color: c.textMuted },
+    locText: { flexShrink: 1, fontSize: 12, color: c.textMuted },
     // 제목 오른쪽 시각 슬롯 — 우측 정렬 + 고정폭으로 여러 행의 시각이 세로 정렬되도록.
     timeText:    { minWidth: 62, textAlign: 'right', fontSize: 12.5, color: c.textSecondary, fontFamily: 'Pretendard-Medium', fontWeight: '500' },
     expandedArea: { marginTop: Spacing.xs, gap: 2 },
