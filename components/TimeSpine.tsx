@@ -42,7 +42,7 @@ if (Platform.OS === 'android') {
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const PADDING_H = 20;
-const SPINE_X   = PADDING_H + 44 + 13; // ≈ 77 (시각 뒤 여백 7→13 확대: time.marginRight 12 + gap 14 = 26의 중앙)
+const SPINE_X   = PADDING_H + 44 + 22; // ≈ 86 (점 중앙 통과: dot-left 83 + 일반 dot 반지름 3.5). 시각 뒤 여백 ≈ 22
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SpineEventItem { type: 'event'; id: string; event: Event; state: EventState; isCompleted: boolean }
@@ -519,7 +519,7 @@ const nowRowStyles = StyleSheet.create({
   },
   time: {
     width:       TIME_W,
-    marginRight: 12,   // SpineEvent time과 동일한 여백 → NOW 점이 세로선과 정렬 유지
+    marginRight: 5,    // SpineEvent time과 동일 → NOW 점이 세로선(점 중앙)과 정렬 유지
     fontSize:    11,
     fontFamily:  'Pretendard-Medium',
     fontWeight:  '500',

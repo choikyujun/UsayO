@@ -306,7 +306,7 @@ function makeStyles(c: AppTheme, state: EventState) {
     },
     time: {
       width:       TIME_W,
-      marginRight: 12,   // 시각↔세로선 숨통(행 gap 14 + 이 12 = 26, 라인은 그 중앙 → 시각 뒤 13)
+      marginRight: 5,    // 점을 시각 쪽으로 당김. 세로선은 점 중앙에 배치(SPINE_X) → 시각 뒤 여백 ≈ 22
       fontSize:    12.5,
       fontWeight:  '500',
       color:       c.textSecondary,
