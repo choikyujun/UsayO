@@ -5,6 +5,12 @@
     "slug": "usayo",
     "scheme": "yusay",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/9445a9bd-143d-4898-bed5-002da3a4315b"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
