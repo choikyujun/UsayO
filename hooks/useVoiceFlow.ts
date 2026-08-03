@@ -21,6 +21,10 @@ let lastVoiceStartAt = 0;
 // setTimeout(500)보다 충분히 크되, 사용자의 의도적 빠른 재시도(≥1.5초)는 막지 않도록 1500ms.
 const VOICE_START_DEDUP_MS = 1500;
 
+// 워치독 타임아웃. 딥링크 콜드 경로는 소음 측정 선점 대기(~1.4초)를 거쳐 녹음이 시작되므로
+// 3초로는 부족해 오탐했다. phase='listening'은 소음 측정 이후에 세팅되지만 여유를 둬 6초.
+const WATCHDOG_MS = 6000;
+
 export function useVoiceFlow() {
   const store = useVoiceStore();
 
@@ -112,23 +116,26 @@ export function useVoiceFlow() {
     }
   }, [store, recorder]);
 
-  // 워치독: phase='listening' 진입 후 3초 내 recorder가 'recording'에 도달하지 못하면
-  // 갇힘으로 보고 fail로 전이한다(오버레이 자동 닫힘 + FAB 재활성). 시작 실패의 최종 안전망.
+  // 워치독: phase='listening' 진입 후 WATCHDOG_MS 내에 '어느 인스턴스든' 녹음을 시작하지
+  // 못하면 갇힘으로 보고 fail 전이(오버레이 닫힘 + FAB 재활성).
+  // '녹음 시작' 신호는 인스턴스별 recorder.status가 아니라 **전역 마이크 소유권(micOwner==='voice')**
+  // 으로 판정한다 — 세션을 시작하지 않은 다른 useVoiceFlow 인스턴스(예: 홈 오버레이)가 자기
+  // idle 상태를 보고 오탐하던 문제(전역 phase ↔ 인스턴스별 status 불일치)를 제거한다.
+  // 타이머 만료 시점에 다시 소유권을 확인하므로, 도중에 녹음이 시작되면 fail하지 않는다.
   useEffect(() => {
     if (store.phase !== 'listening') return;
-    if (recorder.status === 'recording') return;
+    if (audioSessionService.micOwner === 'voice') return; // 이미 녹음 시작됨
     const t = setTimeout(() => {
       const s = useVoiceStore.getState();
-      if (s.phase === 'listening' && recorder.status !== 'recording') {
-        console.log('[VoiceFlow] watchdog: 3s 내 recording 미도달 → fail 전이');
-        // 시작이 매달려 마이크를 쥔 채일 수 있으므로 소유권 강제 반납(녹음 중이 아니라 안전).
+      if (s.phase === 'listening' && audioSessionService.micOwner !== 'voice') {
+        console.log('[VoiceFlow] watchdog: recording 미도달(전역 소유자≠voice) → fail 전이');
         audioSessionService.releaseMic('voice').catch(() => {});
         s.setPhase('fail');
         s.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
       }
-    }, 3000);
+    }, WATCHDOG_MS);
     return () => clearTimeout(t);
-  }, [store.phase, recorder.status]);
+  }, [store.phase]);
 
   // STT → 인텐트 분류 → 신뢰도 기반 분기
   const processUri = useCallback(async (
