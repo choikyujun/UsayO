@@ -30,37 +30,42 @@ class AudioSessionService {
   // 누수'로 확정된다 → stale 회수가 라이브 녹음을 건드릴 일이 원천적으로 없다.
   private static readonly STALE_LOCK_MS = MAX_DURATION_MS + 10_000; // 현재 40초
 
+  // 모든 소유권 연산(acquire/release)을 한 줄로 세우는 직렬화 뮤텍스.
+  // 소유권 상태 평가와 실제 리소스 정리(unload)가 '원자적'으로 끝나게 해, 전이(선점) 도중
+  // 다른 acquire/release가 상태를 끼어들어 평가/변경하지 못하게 한다.
+  private _opChain: Promise<unknown> = Promise.resolve();
+  private serialize<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this._opChain.then(fn, fn);
+    this._opChain = run.then(() => {}, () => {}); // 체인은 항상 성공으로 이어감(성패 무관 다음 실행)
+    return run;
+  }
+
   get micOwner(): MicOwner | null { return this._micOwner; }
 
-  // 소유권 획득. 반환값이 false면 요청자는 녹음을 만들면 안 된다.
+  // 소유권 획득. 반환 false면 요청자는 녹음을 만들면 안 된다. 전 과정 직렬화(원자적).
   // 평가 순서(고정):
-  //   (0) 소유권 보유 시간이 STALE_LOCK_MS 초과면 그 락은 '누수'로 무효 처리 → onAbort로
-  //       고아 리소스 정리·await 후 소유자 해제 → 이후 '소유자 없음'으로 정상 평가.
-  //       STALE_LOCK_MS > MAX_DURATION_MS 라 stale 락이 '라이브 녹음'일 가능성은 없다
-  //       (정상 녹음은 max에서 자동 종료·반납되므로 그 시간을 넘겨 잡혀 있으면 누수 확정).
-  //   (1) 이후 fresh 락에 대해서만: 같은 소유자 재진입 → 거부.
-  //   (2) 이후 fresh 락에 대해서만: 소유권 정책('voice'가 'noise-measure' 선점 /
-  //       'noise-measure'는 'voice'에 양보=거부).
-  // (0)을 최상위에 두어 'voice 락 누수 후 voice 재요청'이 (1) 재진입 거부에 끊기지 않고
-  // stale 회수 경로에 도달하게 한다(이 경로가 stale 회수를 만든 본래 목적).
-  async acquireMic(owner: MicOwner, onAbort?: () => Promise<void>): Promise<boolean> {
-    // (0) stale 먼저 — 누수 락 무효화 후 소유자 해제.
+  //   (0) 보유 시간이 STALE_LOCK_MS 초과 → '누수' 무효 처리(onAbort 정리·await 후 해제).
+  //       STALE_LOCK_MS > MAX_DURATION_MS 라 라이브 녹음은 절대 stale가 될 수 없음.
+  //   (1) fresh 락: 같은 소유자 재진입 → 거부.
+  //   (2) fresh 락: 'voice'가 'noise-measure' 선점(정리 완료까지 owner 유지한 채 대기 →
+  //       완료 후 'voice'로 이전) / 'noise-measure'는 'voice'에 양보=거부.
+  // 선점 대기 중에는 owner가 'noise-measure'로 유지되어(널 미노출), 그 사이 어떤 release도
+  // 직렬화 큐에 걸려 락을 비우지 못한다 → '하드웨어 물린 채 다른 호출이 획득' 경합 제거.
+  acquireMic(owner: MicOwner, onAbort?: () => Promise<void>): Promise<boolean> {
+    return this.serialize(() => this._acquireMicInner(owner, onAbort));
+  }
+
+  private async _acquireMicInner(owner: MicOwner, onAbort?: () => Promise<void>): Promise<boolean> {
+    // (0) stale 먼저 — 누수 락 무효화(정리 완료까지 owner 유지 후 해제).
     if (this._micOwner !== null && Date.now() - this._ownerSince >= AudioSessionService.STALE_LOCK_MS) {
       const cur = this._micOwner;
       const heldMs = Date.now() - this._ownerSince;
-      let cleanup: 'ok' | 'failed' | 'none' = 'none';
-      const abort = this._ownerAbort;
-      this._ownerAbort = null;
-      if (abort) {
-        try { await abort(); cleanup = 'ok'; }
-        catch (e) { cleanup = 'failed'; console.log('[Mic] stale abort 예외 — 회수 계속:', (e as Error)?.message); }
-      }
+      const cleanup = await this._runOwnerCleanup();
       console.log(`[Mic] stale lock reclaimed owner='${cur}' heldMs=${heldMs} cleanup=${cleanup}`);
       this._micOwner = null;
       this._ownerSince = 0;
     }
 
-    // 소유자 있음(= fresh, stale는 위에서 이미 해제됨) → (1)(2) 판정.
     if (this._micOwner !== null) {
       const cur = this._micOwner;
       // (1) 같은 소유자 재진입 → 거부
@@ -70,22 +75,20 @@ class AudioSessionService {
       }
       // (2) 소유권 정책
       if (owner === 'voice' && cur === 'noise-measure') {
-        console.log("[Mic] acquire → 'voice' preempts 'noise-measure' (abort 완료 대기)");
-        const abort = this._ownerAbort;
-        this._ownerAbort = null;
-        try { await abort?.(); } catch { /* abort 실패는 무시 — 이전 강행 */ }
+        console.log("[Mic] acquire → 'voice' preempts 'noise-measure' (정리 완료 대기, owner 유지)");
+        const cleanup = await this._runOwnerCleanup(); // owner='noise-measure' 유지한 채 unload 완료까지
         this._micOwner = 'voice';
         this._ownerAbort = onAbort ?? null;
         this._ownerSince = Date.now();
-        console.log("[Mic] acquire → granted owner='voice' (선점 완료)");
+        console.log(`[Mic] acquire → granted owner='voice' (선점 완료, cleanup=${cleanup})`);
         return true;
       }
-      // 'noise-measure' & 소유자 'voice' (또는 그 외 fresh 조합) → 거부
+      // 'noise-measure' & 소유자 'voice' (또는 그 외 fresh) → 거부
       console.log(`[Mic] acquire → denied owner='${owner}' (current='${cur}')`);
       return false;
     }
 
-    // 소유자 없음(또는 stale 회수됨) → 부여.
+    // 소유자 없음(또는 위에서 회수됨) → 부여.
     this._micOwner = owner;
     this._ownerAbort = onAbort ?? null;
     this._ownerSince = Date.now();
@@ -93,16 +96,31 @@ class AudioSessionService {
     return true;
   }
 
-  // 소유권 반납. 소유자가 아니어도 예외 없이 안전한 no-op.
-  releaseMic(owner: MicOwner): void {
-    if (this._micOwner === owner) {
-      this._micOwner = null;
-      this._ownerAbort = null;
-      this._ownerSince = 0;
-      console.log(`[Mic] release → done owner='${owner}'`);
-    } else {
+  // 현재 소유자의 등록된 정리(onAbort)를 1회 호출·완료 await. 멱등(정리 함수 자체가 멱등).
+  // 없거나 예외여도 로그만 남기고 진행(여기서 막히면 영구 마비).
+  private async _runOwnerCleanup(): Promise<'ok' | 'failed' | 'none'> {
+    const cleanup = this._ownerAbort;
+    this._ownerAbort = null;
+    if (!cleanup) return 'none';
+    try { await cleanup(); return 'ok'; }
+    catch (e) { console.log('[Mic] owner cleanup 예외 — 진행:', (e as Error)?.message); return 'failed'; }
+  }
+
+  // 소유권 반납. 직렬화 + 소유자 리소스 정리(unload) 완료 후 반환. 소유자 아니면 안전 no-op.
+  releaseMic(owner: MicOwner): Promise<void> {
+    return this.serialize(() => this._releaseMicInner(owner));
+  }
+
+  private async _releaseMicInner(owner: MicOwner): Promise<void> {
+    if (this._micOwner !== owner) {
       console.log(`[Mic] release → no-op owner='${owner}' (current='${this._micOwner ?? 'none'}')`);
+      return;
     }
+    // 소유권을 유지한 채 정리(unload)를 완료한 뒤 비운다 → 반납 시점과 unload 시점 일치.
+    const cleanup = await this._runOwnerCleanup();
+    this._micOwner = null;
+    this._ownerSince = 0;
+    console.log(`[Mic] release → done owner='${owner}' cleanup=${cleanup}`);
   }
 
   // Called at app startup — caches permission + warms up audio session (no recording)

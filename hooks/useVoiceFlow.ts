@@ -11,6 +11,11 @@ import { ClassifiedIntent } from '../types';
 
 type OnAutoSave = (intent: ClassifiedIntent) => Promise<string | undefined>;
 
+// 모듈 레벨(모든 useVoiceFlow 인스턴스 공유) 시작 in-flight 플래그.
+// 홈 오버레이와 /voice 라우트가 서로 다른 useVoiceFlow 인스턴스라도, 딥링크 1회에 양쪽이
+// 거의 동시에 startVoice를 호출하는 교차-인스턴스 이중 시작을 동기적으로 차단한다.
+let globalVoiceStartInFlight = false;
+
 export function useVoiceFlow() {
   const store = useVoiceStore();
 
@@ -41,52 +46,60 @@ export function useVoiceFlow() {
     prefillContext?: string,
     nearbyEventsContext?: string,
   ) => {
-    // 재진입 가드: 세션이 이미 진행 중이면(listening/processing/confirming/success)
-    // 중복 startVoice를 무시한다. 딥링크 이중 발화 등으로 store.reset()이 진행 중 세션을
-    // 덮어쓰는 것을 방지. idle/fail에서만 새 세션 시작.
+    // 호출자 식별 로그 — 다음 검증에서 '두 번째 발화'의 출처(handleFabPress / voice 라우트 등)를 특정.
+    const caller = new Error().stack?.split('\n').slice(2, 4).map(s => s.trim()).join(' ← ') ?? '?';
+    console.log('[Voice] startVoice called ←', caller);
+
+    // 재진입 가드(동기): 전역 in-flight 플래그(교차 인스턴스 공유) + 전역 phase.
+    // idle/fail에서만 새 세션. 딥링크 이중 발화·교차 인스턴스 이중 시작을 여기서 차단.
     const activePhase = useVoiceStore.getState().phase;
-    if (activePhase !== 'idle' && activePhase !== 'fail') {
-      console.log(`[VoiceFlow] startVoice 무시 — 세션 활성(phase=${activePhase})`);
+    if (globalVoiceStartInFlight || (activePhase !== 'idle' && activePhase !== 'fail')) {
+      console.log('[VoiceFlow] startVoice 무시 —', JSON.stringify({ inFlight: globalVoiceStartInFlight, phase: activePhase }));
       return;
     }
-
-    onAutoSaveRef.current          = onAutoSave;
-    prefillContextRef.current      = prefillContext;
-    nearbyEventsContextRef.current = nearbyEventsContext;
-    isRetryRef.current             = false;
-    isCancelledRef.current         = false;
-    isProcessingRef.current        = false;
-    store.reset();
+    globalVoiceStartInFlight = true;
 
     try {
-      const cached = audioSessionService.getCachedNoise();
-      if (cached) {
-        // 60초 이내 캐시 → 즉시 사용 (측정 스킵)
-        if ((cached.recommendation === 'hybrid' || cached.recommendation === 'text') && cached.snr < 10) {
-          store.setHybridMode(true);
-          store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
-          return;
-        }
-      } else {
-        // 캐시 없음 → 측정 후 캐시 저장
-        const noise = await noiseDetector.measureBackgroundNoise();
-        store.setNoiseAnalysis(noise);
-        audioSessionService.setCachedNoise(noise.snr, noise.recommendation);
-        if (noise.recommendation === 'hybrid' && noise.snr < 10) {
-          store.setHybridMode(true);
-          store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
-          return;
-        }
-      }
-    } catch { /* 소음 측정 실패 무시 */ }
+      onAutoSaveRef.current          = onAutoSave;
+      prefillContextRef.current      = prefillContext;
+      nearbyEventsContextRef.current = nearbyEventsContext;
+      isRetryRef.current             = false;
+      isCancelledRef.current         = false;
+      isProcessingRef.current        = false;
+      store.reset();
 
-    store.setPhase('listening');
-    const ok = await recorder.startRecording();
-    if (!ok) {
-      // 시작 실패(마이크 점유/권한/예외) → terminal 상태로 전이해 'listening' 갇힘 방지.
-      console.log('[VoiceFlow] startRecording 실패 → fail 전이');
-      store.setPhase('fail');
-      store.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
+      try {
+        const cached = audioSessionService.getCachedNoise();
+        if (cached) {
+          // 60초 이내 캐시 → 즉시 사용 (측정 스킵)
+          if ((cached.recommendation === 'hybrid' || cached.recommendation === 'text') && cached.snr < 10) {
+            store.setHybridMode(true);
+            store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
+            return;
+          }
+        } else {
+          // 캐시 없음 → 측정 후 캐시 저장
+          const noise = await noiseDetector.measureBackgroundNoise();
+          store.setNoiseAnalysis(noise);
+          audioSessionService.setCachedNoise(noise.snr, noise.recommendation);
+          if (noise.recommendation === 'hybrid' && noise.snr < 10) {
+            store.setHybridMode(true);
+            store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
+            return;
+          }
+        }
+      } catch { /* 소음 측정 실패 무시 */ }
+
+      store.setPhase('listening');
+      const ok = await recorder.startRecording();
+      if (!ok) {
+        // 시작 실패(마이크 점유/권한/예외) → terminal 상태로 전이해 'listening' 갇힘 방지.
+        console.log('[VoiceFlow] startRecording 실패 → fail 전이');
+        store.setPhase('fail');
+        store.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
+      }
+    } finally {
+      globalVoiceStartInFlight = false;
     }
   }, [store, recorder]);
 
@@ -100,7 +113,7 @@ export function useVoiceFlow() {
       if (s.phase === 'listening' && recorder.status !== 'recording') {
         console.log('[VoiceFlow] watchdog: 3s 내 recording 미도달 → fail 전이');
         // 시작이 매달려 마이크를 쥔 채일 수 있으므로 소유권 강제 반납(녹음 중이 아니라 안전).
-        audioSessionService.releaseMic('voice');
+        audioSessionService.releaseMic('voice').catch(() => {});
         s.setPhase('fail');
         s.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
       }
@@ -311,7 +324,7 @@ export function useVoiceFlow() {
 
   const retryVoice = useCallback(() => {
     // reset 경로에서도 마이크 소유권을 반드시 반납(락 누수 방지). 소유자 아니면 안전 no-op.
-    audioSessionService.releaseMic('voice');
+    audioSessionService.releaseMic('voice').catch(() => {});
     store.reset();
   }, [store]);
 

@@ -8,6 +8,7 @@ import { deleteAudioFile } from '../services/voice/SpeechRecognitionService';
 import { useRecorderTelemetryStore } from '../stores/useRecorderTelemetryStore';
 import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측 · voice-verify]
 import { MAX_DURATION_MS } from '../constants/voiceRecording';
+import { ttsService } from '../services/voice/TTSService';
 
 const WARMUP_MS       = 1_000;   // 녹음 시작 후 첫 1초는 무음 감지 제외
 const SILENCE_DB      = -40;     // dB 기준값 (이하면 무음)
@@ -108,7 +109,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       setError(e instanceof Error ? e.message : '녹음 중지 실패');
       return lastUriRef.current;
     } finally {
-      audioSessionService.releaseMic('voice'); // 녹음 종료 → 마이크 소유권 반납
+      await audioSessionService.releaseMic('voice'); // 소유권 반납(정리 완료까지 대기)
       setStatus('idle');
       setAudioLevel(0);
     }
@@ -160,18 +161,27 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
 
       // Stage 2.5: 마이크 소유권 획득 — noise-measure가 점유 중이면 abort 후 이전.
       // voice가 이미 소유 중이면 false(중복 시작) → 여기서 중단.
-      // onAbort: 만약 이 락이 누수돼 나중에 stale 회수될 때 고아 Recording을 정리한다.
+      // onAbort: 이 소유권의 단일 정리 경로 — 선점/stale/release 어디서 호출돼도 녹음을
+      // unload하고 파일을 삭제한다(멱등: recordingRef가 null이면 no-op).
       const gotMic = await audioSessionService.acquireMic('voice', async () => {
+        clearTimers();
         const rec = recordingRef.current;
         recordingRef.current = null;
-        clearTimers();
-        if (rec) { try { await rec.stopAndUnloadAsync(); } catch { /* 이미 정리됨 무시 */ } }
+        if (rec) {
+          const uri = rec.getURI();
+          try { await rec.stopAndUnloadAsync(); } catch { /* 이미 정리됨 무시 */ }
+          deleteAudioFile(uri);
+        }
       });
       if (!gotMic) {
         console.log('[Mic] 소유권 획득 실패 — 중복 시작으로 판단, 무시');
         setStatus('idle');
         return false;
       }
+
+      // Stage 2.7: 녹음 직전 재생 중인 TTS 중지 — 실패 안내 등 앱 자신의 TTS가 마이크에
+      // 녹음돼(에코) STT로 되먹히는 것을 차단(수정 4). 정상 플로우는 이미 TTS 완료 후라 no-op.
+      ttsService.stop();
 
       // Stage 3: 녹음 인스턴스 생성 (~150-300ms)
       const { recording } = await Audio.Recording.createAsync({
@@ -251,13 +261,9 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
     } catch (e) {
       const msg = e instanceof Error ? e.message : '녹음 시작 실패';
       console.log('[Recorder] startRecording error:', msg);
-      // 실패 정리: 부분 생성된 Recording unload + 소유권 반납 + 타이머/상태 리셋
-      if (recordingRef.current) {
-        try { await recordingRef.current.stopAndUnloadAsync(); } catch { /* 무시 */ }
-        recordingRef.current = null;
-      }
-      audioSessionService.releaseMic('voice');
+      // 실패 정리: 소유권 반납이 onAbort로 부분 Recording unload+파일삭제 수행(정리 완료 대기).
       clearTimers();
+      await audioSessionService.releaseMic('voice');
       setError(msg);
       setStatus('idle');
       return false;
@@ -268,20 +274,15 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
 
   const cancelRecording = useCallback(() => {
     clearTimers();
-    const rec = recordingRef.current;
-    recordingRef.current = null; // 즉시 null — stopRecording 동시 진입 차단
-    if (rec) {
-      const uri = rec.getURI(); // [프라이버시] 취소 경로: 전사 없이 버려지는 녹음 파일도 삭제
-      rec.stopAndUnloadAsync()
-        .then(() => deleteAudioFile(uri))
-        .catch(() => deleteAudioFile(uri));
-    }
+    startingRef.current = false;
+    // [프라이버시] recordingRef의 unload+파일삭제는 releaseMic의 onAbort가 단일 경로로
+    // 수행한다(직렬화 → 다음 acquire가 unload 완료를 대기). 여기서 직접 unload하지 않아
+    // '소유권 반납 후 unload 미완' 경합을 제거한다.
+    audioSessionService.releaseMic('voice').catch(() => {});
     deleteAudioFile(lastUriRef.current);
     lastUriRef.current = null;
     silenceStartRef.current = null;
-    startingRef.current = false;
     audioSessionService.cleanup();
-    audioSessionService.releaseMic('voice'); // 취소 → 마이크 소유권 반납
     setStatus('idle');
     setAudioLevel(0);
     setSilenceProgress(0);
@@ -292,8 +293,8 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
   useEffect(() => {
     return () => {
       clearTimers();
-      recordingRef.current?.stopAndUnloadAsync().catch(() => {});
-      audioSessionService.releaseMic('voice'); // 언마운트 → 소유권 반납(누수 방지)
+      // 언마운트 → 소유권 반납(onAbort가 unload 수행, 누수 방지)
+      audioSessionService.releaseMic('voice').catch(() => {});
     };
   }, [clearTimers]);
 
