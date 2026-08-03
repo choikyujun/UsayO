@@ -145,9 +145,11 @@ async function _doSchedule(event: Event): Promise<string | null> {
           title:     event.title,
           body:      buildNotifBody(eventWithOffset),
           data:      { eventId: event.id },
-          channelId: 'default',
         },
-        trigger: { type: N.SchedulableTriggerInputTypes.DATE, date: triggerDate },
+        // channelId는 content가 아니라 trigger에 지정한다(SDK 54: DateTriggerInput.channelId).
+        // 생성한 채널('default', 위 setNotificationChannelAsync)과 동일 ID여야 Android가
+        // 해당 채널로 라우팅한다. content에 두면 무시되고 채널 라우팅이 누락된다.
+        trigger: { type: N.SchedulableTriggerInputTypes.DATE, date: triggerDate, channelId: 'default' },
       });
       scheduledIds.push(notifId);
       console.log(`[Notif] scheduled id (offset=${offset}min):`, notifId);
