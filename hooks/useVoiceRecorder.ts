@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Linking } from 'react-native';
+import { Alert, AppState, Linking } from 'react-native';
 import { Audio } from 'expo-av';
 import { File } from 'expo-file-system';
 import { MicStatus } from '../types';
@@ -7,8 +7,8 @@ import { audioSessionService } from '../services/voice/AudioSessionService';
 import { deleteAudioFile } from '../services/voice/SpeechRecognitionService';
 import { useRecorderTelemetryStore } from '../stores/useRecorderTelemetryStore';
 import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측 · voice-verify]
+import { MAX_DURATION_MS } from '../constants/voiceRecording';
 
-const MAX_DURATION_MS = 30_000;
 const WARMUP_MS       = 1_000;   // 녹음 시작 후 첫 1초는 무음 감지 제외
 const SILENCE_DB      = -40;     // dB 기준값 (이하면 무음)
 const SILENCE_LEVEL   = 0.01;    // 정규화 기준값 (이하면 무음)
@@ -22,10 +22,11 @@ export interface VoiceRecorderState {
 }
 
 export interface UseVoiceRecorderReturn extends VoiceRecorderState {
-  startRecording: () => Promise<void>;
+  // true = 녹음 시작됨, false = 시작 실패/중복(무시). 호출자는 false 시 실패 처리.
+  startRecording: () => Promise<boolean>;
   stopRecording: () => Promise<string | null>;
   cancelRecording: () => void;
-  start: () => Promise<void>;
+  start: () => Promise<boolean>;
   stop: () => Promise<string | null>;
   reset: () => void;
   hadSpeech: () => boolean; // 이번(직전) 녹음 중 유효 발화(-40dB 이상)가 감지됐는지 — 침묵/발화 구분용
@@ -48,6 +49,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
   const { setLevel: setAudioLevel, setSilenceProgress, setDuration } = useRecorderTelemetryStore.getState();
 
   const recordingRef     = useRef<Audio.Recording | null>(null);
+  const startingRef      = useRef(false); // startRecording 재진입(동시 호출) 가드
   const lastUriRef       = useRef<string | null>(null);
   const levelTimerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const maxTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -106,6 +108,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       setError(e instanceof Error ? e.message : '녹음 중지 실패');
       return lastUriRef.current;
     } finally {
+      audioSessionService.releaseMic('voice'); // 녹음 종료 → 마이크 소유권 반납
       setStatus('idle');
       setAudioLevel(0);
     }
@@ -113,8 +116,16 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
 
   useEffect(() => { autoStopRef.current = stopRecording; }, [stopRecording]);
 
-  const startRecording = useCallback(async () => {
+  const startRecording = useCallback(async (): Promise<boolean> => {
     const t0 = Date.now();
+
+    // 재진입 가드: 이미 시작 진행 중이면 중복 호출을 무시하고 반환(중복 createAsync 방지).
+    if (startingRef.current) {
+      console.log('[Mic] startRecording 무시 — 이미 시작 진행 중 (재진입 차단)');
+      return false;
+    }
+    startingRef.current = true;
+
     setError(null);
     setSilenceProgress(0);
     lastUriRef.current = null;
@@ -124,6 +135,13 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
     console.log('[Mic] tap→preparing:', Date.now() - t0, 'ms');
 
     try {
+      // Stage 0: 이전 세션의 Recording이 남아 있으면 반드시 정리(단일 객체 보장).
+      if (recordingRef.current) {
+        console.log('[Mic] 잔존 Recording 정리 후 진행');
+        try { await recordingRef.current.stopAndUnloadAsync(); } catch { /* 무시 */ }
+        recordingRef.current = null;
+      }
+
       // Stage 2: 오디오 모드 설정 (preinit 이후 ~30-50ms)
       const ready = await audioSessionService.prepareForRecording();
       console.log('[Mic] preparing→audioMode:', Date.now() - t0, 'ms');
@@ -137,7 +155,22 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
           ],
         );
         setStatus('idle');
-        return;
+        return false; // 권한 없음 → 실패(호출자가 terminal 상태로 전이)
+      }
+
+      // Stage 2.5: 마이크 소유권 획득 — noise-measure가 점유 중이면 abort 후 이전.
+      // voice가 이미 소유 중이면 false(중복 시작) → 여기서 중단.
+      // onAbort: 만약 이 락이 누수돼 나중에 stale 회수될 때 고아 Recording을 정리한다.
+      const gotMic = await audioSessionService.acquireMic('voice', async () => {
+        const rec = recordingRef.current;
+        recordingRef.current = null;
+        clearTimers();
+        if (rec) { try { await rec.stopAndUnloadAsync(); } catch { /* 이미 정리됨 무시 */ } }
+      });
+      if (!gotMic) {
+        console.log('[Mic] 소유권 획득 실패 — 중복 시작으로 판단, 무시');
+        setStatus('idle');
+        return false;
       }
 
       // Stage 3: 녹음 인스턴스 생성 (~150-300ms)
@@ -213,13 +246,25 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
         onAutoStopRef.current?.(uri);
       }, MAX_DURATION_MS);
 
+      return true; // 녹음 시작 성공
+
     } catch (e) {
       const msg = e instanceof Error ? e.message : '녹음 시작 실패';
       console.log('[Recorder] startRecording error:', msg);
+      // 실패 정리: 부분 생성된 Recording unload + 소유권 반납 + 타이머/상태 리셋
+      if (recordingRef.current) {
+        try { await recordingRef.current.stopAndUnloadAsync(); } catch { /* 무시 */ }
+        recordingRef.current = null;
+      }
+      audioSessionService.releaseMic('voice');
+      clearTimers();
       setError(msg);
       setStatus('idle');
+      return false;
+    } finally {
+      startingRef.current = false;
     }
-  }, []);
+  }, [clearTimers]);
 
   const cancelRecording = useCallback(() => {
     clearTimers();
@@ -234,7 +279,9 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
     deleteAudioFile(lastUriRef.current);
     lastUriRef.current = null;
     silenceStartRef.current = null;
+    startingRef.current = false;
     audioSessionService.cleanup();
+    audioSessionService.releaseMic('voice'); // 취소 → 마이크 소유권 반납
     setStatus('idle');
     setAudioLevel(0);
     setSilenceProgress(0);
@@ -246,8 +293,21 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
     return () => {
       clearTimers();
       recordingRef.current?.stopAndUnloadAsync().catch(() => {});
+      audioSessionService.releaseMic('voice'); // 언마운트 → 소유권 반납(누수 방지)
     };
   }, [clearTimers]);
+
+  // 앱이 백그라운드로 가면 진행 중 녹음/시작을 정리하고 마이크 소유권을 반납한다.
+  // (cancelRecording이 unload + releaseMic + 상태 리셋을 모두 수행)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' && (recordingRef.current || startingRef.current)) {
+        console.log('[Recorder] AppState background → 진행 중 녹음 정리 + releaseMic');
+        cancelRecording();
+      }
+    });
+    return () => sub.remove();
+  }, [cancelRecording]);
 
   return {
     status,

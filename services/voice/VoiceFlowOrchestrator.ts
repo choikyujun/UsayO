@@ -11,6 +11,7 @@ export type VoiceFlowError =
   | { type: 'lowConfidence'; sttResult: STTResult }
   | { type: 'noSpeech'; message: string }
   | { type: 'quotaExceeded'; used: number; limit: number }
+  | { type: 'micUnavailable'; message: string }
   | { type: 'unknown'; message: string };
 
 export interface VoiceFlowResult {

@@ -1,8 +1,11 @@
 import { Audio } from 'expo-av';
 import { NoiseAnalysis } from '../../types';
+import { audioSessionService } from './AudioSessionService';
 
 const SAMPLE_INTERVAL_MS = 100;
 const SAMPLE_COUNT = 10; // 100ms × 10 = 1초 측정
+// 측정을 건너뛰거나 중단했을 때의 기본 배경 레벨(조용 → voice 모드). 측정값 없을 때 사용.
+const DEFAULT_BG_LEVEL = -60;
 
 // dBFS 기준 배경 소음 임계값
 const QUIET_THRESHOLD = -40;  // < -40 dBFS
@@ -13,11 +16,35 @@ const SNR_HYBRID_AUTO = 10;     // < 10dB → 하이브리드 자동 전환
 const SNR_HYBRID_WARN = 20;     // < 20dB → 경고 후 음성 모드
 
 export class NoiseDetectorService {
+  private _recording: Audio.Recording | null = null;
+  private _aborted = false;
+
+  // voice가 마이크를 선점할 때 게이트가 호출: 측정 중단 + 녹음 unload.
+  // 소유권 반납은 하지 않는다 — acquireMic 호출자가 소유권을 이전하는 중이므로.
+  async abort(): Promise<void> {
+    this._aborted = true;
+    const rec = this._recording;
+    this._recording = null;
+    if (rec) {
+      try { await rec.stopAndUnloadAsync(); } catch { /* 이미 정리됨 무시 */ }
+    }
+    console.log("[Mic] abort → done owner='noise-measure' (측정 중단·unload 완료)");
+  }
+
   async measureBackgroundNoise(): Promise<NoiseAnalysis> {
     const { granted } = await Audio.requestPermissionsAsync();
     if (!granted) {
-      return this.buildResult(-60);
+      return this.buildResult(DEFAULT_BG_LEVEL);
     }
+
+    // 마이크 소유권 획득 — voice가 이미 쓰고 있으면 측정을 건너뛰고 기본 임계값 사용.
+    const ok = await audioSessionService.acquireMic('noise-measure', () => this.abort());
+    if (!ok) {
+      console.log('[NoiseDetector] 측정 건너뜀 — 마이크 사용 중, 기본 임계값 사용');
+      return this.buildResult(DEFAULT_BG_LEVEL);
+    }
+
+    this._aborted = false;
 
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: true,
@@ -25,6 +52,7 @@ export class NoiseDetectorService {
     });
 
     const recording = new Audio.Recording();
+    this._recording = recording;
     try {
       await recording.prepareToRecordAsync({
         ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
@@ -34,8 +62,12 @@ export class NoiseDetectorService {
 
       const samples: number[] = [];
       for (let i = 0; i < SAMPLE_COUNT; i++) {
+        // 각 await 구간마다 _aborted 확인 → 선점 시 즉시 이탈(abort가 이미 unload 수행).
+        if (this._aborted) return this.buildResult(DEFAULT_BG_LEVEL);
         await new Promise<void>(r => setTimeout(r, SAMPLE_INTERVAL_MS));
+        if (this._aborted) return this.buildResult(DEFAULT_BG_LEVEL);
         const status = await recording.getStatusAsync();
+        if (this._aborted) return this.buildResult(DEFAULT_BG_LEVEL);
         // expo-av RecordingStatus에 metering가 있음 (타입은 any cast 필요)
         const metering = (status as Record<string, unknown>).metering;
         if (status.isRecording && typeof metering === 'number') {
@@ -43,16 +75,24 @@ export class NoiseDetectorService {
         }
       }
 
+      if (this._aborted) return this.buildResult(DEFAULT_BG_LEVEL);
       await recording.stopAndUnloadAsync();
+      this._recording = null;
 
       const backgroundLevel = samples.length > 0
         ? samples.reduce((a, b) => a + b, 0) / samples.length
-        : -60;
+        : DEFAULT_BG_LEVEL;
 
       return this.buildResult(backgroundLevel);
     } catch {
-      try { await recording.stopAndUnloadAsync(); } catch { /* cleanup */ }
-      return this.buildResult(-60);
+      if (!this._aborted) {
+        try { await recording.stopAndUnloadAsync(); } catch { /* cleanup */ }
+      }
+      this._recording = null;
+      return this.buildResult(DEFAULT_BG_LEVEL);
+    } finally {
+      // abort로 소유권이 voice로 이전된 경우 releaseMic는 no-op(소유자 불일치).
+      audioSessionService.releaseMic('noise-measure');
     }
   }
 

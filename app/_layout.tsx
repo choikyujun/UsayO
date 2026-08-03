@@ -118,8 +118,23 @@ function AppRoot() {
   }, []);
 
   useEffect(() => {
-    function handleDeeplink(url: string) {
-      console.log('[Deeplink] 수신:', url);
+    // 딥링크 dedup: 콜드스타트 시 getInitialURL과 'url' 이벤트가 같은 URL을 각각 전달할 수
+    // 있어 마이크가 2회 시작되던 문제를 차단. 2초 내 동일 URL은 1회만 처리한다.
+    // (setTimeout(500) 지연값은 회피책이 아니므로 그대로 유지.)
+    let seq = 0;
+    let lastUrl: string | null = null;
+    let lastAt = 0;
+
+    function handleDeeplink(url: string, source: 'initial' | 'event') {
+      const n = ++seq;
+      const now = Date.now();
+      if (lastUrl === url && now - lastAt < 2000) {
+        console.log(`[Deeplink] #${n} (${source}) 무시 — 2초 내 동일 URL: ${url}`);
+        return;
+      }
+      lastUrl = url;
+      lastAt = now;
+      console.log(`[Deeplink] #${n} (${source}) 처리: ${url}`);
       const parsed = Linking.parse(url);
       console.log('[Deeplink] parsed:', parsed);
 
@@ -130,8 +145,8 @@ function AppRoot() {
       }
     }
 
-    Linking.getInitialURL().then(url => { if (url) handleDeeplink(url); });
-    const sub = Linking.addEventListener('url', ({ url }) => handleDeeplink(url));
+    Linking.getInitialURL().then(url => { if (url) handleDeeplink(url, 'initial'); });
+    const sub = Linking.addEventListener('url', ({ url }) => handleDeeplink(url, 'event'));
     return () => sub.remove();
   }, []);
 

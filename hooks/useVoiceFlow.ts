@@ -41,6 +41,15 @@ export function useVoiceFlow() {
     prefillContext?: string,
     nearbyEventsContext?: string,
   ) => {
+    // 재진입 가드: 세션이 이미 진행 중이면(listening/processing/confirming/success)
+    // 중복 startVoice를 무시한다. 딥링크 이중 발화 등으로 store.reset()이 진행 중 세션을
+    // 덮어쓰는 것을 방지. idle/fail에서만 새 세션 시작.
+    const activePhase = useVoiceStore.getState().phase;
+    if (activePhase !== 'idle' && activePhase !== 'fail') {
+      console.log(`[VoiceFlow] startVoice 무시 — 세션 활성(phase=${activePhase})`);
+      return;
+    }
+
     onAutoSaveRef.current          = onAutoSave;
     prefillContextRef.current      = prefillContext;
     nearbyEventsContextRef.current = nearbyEventsContext;
@@ -72,8 +81,32 @@ export function useVoiceFlow() {
     } catch { /* 소음 측정 실패 무시 */ }
 
     store.setPhase('listening');
-    await recorder.startRecording();
+    const ok = await recorder.startRecording();
+    if (!ok) {
+      // 시작 실패(마이크 점유/권한/예외) → terminal 상태로 전이해 'listening' 갇힘 방지.
+      console.log('[VoiceFlow] startRecording 실패 → fail 전이');
+      store.setPhase('fail');
+      store.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
+    }
   }, [store, recorder]);
+
+  // 워치독: phase='listening' 진입 후 3초 내 recorder가 'recording'에 도달하지 못하면
+  // 갇힘으로 보고 fail로 전이한다(오버레이 자동 닫힘 + FAB 재활성). 시작 실패의 최종 안전망.
+  useEffect(() => {
+    if (store.phase !== 'listening') return;
+    if (recorder.status === 'recording') return;
+    const t = setTimeout(() => {
+      const s = useVoiceStore.getState();
+      if (s.phase === 'listening' && recorder.status !== 'recording') {
+        console.log('[VoiceFlow] watchdog: 3s 내 recording 미도달 → fail 전이');
+        // 시작이 매달려 마이크를 쥔 채일 수 있으므로 소유권 강제 반납(녹음 중이 아니라 안전).
+        audioSessionService.releaseMic('voice');
+        s.setPhase('fail');
+        s.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
+      }
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [store.phase, recorder.status]);
 
   // STT → 인텐트 분류 → 신뢰도 기반 분기
   const processUri = useCallback(async (
@@ -110,7 +143,11 @@ export function useVoiceFlow() {
           isRetryRef.current    = true;
           isProcessingRef.current = false;
           store.setPhase('listening');
-          await recorder.startRecording();
+          const ok = await recorder.startRecording();
+          if (!ok) {
+            store.setPhase('fail');
+            store.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
+          }
         } else {
           isRetryRef.current = false;
           if (!isCancelledRef.current) {
@@ -273,6 +310,8 @@ export function useVoiceFlow() {
   }, [store, recorder]);
 
   const retryVoice = useCallback(() => {
+    // reset 경로에서도 마이크 소유권을 반드시 반납(락 누수 방지). 소유자 아니면 안전 no-op.
+    audioSessionService.releaseMic('voice');
     store.reset();
   }, [store]);
 

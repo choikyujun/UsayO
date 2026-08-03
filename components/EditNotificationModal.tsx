@@ -1,5 +1,5 @@
 import { Check, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated, Modal, Pressable, ScrollView,
   StyleSheet, Text, View,
@@ -50,13 +50,15 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
   // ── Voice STT: TTS → record → match → onSaved/close/restart ──
   // 모든 훅은 조건 없이 호출한다(Hooks 규칙). event는 ref로 안전 참조하고, early-return은 훅 뒤에서.
   const isVoiceActiveRef = useRef(false);
-  const startVoiceRef    = useRef<() => Promise<void>>(() => Promise.resolve());
+  const startVoiceRef    = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
   const eventRef = useRef(event);
   eventRef.current = event;
+  // 마이크 시작 실패 시 안내 표시(옵션은 수동 선택으로 계속 사용 가능 → 갇힘 없음).
+  const [micUnavailable, setMicUnavailable] = useState(false);
 
   const handleVoiceAutoStop = useCallback(async (uri: string | null) => {
     if (!isVoiceActiveRef.current) return;
@@ -86,19 +88,29 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
   }, []);
 
   const voiceRecorder = useVoiceRecorder({ onAutoStop: handleVoiceAutoStop });
-  startVoiceRef.current = voiceRecorder.startRecording;
+  // startRecording을 감싸 실패(false) 시 음성 모드 해제 + 안내 노출. 모든 시작 경로가 경유.
+  const tryStartVoice = useCallback(async (): Promise<boolean> => {
+    const ok = await voiceRecorder.startRecording();
+    if (!ok) {
+      isVoiceActiveRef.current = false;
+      setMicUnavailable(true);
+    }
+    return ok;
+  }, [voiceRecorder]);
+  startVoiceRef.current = tryStartVoice;
 
   useEffect(() => {
     if (visible && event) {
       isVoiceActiveRef.current = true;
+      setMicUnavailable(false); // 재오픈 시 이전 안내 초기화
       (async () => {
         try {
           await ttsService.speak('어떻게 알려드릴까요?');
           await ttsService.waitForSpeech(5000);
           await new Promise<void>(r => setTimeout(r, 400));
-          if (isVoiceActiveRef.current) await voiceRecorder.startRecording();
+          if (isVoiceActiveRef.current) await startVoiceRef.current();
         } catch {
-          if (isVoiceActiveRef.current) await voiceRecorder.startRecording().catch(() => {});
+          if (isVoiceActiveRef.current) await startVoiceRef.current();
         }
       })();
     } else {
@@ -147,6 +159,12 @@ export default function EditNotificationModal({ visible, event, onClose, onSaved
           <Text style={[styles.eventInfo, { color: colors.textSecondary }]} numberOfLines={1}>
             {startStr}  {event.title}
           </Text>
+
+          {micUnavailable && (
+            <Text style={[styles.micNotice, { color: colors.textMuted }]}>
+              마이크를 사용할 수 없어요. 직접 선택해 주세요.
+            </Text>
+          )}
 
           {/* 옵션 리스트 — 각 옵션 = [라벨(좌, flex) … 체크(우)] 한 행 고정 */}
           <ScrollView
@@ -226,6 +244,7 @@ function makeStyles(c: AppTheme) {
     },
     heading:    { fontSize: 18, fontFamily: 'Pretendard-SemiBold', fontWeight: '600' },
     eventInfo:  { fontSize: 13, marginBottom: Spacing.sm },
+    micNotice:  { fontSize: 12, marginBottom: Spacing.sm, textAlign: 'center' },
     // 340 = 약 6.5행 → 마지막 행이 살짝 잘려 스크롤 가능함이 드러남
     listWrap:   { maxHeight: 340 },
     optionRow: {

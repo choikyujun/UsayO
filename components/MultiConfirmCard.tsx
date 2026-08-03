@@ -1,5 +1,5 @@
 import { Calendar } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
@@ -38,9 +38,11 @@ export default function MultiConfirmCard({ events, transcript, onConfirm, onCanc
 
   // ── Voice STT loop: TTS 질문 → record → confirm-mode STT → match → confirm/cancel/재질문 ──
   const isActiveRef    = useRef(true);
-  const startRecordRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const startRecordRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
   const reAskCountRef  = useRef(0);
   const MAX_REASK = 2;                   // 재질문 최대 2회, 이후 버튼 대기로 정지
+  // 마이크 시작 실패 시 안내(저장/취소 버튼은 항상 노출 → 갇힘 없음).
+  const [micUnavailable, setMicUnavailable] = useState(false);
 
   // 미인식/저신뢰/무음 → 조용히 재녹음하지 않고 "재질문"(사용자가 미인식을 인지). 한도 초과 시 버튼 대기.
   const reAskOrStop = useCallback(async () => {
@@ -81,7 +83,19 @@ export default function MultiConfirmCard({ events, transcript, onConfirm, onCanc
 
   // 확인 응답은 짧고 반응 지연이 있어 무음 임계를 약간 넉넉히(일반 발화 파라미터는 불변).
   const recorder = useVoiceRecorder({ onAutoStop: handleAutoStop, silenceMs: 2000 });
-  startRecordRef.current = recorder.startRecording;
+  // startRecording을 감싸 실패(false) 시 음성 루프를 멈추고 버튼 대기로 복귀 + 안내.
+  const tryStart = useCallback(async (): Promise<boolean> => {
+    const ok = await recorder.startRecording();
+    if (!ok) {
+      isActiveRef.current = false;
+      setMicUnavailable(true);
+      await ttsService
+        .speak('마이크를 사용할 수 없어요. 화면의 저장 또는 취소 버튼을 눌러주세요.', undefined, undefined, true)
+        .catch(() => {});
+    }
+    return ok;
+  }, [recorder]);
+  startRecordRef.current = tryStart;
 
   useEffect(() => {
     isActiveRef.current = true;
@@ -90,7 +104,7 @@ export default function MultiConfirmCard({ events, transcript, onConfirm, onCanc
       if (opened || !isActiveRef.current) return;
       opened = true;
       console.log('[Mic] open', Date.now(), '(awaitSpeechSettled resolved)'); // [진단] 마이크 오픈 시각
-      recorder.startRecording().catch(() => {});
+      startRecordRef.current().catch(() => {}); // tryStart 경유 → 실패 시 버튼 대기 복귀
     };
     const _mountAt = Date.now();
     console.log('[Mic] card mounted, awaitSpeechSettled 등록', _mountAt); // [진단]
@@ -129,6 +143,12 @@ export default function MultiConfirmCard({ events, transcript, onConfirm, onCanc
           {/* 인식 텍스트 */}
           {!!transcript && (
             <Text style={[styles.rawText, { color: colors.textMuted }]}>"{transcript}"</Text>
+          )}
+
+          {micUnavailable && (
+            <Text style={[styles.micNotice, { color: colors.textMuted }]}>
+              마이크를 사용할 수 없어요. 버튼을 눌러주세요.
+            </Text>
           )}
 
           {/* 일정 목록 */}
@@ -212,6 +232,11 @@ function makeStyles(c: AppTheme) {
     rawText: {
       fontSize: 14,
       fontStyle: 'italic',
+      marginBottom: Spacing.base,
+    },
+    micNotice: {
+      fontSize: 12,
+      textAlign: 'center',
       marginBottom: Spacing.base,
     },
     list: {
