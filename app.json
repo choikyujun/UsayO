@@ -2,7 +2,7 @@
   "expo": {
     "newArchEnabled": true,
     "name": "UsayO",
-    "slug": "yusay",
+    "slug": "usayo",
     "scheme": "yusay",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -48,6 +48,13 @@
       "@react-native-community/datetimepicker",
       "expo-font"
     ],
-    "jsEngine": "hermes"
+    "jsEngine": "hermes",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9445a9bd-143d-4898-bed5-002da3a4315b"
+      }
+    },
+    "owner": "huwoorin"
   }
 }
