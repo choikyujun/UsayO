@@ -1,22 +1,32 @@
 apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
 
-android {
-  namespace 'com.yusay.app.widget'
-  compileSdkVersion 34
-  defaultConfig {
-    minSdkVersion 24
-    targetSdkVersion 34
-  }
-  compileOptions {
-    sourceCompatibility JavaVersion.VERSION_17
-    targetCompatibility JavaVersion.VERSION_17
-  }
-  kotlinOptions {
-    jvmTarget = '17'
+group = 'com.yusay.app.widget'
+version = '1.0.0'
+
+// SDK 54 표준 Expo 모듈 패턴. 플러그인 경로를 project(":expo-modules-core").projectDir 로
+// 런타임 해석하므로 clean(EAS) 환경에서도 안전하다(하드코딩/로컬 경로 의존 없음).
+// useCoreDependencies() 가 expo-modules-core 의존을, applyKotlinExpoModulesCorePlugin()
+// 이 Kotlin/KSP 설정을 적용한다. (expo-speech-recognition 등 정상 Expo 모듈과 동일 방식)
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+useCoreDependencies()
+
+buildscript {
+  // 루트 프로젝트가 선언한 SDK 버전을 그대로 따르기 위한 헬퍼.
+  ext.safeExtGet = { prop, fallback ->
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
   }
 }
 
-dependencies {
-  implementation project(':expo-modules-core')
+android {
+  namespace 'com.yusay.app.widget'
+  compileSdkVersion safeExtGet("compileSdkVersion", 34)
+  defaultConfig {
+    minSdkVersion safeExtGet("minSdkVersion", 24)
+    targetSdkVersion safeExtGet("targetSdkVersion", 34)
+  }
+  lintOptions {
+    abortOnError false
+  }
 }

@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const SRC = path.join(__dirname, '..', '..', 'widget-extension', 'android');
-const MODULE_SRC = path.join(__dirname, '..', '..', 'modules', 'YuSayWidgetBridge', 'android');
 
 export function withYuSayWidgetsAndroid(config: any) {
   config = withAndroidManifest(config, (mod) => {
@@ -94,11 +93,9 @@ export function withYuSayWidgetsAndroid(config: any) {
         fs.copyFileSync(path.join(SRC, file), path.join(javaDir, file));
       }
 
-      // Also copy the bridge module Kotlin
-      fs.copyFileSync(
-        path.join(MODULE_SRC, 'YuSayWidgetBridgeModule.kt'),
-        path.join(javaDir, 'YuSayWidgetBridgeModule.kt'),
-      );
+      // 브릿지 모듈(YuSayWidgetBridgeModule.kt)은 :app 에 복사하지 않는다. autolink된
+      // :yusay-widget-bridge 가 이 Expo 모듈을 제공/등록하며, :app 에도 두면 duplicate-class 로
+      // 빌드가 실패한다. (:app 는 위젯 provider/res/manifest만 담당)
 
       // Copy layout XMLs
       for (const file of ['widget_small.xml', 'widget_medium.xml']) {

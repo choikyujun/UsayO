@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 
 const SRC = path.join(__dirname, '..', '..', 'widget-extension', 'android');
-const MODULE_SRC = path.join(__dirname, '..', '..', 'modules', 'YuSayWidgetBridge', 'android');
 
 function withYuSayWidgetsAndroid(config) {
   config = withAndroidManifest(config, (mod) => {
@@ -96,10 +95,9 @@ function withYuSayWidgetsAndroid(config) {
         fs.copyFileSync(path.join(SRC, file), path.join(javaDir, file));
       }
 
-      fs.copyFileSync(
-        path.join(MODULE_SRC, 'src', 'main', 'java', 'com', 'yusay', 'app', 'widget', 'YuSayWidgetBridgeModule.kt'),
-        path.join(javaDir, 'YuSayWidgetBridgeModule.kt'),
-      );
+      // YuSayWidgetBridgeModule.kt 는 :app 에 복사하지 않는다. autolink된 :yusay-widget-bridge
+      // 모듈이 이 Expo 모듈을 제공/등록하며, :app 에도 복사하면 동일 클래스가 두 프로젝트에
+      // 존재해 duplicate-class 로 빌드가 실패한다. (:app 는 위젯 provider/res/manifest만 담당)
 
       for (const file of ['widget_small.xml', 'widget_medium.xml']) {
         fs.copyFileSync(
