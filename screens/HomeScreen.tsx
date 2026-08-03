@@ -354,7 +354,7 @@ export default function HomeScreen() {
   }, [isFirstLaunch]);
 
   // ── Handlers ─────────────────────────────────────────────────
-  const handleFabPress = useCallback(async () => {
+  const handleFabPress = useCallback(async (source: 'fab' | 'deeplink' = 'fab') => {
     haptic.medium();
     if (!gate.isAllowed) { setUpgradeVisible(true); return; }
     const ok = await quotaTracker.checkQuota('create');
@@ -375,12 +375,12 @@ export default function HomeScreen() {
         }).join('\n')
       : undefined;
 
-    voice.startVoice(handleApplyIntent, undefined, nearbyCtx);
+    voice.startVoice(source, handleApplyIntent, undefined, nearbyCtx);
   }, [gate, voice, applyClassifiedIntent, allEvents]);
 
   // Deeplink 'yusay://voice/start' 수신 시 자동 마이크 활성
   useEffect(() => {
-    return onVoiceTrigger(() => handleFabPress());
+    return onVoiceTrigger(() => handleFabPress('deeplink'));
   }, [handleFabPress]);
 
   // DB 반영 즉시 화면 갱신: useSchedules(CRUD)와 useEventsForDate(display)가 분리돼 있어
@@ -490,7 +490,7 @@ export default function HomeScreen() {
   const handleRetry = useCallback(() => {
     ttsService.stop();
     voice.retryVoice();
-    voice.startVoice();
+    voice.startVoice('retry');
   }, [voice]);
 
   // 모달 콜백 안정화 → React.memo가 visible=false에서 bail-out하도록.
@@ -646,7 +646,7 @@ export default function HomeScreen() {
 
           <Pressable
             style={[styles.fab, voice.phase === 'listening' && styles.fabActive]}
-            onPress={isVoiceActive ? undefined : handleFabPress}
+            onPress={isVoiceActive ? undefined : () => handleFabPress('fab')}
             disabled={isVoiceActive}
             hitSlop={isVoiceActive ? undefined : 8}
           >

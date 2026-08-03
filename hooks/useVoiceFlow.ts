@@ -11,10 +11,15 @@ import { ClassifiedIntent } from '../types';
 
 type OnAutoSave = (intent: ClassifiedIntent) => Promise<string | undefined>;
 
-// 모듈 레벨(모든 useVoiceFlow 인스턴스 공유) 시작 in-flight 플래그.
-// 홈 오버레이와 /voice 라우트가 서로 다른 useVoiceFlow 인스턴스라도, 딥링크 1회에 양쪽이
-// 거의 동시에 startVoice를 호출하는 교차-인스턴스 이중 시작을 동기적으로 차단한다.
-let globalVoiceStartInFlight = false;
+// startVoice 호출 출처. 로그로 남겨 이중 시작의 실제 유입 경로를 특정한다.
+export type VoiceStartSource = 'fab' | 'deeplink' | 'voice-route' | 'retry' | 'voice-input';
+
+// 마지막 startVoice 시작 시각(모듈 레벨 = 모든 useVoiceFlow 인스턴스 공유).
+// 시간창 기반 중복 시작 차단: 딥링크 setTimeout(500) 등으로 첫 시작이 이미 끝난 뒤
+// 지연 유입되는 두 번째 시작은 동기 플래그로 못 막으므로, '마지막 시작 시각' 기준으로 막는다.
+let lastVoiceStartAt = 0;
+// setTimeout(500)보다 충분히 크되, 사용자의 의도적 빠른 재시도(≥1.5초)는 막지 않도록 1500ms.
+const VOICE_START_DEDUP_MS = 1500;
 
 export function useVoiceFlow() {
   const store = useVoiceStore();
@@ -42,64 +47,68 @@ export function useVoiceFlow() {
 
 
   const startVoice = useCallback(async (
+    source: VoiceStartSource,
     onAutoSave?: OnAutoSave,
     prefillContext?: string,
     nearbyEventsContext?: string,
   ) => {
-    // 호출자 식별 로그 — 다음 검증에서 '두 번째 발화'의 출처(handleFabPress / voice 라우트 등)를 특정.
-    const caller = new Error().stack?.split('\n').slice(2, 4).map(s => s.trim()).join(' ← ') ?? '?';
-    console.log('[Voice] startVoice called ←', caller);
+    console.log(`[Voice] startVoice ← source=${source}`);
 
-    // 재진입 가드(동기): 전역 in-flight 플래그(교차 인스턴스 공유) + 전역 phase.
-    // idle/fail에서만 새 세션. 딥링크 이중 발화·교차 인스턴스 이중 시작을 여기서 차단.
-    const activePhase = useVoiceStore.getState().phase;
-    if (globalVoiceStartInFlight || (activePhase !== 'idle' && activePhase !== 'fail')) {
-      console.log('[VoiceFlow] startVoice 무시 —', JSON.stringify({ inFlight: globalVoiceStartInFlight, phase: activePhase }));
+    // 시간창 dedup: 마지막 시작으로부터 VOICE_START_DEDUP_MS 이내의 새 요청은 무시.
+    // 첫 시작이 끝난 뒤 딥링크 타이머로 지연 유입되는 두 번째 시작을 여기서 막는다.
+    const now = Date.now();
+    const sinceLast = now - lastVoiceStartAt;
+    if (sinceLast < VOICE_START_DEDUP_MS) {
+      console.log(`[VoiceFlow] startVoice 무시 — ${sinceLast}ms 전 시작(dedup ${VOICE_START_DEDUP_MS}ms), source=${source}`);
       return;
     }
-    globalVoiceStartInFlight = true;
+
+    // 세션 활성 중이면 무시(idle/fail에서만 새 세션 시작).
+    const activePhase = useVoiceStore.getState().phase;
+    if (activePhase !== 'idle' && activePhase !== 'fail') {
+      console.log(`[VoiceFlow] startVoice 무시 — 세션 활성(phase=${activePhase}), source=${source}`);
+      return;
+    }
+
+    lastVoiceStartAt = now; // 이 시작을 '마지막 시작'으로 기록(뒤이은 중복 요청 차단 기준)
+
+    onAutoSaveRef.current          = onAutoSave;
+    prefillContextRef.current      = prefillContext;
+    nearbyEventsContextRef.current = nearbyEventsContext;
+    isRetryRef.current             = false;
+    isCancelledRef.current         = false;
+    isProcessingRef.current        = false;
+    store.reset();
 
     try {
-      onAutoSaveRef.current          = onAutoSave;
-      prefillContextRef.current      = prefillContext;
-      nearbyEventsContextRef.current = nearbyEventsContext;
-      isRetryRef.current             = false;
-      isCancelledRef.current         = false;
-      isProcessingRef.current        = false;
-      store.reset();
-
-      try {
-        const cached = audioSessionService.getCachedNoise();
-        if (cached) {
-          // 60초 이내 캐시 → 즉시 사용 (측정 스킵)
-          if ((cached.recommendation === 'hybrid' || cached.recommendation === 'text') && cached.snr < 10) {
-            store.setHybridMode(true);
-            store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
-            return;
-          }
-        } else {
-          // 캐시 없음 → 측정 후 캐시 저장
-          const noise = await noiseDetector.measureBackgroundNoise();
-          store.setNoiseAnalysis(noise);
-          audioSessionService.setCachedNoise(noise.snr, noise.recommendation);
-          if (noise.recommendation === 'hybrid' && noise.snr < 10) {
-            store.setHybridMode(true);
-            store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
-            return;
-          }
+      const cached = audioSessionService.getCachedNoise();
+      if (cached) {
+        // 60초 이내 캐시 → 즉시 사용 (측정 스킵)
+        if ((cached.recommendation === 'hybrid' || cached.recommendation === 'text') && cached.snr < 10) {
+          store.setHybridMode(true);
+          store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
+          return;
         }
-      } catch { /* 소음 측정 실패 무시 */ }
-
-      store.setPhase('listening');
-      const ok = await recorder.startRecording();
-      if (!ok) {
-        // 시작 실패(마이크 점유/권한/예외) → terminal 상태로 전이해 'listening' 갇힘 방지.
-        console.log('[VoiceFlow] startRecording 실패 → fail 전이');
-        store.setPhase('fail');
-        store.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
+      } else {
+        // 캐시 없음 → 측정 후 캐시 저장
+        const noise = await noiseDetector.measureBackgroundNoise();
+        store.setNoiseAnalysis(noise);
+        audioSessionService.setCachedNoise(noise.snr, noise.recommendation);
+        if (noise.recommendation === 'hybrid' && noise.snr < 10) {
+          store.setHybridMode(true);
+          store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
+          return;
+        }
       }
-    } finally {
-      globalVoiceStartInFlight = false;
+    } catch { /* 소음 측정 실패 무시 */ }
+
+    store.setPhase('listening');
+    const ok = await recorder.startRecording();
+    if (!ok) {
+      // 시작 실패(마이크 점유/권한/예외) → terminal 상태로 전이해 'listening' 갇힘 방지.
+      console.log('[VoiceFlow] startRecording 실패 → fail 전이');
+      store.setPhase('fail');
+      store.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
     }
   }, [store, recorder]);
 

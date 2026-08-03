@@ -67,7 +67,7 @@ export function useVoiceInput(ttsEnabled: boolean) {
 
     console.log('[Voice] STT start (startVoice called)');
     const prefillContext = buildPrefillContext(prefill);
-    voice.startVoice(onAutoSave, prefillContext);
+    voice.startVoice('voice-input', onAutoSave, prefillContext);
   }, [voice, ttsEnabled]);
 
   const cancelVoiceInput = useCallback(() => {

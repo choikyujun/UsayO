@@ -90,7 +90,7 @@ export default function VoiceModal() {
 
   // 마운트 즉시 녹음 시작 (탭 한 번으로 바로 시작)
   useEffect(() => {
-    voice.startVoice();
+    voice.startVoice('voice-route');
   }, []);
 
   // Auto-navigate back after success
