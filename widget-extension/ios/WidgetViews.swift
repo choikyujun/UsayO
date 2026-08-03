@@ -1,6 +1,23 @@
 import SwiftUI
 import WidgetKit
 
+// MARK: — Widget background (iOS 17 containerBackground + <17 fallback)
+
+extension View {
+  // containerBackground(_:for:) 는 iOS 17.0+ 전용이라 배포타깃 15.1에서 무가드 호출 시
+  // Swift 컴파일이 실패한다. iOS 17+에서는 컨테이너 배경을(시스템 요구), 그 이하(홈 위젯
+  // 14+·잠금화면 16+)에서는 일반 배경으로 폴백해 하위 버전 렌더를 유지한다. (availability
+  // 처리만 — 레이아웃·색상 불변)
+  @ViewBuilder
+  func widgetContainerBackground<S: ShapeStyle>(_ style: S) -> some View {
+    if #available(iOSApplicationExtension 17.0, *) {
+      self.containerBackground(style, for: .widget)
+    } else {
+      self.background(style)
+    }
+  }
+}
+
 // MARK: — Brand colors
 
 private extension Color {
@@ -50,7 +67,7 @@ struct SmallWidgetView: View {
       .padding(10)
     }
     .widgetURL(URL(string: "yusay://voice"))
-    .containerBackground(Color.yuDarkBg, for: .widget)
+    .widgetContainerBackground(Color.yuDarkBg)
   }
 }
 
@@ -127,7 +144,7 @@ struct MediumWidgetView: View {
       }
       .padding(.horizontal, 10)
     }
-    .containerBackground(Color.yuDarkBg, for: .widget)
+    .widgetContainerBackground(Color.yuDarkBg)
   }
 }
 
@@ -151,6 +168,6 @@ struct LockScreenWidgetView: View {
       }
     }
     .widgetURL(URL(string: "yusay://voice"))
-    .containerBackground(.clear, for: .widget)
+    .widgetContainerBackground(Color.clear)
   }
 }
