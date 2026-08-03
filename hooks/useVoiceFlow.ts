@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useVoiceStore } from '../stores/useVoiceStore';
 import { useVoiceRecorder } from './useVoiceRecorder';
-import { runVoiceFlow } from '../services/voice/VoiceFlowOrchestrator';
+import { runVoiceFlow, flowErrorFromCode } from '../services/voice/VoiceFlowOrchestrator';
+import { VoiceServiceError } from '../services/voice/voiceErrors';
 import { noiseDetector } from '../services/voice/NoiseDetectorService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { intentService } from '../services/voice/IntentClassifierService';
@@ -325,8 +326,10 @@ export function useVoiceFlow() {
       store.setConfirmSource('hybrid');
       store.setPhase('confirming');
     } catch (e) {
+      // 무조건 network 분류 제거 — 서비스가 실은 원인 타입(VoiceServiceError.code)으로 분류.
+      const code = e instanceof VoiceServiceError ? e.code : 'unknown';
       store.setPhase('fail');
-      store.setError({ type: 'network', message: e instanceof Error ? e.message : '처리 실패' });
+      store.setError(flowErrorFromCode(code, e instanceof Error ? e.message : '처리 실패'));
     }
   }, [store]);
 

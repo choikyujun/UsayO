@@ -86,6 +86,7 @@ function friendlyErrorMessage(error: VoiceFlowError | null): string {
   switch (error.type) {
     case 'noSpeech':  return '잘 못 들었어요';
     case 'network':   return '인터넷이 불안정해요';
+    case 'server':    return '잠시 후 다시 시도해 주세요';
     case 'lowConfidence': return '이해하지 못했어요';
     case 'quotaExceeded': return '이번 달 음성 사용 횟수를 모두 사용했어요';
     case 'micUnavailable': return '마이크를 사용할 수 없어요';
@@ -98,6 +99,7 @@ function friendlyErrorSubtitle(error: VoiceFlowError | null): string {
   switch (error.type) {
     case 'noSpeech':      return '조용한 곳에서 다시 말씀해주세요';
     case 'network':       return '연결을 확인 후 다시 시도해주세요';
+    case 'server':        return '잠시 후 다시 시도해 주세요';
     case 'lowConfidence': return '조금 다르게 말씀해주실래요?';
     case 'quotaExceeded': return 'Pro로 업그레이드하면 무제한으로 사용할 수 있어요';
     case 'micUnavailable': return '다시 시도해 주세요';

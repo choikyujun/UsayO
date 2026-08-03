@@ -20,6 +20,7 @@ import { useCurrentDate } from '../../hooks/useCurrentDate';
 import { Spacing } from '../../constants/spacing';
 
 const SUCCESS_BACK_DELAY_MS = 1500; // 성공 후 모달 닫힘 딜레이
+const FAIL_BACK_DELAY_MS = 2500; // 실패 안내를 잠깐 보여준 뒤 닫힘(홈 오버레이 fail 처리와 동일 톤)
 
 export default function VoiceModal() {
   const insets = useSafeAreaInsets();
@@ -39,6 +40,15 @@ export default function VoiceModal() {
   // prev==='recording'||prev==='processing' 모두 체크해야 자동 무음 종료가 감지됨.
   // phase='listening' 가드로 startVoice() 직후 경쟁 조건(idle+listening) 방지.
   const prevMicStatus = useRef(voice.micStatus);
+
+  // 모달 닫힘 1회 보장(성공/실패/외부 idle 정리 등 여러 경로가 겹쳐도 router.back 중복 방지).
+  const closedRef = useRef(false);
+  const hasBeenActiveRef = useRef(false); // 세션이 활성이었던 적이 있는지(마운트 초기 idle 제외)
+  const closeOnce = useCallback(() => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    router.back();
+  }, []);
 
   useEffect(() => {
     if (voice.phase === 'listening') {
@@ -93,13 +103,26 @@ export default function VoiceModal() {
     voice.startVoice('voice-route');
   }, []);
 
-  // Auto-navigate back after success
+  // 종료 전이 시 모달 닫기. /voice는 '화면 닫기'만 담당하고 전역 상태 정리(retryVoice 등)는
+  // 홈 오버레이 인스턴스가 담당한다(두 인스턴스가 각각 reset을 부르면 서로 간섭하므로).
   useEffect(() => {
+    if (voice.phase !== 'idle') hasBeenActiveRef.current = true;
+
+    // success: 안내 후 닫기(기존 동작 유지)
     if (voice.phase === 'success') {
-      const t = setTimeout(() => router.back(), SUCCESS_BACK_DELAY_MS);
+      const t = setTimeout(closeOnce, SUCCESS_BACK_DELAY_MS);
       return () => clearTimeout(t);
     }
-  }, [voice.phase]);
+    // fail: 실패 안내를 잠깐 보여준 뒤 닫기(예전엔 fail 닫힘 경로가 없어 갇혔음)
+    if (voice.phase === 'fail') {
+      const t = setTimeout(closeOnce, FAIL_BACK_DELAY_MS);
+      return () => clearTimeout(t);
+    }
+    // 다른 인스턴스가 세션을 idle로 정리했는데 이 화면이 아직 떠 있으면 닫기(추가 안전장치).
+    if (voice.phase === 'idle' && hasBeenActiveRef.current) {
+      closeOnce();
+    }
+  }, [voice.phase, closeOnce]);
 
   const handleConfirm = useCallback(async () => {
     await voice.confirmAction(async (intent) => {

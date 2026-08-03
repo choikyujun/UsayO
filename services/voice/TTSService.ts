@@ -191,9 +191,10 @@ export class TTSService {
     }
   }
 
-  generateErrorMessage(type: 'network' | 'lowConfidence' | 'noSpeech' | 'unknown'): string {
+  generateErrorMessage(type: 'network' | 'server' | 'lowConfidence' | 'noSpeech' | 'unknown'): string {
     switch (type) {
       case 'network': return '인터넷 연결을 확인해주세요.';
+      case 'server': return '잠시 후 다시 시도해 주세요.';
       case 'lowConfidence': return '잘 못 들었어요. 다시 말씀해 주실래요?';
       case 'noSpeech': return '음성이 감지되지 않았어요. 다시 시도해주세요.';
       default: return '오류가 발생했어요. 다시 시도해주세요.';

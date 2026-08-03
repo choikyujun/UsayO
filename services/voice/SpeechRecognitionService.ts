@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { STTResult } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useSubscriptionStore } from '../../stores/useSubscriptionStore';
+import { VoiceServiceError, classifyProxyError } from './voiceErrors';
 
 // 서버 쿼터 초과 신호를 상류 오류와 구분하기 위한 전용 에러.
 export class QuotaExceededError extends Error {
@@ -59,9 +60,11 @@ export class SpeechRecognitionService {
       body: { audioBase64, language: lang, mode },
     });
 
-    // 네트워크/인증/릴레이 오류 → 상위 catch가 네트워크로 처리
+    // 프록시 오류 → 원인 타입으로 분류해 던진다(문구는 UI가 결정).
     if (proxyError) {
-      throw new Error('인터넷 연결을 확인해주세요.');
+      const code = classifyProxyError(proxyError);
+      console.log('[STT] stt-proxy error:', (proxyError as Error).name, '→', code);
+      throw new VoiceServiceError(code, `stt-proxy: ${(proxyError as Error).message ?? (proxyError as Error).name}`);
     }
 
     // 서버 쿼터 초과 → 전용 에러(상류 상태와 구분). 상류 호출 없이 즉시 반환된 신호.
@@ -80,7 +83,7 @@ export class SpeechRecognitionService {
     const upstreamStatus: number = proxyData?.upstreamStatus ?? 0;
     const data = proxyData?.body ?? {};
     if (upstreamStatus < 200 || upstreamStatus >= 300) {
-      throw new Error(`Whisper API 오류: ${upstreamStatus}`);
+      throw new VoiceServiceError('server', `Whisper upstream ${upstreamStatus}`);
     }
 
     const confidence = this.estimateConfidence(data.segments);
@@ -121,12 +124,10 @@ export class SpeechRecognitionService {
       console.log(`[VOICE][2-STT] MODE=REAL(${mode}) transcript=${JSON.stringify(_r.transcript)} confidence=${_r.confidence} elapsedMs=${Date.now() - _t0}`);
       return _r;
     } catch (e) {
-      // 오프라인 또는 API 오류 → graceful degradation
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('Network') || msg.includes('fetch')) {
-        throw new Error('인터넷 연결을 확인해주세요.');
-      }
-      throw e;
+      // 이미 분류된 에러(QuotaExceeded/VoiceServiceError)는 그대로. 그 외(파일 부재 등)는
+      // 문구 매칭 없이 unknown으로. (네트워크 판정은 프록시 오류 분류에서만 이뤄짐)
+      if (e instanceof QuotaExceededError || e instanceof VoiceServiceError) throw e;
+      throw new VoiceServiceError('unknown', e instanceof Error ? e.message : String(e));
     } finally {
       // [프라이버시] STT 전송 완료 후(성공/실패 무관) 로컬 녹음 파일 즉시 삭제.
       deleteAudioFile(audioUri);

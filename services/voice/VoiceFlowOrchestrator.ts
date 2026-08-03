@@ -2,17 +2,27 @@ import { ClassifiedIntent, STTResult } from '../../types';
 import { speechService, QuotaExceededError } from './SpeechRecognitionService';
 import { intentService } from './IntentClassifierService';
 import { ttsService } from './TTSService';
+import { VoiceServiceError, VoiceErrorCode } from './voiceErrors';
 
 const CONFIDENCE_THRESHOLD = 0.6;
 
 export type VoiceFlowError =
   | { type: 'permission'; message: string }
   | { type: 'network'; message: string }
+  | { type: 'server'; message: string }
   | { type: 'lowConfidence'; sttResult: STTResult }
   | { type: 'noSpeech'; message: string }
   | { type: 'quotaExceeded'; used: number; limit: number }
   | { type: 'micUnavailable'; message: string }
   | { type: 'unknown'; message: string };
+
+// 서비스 원인 타입 → 플로우 에러(UI 분기). network만 '인터넷' 계열, server·auth는 server.
+export function flowErrorFromCode(code: VoiceErrorCode, message: string):
+  { type: 'network' | 'server' | 'unknown'; message: string } {
+  if (code === 'network') return { type: 'network', message };
+  if (code === 'unknown') return { type: 'unknown', message };
+  return { type: 'server', message }; // server, auth
+}
 
 export interface VoiceFlowResult {
   success: boolean;
@@ -47,11 +57,11 @@ export async function runVoiceFlow(
       return { success: false, error: { type: 'quotaExceeded', used: e.used, limit: e.limit } };
     }
     const message = e instanceof Error ? e.message : '음성 인식 실패';
-    console.error('[VoiceFlow] STT 오류:', message);
-    const isNetworkError = message.includes('Network request failed') || message.includes('연결');
-    const type: VoiceFlowError['type'] = isNetworkError ? 'network' : 'unknown';
-    if (!skipTTS) await ttsService.speak(ttsService.generateErrorMessage(type)).catch(() => {});
-    return { success: false, error: { type, message } };
+    const code = e instanceof VoiceServiceError ? e.code : 'unknown';
+    console.error('[VoiceFlow] STT 오류:', code, message);
+    const err = flowErrorFromCode(code, message);
+    if (!skipTTS) await ttsService.speak(ttsService.generateErrorMessage(err.type)).catch(() => {});
+    return { success: false, error: err };
   }
 
   // 2. 무음 / 낮은 신뢰도 처리
@@ -75,11 +85,11 @@ export async function runVoiceFlow(
     intent = await intentService.classify(sttResult.transcript, language, timezone, prefillContext, nearbyEventsContext);
   } catch (e) {
     const message = e instanceof Error ? e.message : '인텐트 분류 실패';
-    console.error('[VoiceFlow] 인텐트 분류 오류:', message);
-    const isNetworkError = message.includes('Network request failed') || message.includes('연결');
-    const errorType: VoiceFlowError['type'] = isNetworkError ? 'network' : 'unknown';
-    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage(errorType)).catch(() => {});
-    return { success: false, sttResult, error: { type: errorType, message } };
+    const code = e instanceof VoiceServiceError ? e.code : 'unknown';
+    console.error('[VoiceFlow] 인텐트 분류 오류:', code, message);
+    const err = flowErrorFromCode(code, message);
+    if (!skipTTS) ttsService.speak(ttsService.generateErrorMessage(err.type)).catch(() => {});
+    return { success: false, sttResult, error: err };
   }
 
   console.log('[Voice] LLM result:', JSON.stringify({ intent: intent.intent, confidence: intent.confidence, title: intent.title, deleteTargetQuery: intent.deleteTargetQuery, targetEventQuery: intent.targetEventQuery }));

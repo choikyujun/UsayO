@@ -2,6 +2,7 @@ import { ClassifiedIntent, ParsedDateTime } from '../../types';
 import { KoreanDateParser } from '../nlp/KoreanDateParser';
 import { supabase } from '../../lib/supabase';
 import { activityWindowHour24 } from '../../utils/timeHelpers';
+import { VoiceServiceError, classifyProxyError } from './voiceErrors';
 
 // Claude 호출/키는 intent-proxy(서버 secret)가 전담. 클라이언트엔 URL·키를 두지 않는다.
 const MODEL = 'claude-haiku-4-5-20251001';  // 실시간 처리 → 속도 우선 (Claude Haiku 4.5)
@@ -251,10 +252,11 @@ export class IntentClassifierService {
         },
       });
 
-      // 네트워크/인증/릴레이 오류 → 기존 네트워크 오류 경로
+      // 프록시 오류 → 원인 타입으로 분류해 던진다(문구는 UI가 결정).
       if (proxyError) {
-        console.error('[Intent] intent-proxy 호출 오류:', proxyError.message);
-        throw new Error('인터넷 연결을 확인해주세요.');
+        const code = classifyProxyError(proxyError);
+        console.error('[Intent] intent-proxy 오류:', (proxyError as Error).name, '→', code);
+        throw new VoiceServiceError(code, `intent-proxy: ${(proxyError as Error).message ?? (proxyError as Error).name}`);
       }
 
       // 프록시는 항상 200으로 {upstreamStatus, body} 래핑 → 상류 상태로 4xx/5xx 분기 재현
@@ -264,7 +266,7 @@ export class IntentClassifierService {
       if (upstreamStatus < 200 || upstreamStatus >= 300) {
         console.error('[Intent] Claude(proxy) 오류:', upstreamStatus);
         if (upstreamStatus >= 500) {
-          throw new Error(`Claude API 서버 오류: ${upstreamStatus}`);
+          throw new VoiceServiceError('server', `Claude upstream ${upstreamStatus}`);
         }
         // 4xx → regex fallback으로 음성 입력 유지
         console.log('[Intent] Claude 4xx(proxy) — regex fallback 사용');
@@ -313,11 +315,9 @@ export class IntentClassifierService {
         console.log(`[VOICE][3-INTENT] PATH=FALLBACK reason=JSON파싱실패 elapsedMs=${Date.now() - _t0} json=${JSON.stringify(_r)}`);
         return _r;
       }
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('Network') || msg.includes('fetch')) {
-        throw new Error('인터넷 연결을 확인해주세요.');
-      }
-      throw e;
+      // 이미 분류된 VoiceServiceError는 그대로. 그 외는 문구 매칭 없이 unknown.
+      if (e instanceof VoiceServiceError) throw e;
+      throw new VoiceServiceError('unknown', e instanceof Error ? e.message : String(e));
     }
   }
 
