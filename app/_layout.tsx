@@ -25,7 +25,8 @@ import { useColors } from '../constants/colors';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { UndoToastProvider } from '../contexts/UndoToastContext';
 import UndoToast from '../components/UndoToast';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseConfigError } from '../lib/supabase';
+import ConfigErrorScreen from '../components/ConfigErrorScreen';
 import { signInWithDevice } from '../services/auth/deviceAuth';
 import { useAuthStore } from '../stores/useAuthStore';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
@@ -35,6 +36,21 @@ import { audioSessionService } from '../services/voice/AudioSessionService';
 import { noiseDetector } from '../services/voice/NoiseDetectorService';
 import { requestNotificationPermission, setupNotificationTapHandler } from '../services/notifications';
 import { triggerVoiceFromDeeplink } from '../utils/voiceTrigger';
+
+// 인증 호출 타임아웃. Edge Function 콜드스타트를 감안해도 정상 응답은 수 초 내.
+// 이 시간을 넘으면 네트워크가 hang한 것으로 보고 실패로 흘려(무한 로딩 방지) 빈 상태로 진입.
+const AUTH_TIMEOUT_MS = 10000;
+
+// Promise가 ms 안에 settle하지 않으면 reject. 원 요청을 취소하진 못하나(남은 Promise는
+// 나중에 조용히 settle) 인증 상태 머신이 pending에 영구 고정되는 것을 막는다.
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timeout ${ms}ms`)), ms),
+    ),
+  ]);
+}
 
 // Valid onboarding step → route segment map
 const STEP_ROUTES: Record<string, string> = {
@@ -54,11 +70,22 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    // 필수 환경설정 부재 시엔 폰트 로드를 기다리지 않고 스플래시를 내려 안내 화면을 노출.
+    if (supabaseConfigError) { SplashScreen.hideAsync(); return; }
     if (!fontsLoaded) return;
     // 최소 500ms 표시 후 hide — 폰트 즉시 로드 시 깜박임 방지
     const t = setTimeout(() => SplashScreen.hideAsync(), 500);
     return () => clearTimeout(t);
   }, [fontsLoaded]);
+
+  // Supabase 등 필수 env 부재 → createClient 크래시 대신 안내 화면(ThemeProvider만 사용).
+  if (supabaseConfigError) {
+    return (
+      <ThemeProvider>
+        <ConfigErrorScreen detail={supabaseConfigError} />
+      </ThemeProvider>
+    );
+  }
 
   if (!fontsLoaded) return null;
 
@@ -137,23 +164,32 @@ function AppRoot() {
       await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
 
       // 2. Device auth — always runs to ensure the session maps to the correct user.
+      //    각 인증 호출에 타임아웃 적용 → 느린/hang 네트워크에서 pending 영구 고정 방지.
       try {
-        const uid = await signInWithDevice();
+        const uid = await withTimeout(signInWithDevice(), AUTH_TIMEOUT_MS, 'device-auth');
         console.log('[Auth] device auth OK:', uid);
         useAuthStore.getState().markAuthed(uid);
       } catch (deviceErr) {
-        // Edge Function 실패: 익명 로그인으로 최소 기능 유지
+        // Edge Function 실패/타임아웃: 익명 로그인으로 최소 기능 유지
         const errMsg = (deviceErr as Error).message;
         console.log('[Auth] device auth FAILED:', errMsg);
-        const { data, error } = await supabase.auth.signInAnonymously();
-        if (error) {
-          console.log('[Auth] signInAnonymously FAILED:', error.message);
-          // 인증 확정 실패 → 조회 훅이 무한 로딩에 빠지지 않도록 실패 상태 공개
+        try {
+          const { data, error } = await withTimeout(
+            supabase.auth.signInAnonymously(), AUTH_TIMEOUT_MS, 'anon',
+          );
+          if (error) {
+            console.log('[Auth] signInAnonymously FAILED:', error.message);
+            // 인증 확정 실패 → 조회 훅이 무한 로딩에 빠지지 않도록 실패 상태 공개
+            useAuthStore.getState().markFailed();
+          } else {
+            console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
+            if (data.user) useAuthStore.getState().markAuthed(data.user.id);
+            else useAuthStore.getState().markFailed();
+          }
+        } catch (anonErr) {
+          // 익명 로그인 타임아웃/예외 → 실패로 확정(무한 로딩 방지)
+          console.log('[Auth] signInAnonymously timeout/error:', (anonErr as Error).message);
           useAuthStore.getState().markFailed();
-        } else {
-          console.log('[Auth] signInAnonymously OK:', data.session?.user?.id ?? 'no user');
-          if (data.user) useAuthStore.getState().markAuthed(data.user.id);
-          else useAuthStore.getState().markFailed();
         }
       }
       // 초기 인증 완료 — 이후 SIGNED_OUT은 진짜 토큰 만료로 처리
@@ -185,7 +221,15 @@ function AppRoot() {
 
       // 저장된 TTS 속도를 앱 전역에 반영(설정 화면 진입 전에도).
       AsyncStorage.getItem('yusay_tts_speed').then(v => { if (v) ttsService.setRate(parseFloat(v)); }).catch(() => {});
-    })();
+    })().catch((e) => {
+      // 부트스트랩 IIFE 미포착 예외 방어. 인증이 아직 확정 안 됐으면 실패로 흘려
+      // 조회 훅이 무한 로딩에 빠지지 않게 한다(인증이 이미 끝났으면 상태 유지, 로그만).
+      console.log('[Bootstrap] unhandled error:', (e as Error)?.message);
+      if (!initDoneRef.current) {
+        initDoneRef.current = true;
+        useAuthStore.getState().markFailed();
+      }
+    });
   }, []);
 
   return (
