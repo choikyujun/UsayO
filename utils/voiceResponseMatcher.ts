@@ -37,15 +37,29 @@ export function matchAmbiguousResponse(transcript: string): AmbiguousResponse {
 // 키워드 "포함" 방식(발화 전체가 아니라 핵심 키워드 유무로 판정) + 부정 우선.
 // STT가 "응 저장해줘"처럼 붙여쓰거나 노이즈를 섞어도 인식. 조사·어미 변형("응." "어~" "그래그래")에 관대.
 // 부정을 먼저 검사 → "저장 안 해" 같은 발화가 긍정으로 오인되지 않음.
-const CONFIRM_NEG_RE = /아니|취소|그만|싫어|하지\s*마|안\s*(해|돼|할래|저장)|됐어|필요\s*없|(^|\s)no(\s|$|\.)|ㄴㄴ/i;
-const CONFIRM_POS_RE = /저장|등록|해\s*줘|그래|맞아|맞습니다|맞어|오케이|오케|okay|(^|\s)ok(\s|$|\.)|좋아|좋아요|확인|예스|yes|ㅇㅇ|ㅇㅋ|(^|\s)(응+|어+|네+|예)([\s~.!?]*$|[\s~.!?])/i;
+// 취소 계열: 취소, 아니, 아니요, 아니야, 안돼, 그만, 됐어, 싫어 …
+const CONFIRM_NEG_RE = /아니|취소|그만|싫어|하지\s*마|안\s*(해|돼|할래|저장|돼요|되)|안돼|됐어|됐어요|필요\s*없|(^|\s)no(\s|$|\.)|ㄴㄴ/i;
+// 저장 계열: 저장, 네, 응, 맞아, 맞아요, 그래, 확인, 좋아, 오케이, 예 …
+const CONFIRM_POS_RE = /저장|등록|해\s*줘|그래|맞아|맞습니다|맞어|맞아요|오케이|오케|okay|(^|\s)ok(\s|$|\.)|좋아|좋아요|확인|예스|yes|ㅇㅇ|ㅇㅋ|(^|\s)(응+|어+|네+|예+)([\s~.!?]*$|[\s~.!?])/i;
+
+// 문장부호·기호 제거 + 공백 정리 + 소문자. STT가 "저장." "네, " "응~"처럼 문장부호를
+// 붙여 보내도 판정이 흔들리지 않게 정규화한다.
+export function normalizeConfirm(s: string): string {
+  return (s ?? '')
+    .toLowerCase()
+    .replace(/[.,!?~…"'`·。、！？:;]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 // 확인 대기 응답 판정. 매칭 실패는 'unknown'(재질문/버튼 대기) — 절대 새 일정으로 흐르지 않음.
+// 원본(트림)과 정규화본을 모두 검사 → 문장부호/공백 변형에 관대. 부정 우선(안전한 쪽).
 export function confirmResponseKind(transcript: string): 'confirm' | 'cancel' | 'unknown' {
-  const t = (transcript ?? '').trim().toLowerCase();
-  if (!t) return 'unknown';
-  if (CONFIRM_NEG_RE.test(t)) return 'cancel';
-  if (CONFIRM_POS_RE.test(t)) return 'confirm';
+  const raw = (transcript ?? '').trim().toLowerCase();
+  const norm = normalizeConfirm(transcript);
+  if (!raw && !norm) return 'unknown';
+  if (CONFIRM_NEG_RE.test(raw) || CONFIRM_NEG_RE.test(norm)) return 'cancel';
+  if (CONFIRM_POS_RE.test(raw) || CONFIRM_POS_RE.test(norm)) return 'confirm';
   return 'unknown';
 }
 
@@ -104,11 +118,38 @@ export function hallucinationVerdict(stt: STTResult, opts?: HallucinationOpts): 
 
 export interface ConfirmEval { action: MultiConfirmResponse; reason?: string }
 
-// 카드(멀티/단일) 확인 응답: 환각 방어 → confirm/cancel/unknown. (동작 불변 — 방어만 공통 함수로 추출)
+// 소프트 환경 신호(무음/길이/로그확률/압축비) 오탐. 이 신호들은 '긴 환각'을 잡으려는 것이라,
+// 짧고 신뢰도 높은 정당한 확인("저장.")까지 버리는 오탐을 낸다. 하드 게이트(empty/len 초과/저신뢰)와
+// 구분해, 키워드가 명확히 매칭되는 짧은 확인은 이 신호로 거부하지 않는다.
+const SOFT_REJECT_RE = /^(no_speech|duration|avg_logprob|compression)=/;
+
+// 카드(멀티/단일) 확인 응답: 환각 방어 → confirm/cancel/unknown.
 export function evaluateConfirmSTT(stt: STTResult): ConfirmEval {
+  const raw = (stt.transcript ?? '').trim();
+  const normalized = normalizeConfirm(raw);
+  const kind = confirmResponseKind(raw);
   const v = hallucinationVerdict(stt);
-  if (!v.ok) return { action: 'unknown', reason: v.reason };
-  return { action: confirmResponseKind(v.raw) };
+
+  if (!v.ok) {
+    // 취소는 안전한 쪽 → 환경 신호와 무관하게 항상 존중.
+    if (kind === 'cancel') return { action: 'cancel' };
+    // 소프트 신호 오탐 구제: 키워드가 confirm이고, 짧고(=긴 환각 아님) 신뢰도 충분한데
+    // 환경 신호로만 거부된 경우엔 정당한 확인으로 인정. 하드 게이트(len 초과/저신뢰/empty)는 유지.
+    const compact = raw.replace(/[\s.,!?~…"'·]/g, '');
+    const confOk = !(stt.confidence > 0 && stt.confidence < CONFIRM_MIN_CONFIDENCE);
+    if (kind === 'confirm' && compact.length > 0 && compact.length <= CONFIRM_MAX_CHARS
+        && confOk && v.reason && SOFT_REJECT_RE.test(v.reason)) {
+      console.log(`[Confirm] 소프트신호 오탐 무시 — raw=${JSON.stringify(raw)} normalized=${JSON.stringify(normalized)} reason=${v.reason} → confirm`);
+      return { action: 'confirm' };
+    }
+    console.log(`[Confirm] 판정 실패 — raw=${JSON.stringify(raw)} normalized=${JSON.stringify(normalized)} reason=${v.reason}`);
+    return { action: 'unknown', reason: v.reason };
+  }
+
+  if (kind === 'unknown') {
+    console.log(`[Confirm] 판정 실패 — raw=${JSON.stringify(raw)} normalized=${JSON.stringify(normalized)} reason=no-keyword`);
+  }
+  return { action: kind };
 }
 
 // (AM/PM 음성 확인은 활동 시간대 규칙으로 대체되어 제거됨. 공통 유틸 confirmListen/hallucinationVerdict는 유지)
