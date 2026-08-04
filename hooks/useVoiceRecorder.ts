@@ -109,7 +109,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       setError(e instanceof Error ? e.message : '녹음 중지 실패');
       return lastUriRef.current;
     } finally {
-      await audioSessionService.releaseMic('voice'); // 소유권 반납(정리 완료까지 대기)
+      await audioSessionService.releaseMic('voice', 'stop'); // 소유권 반납(정리 완료까지 대기)
       setStatus('idle');
       setAudioLevel(0);
     }
@@ -263,7 +263,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       console.log('[Recorder] startRecording error:', msg);
       // 실패 정리: 소유권 반납이 onAbort로 부분 Recording unload+파일삭제 수행(정리 완료 대기).
       clearTimers();
-      await audioSessionService.releaseMic('voice');
+      await audioSessionService.releaseMic('voice', 'start-fail');
       setError(msg);
       setStatus('idle');
       return false;
@@ -272,13 +272,13 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
     }
   }, [clearTimers]);
 
-  const cancelRecording = useCallback(() => {
+  const cancelRecording = useCallback((caller = 'cancel') => {
     clearTimers();
     startingRef.current = false;
     // [프라이버시] recordingRef의 unload+파일삭제는 releaseMic의 onAbort가 단일 경로로
     // 수행한다(직렬화 → 다음 acquire가 unload 완료를 대기). 여기서 직접 unload하지 않아
     // '소유권 반납 후 unload 미완' 경합을 제거한다.
-    audioSessionService.releaseMic('voice').catch(() => {});
+    audioSessionService.releaseMic('voice', caller).catch(() => {});
     deleteAudioFile(lastUriRef.current);
     lastUriRef.current = null;
     silenceStartRef.current = null;
@@ -294,7 +294,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
     return () => {
       clearTimers();
       // 언마운트 → 소유권 반납(onAbort가 unload 수행, 누수 방지)
-      audioSessionService.releaseMic('voice').catch(() => {});
+      audioSessionService.releaseMic('voice', 'unmount').catch(() => {});
     };
   }, [clearTimers]);
 
@@ -304,7 +304,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' && (recordingRef.current || startingRef.current)) {
         console.log('[Recorder] AppState background → 진행 중 녹음 정리 + releaseMic');
-        cancelRecording();
+        cancelRecording('appstate');
       }
     });
     return () => sub.remove();

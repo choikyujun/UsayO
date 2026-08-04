@@ -59,7 +59,6 @@ import type { Event as CalEvent } from '../types/database';
 import { addDays, toYearMonth } from '../utils/dateHelpers';
 import { useCurrentDate } from '../hooks/useCurrentDate';
 import { Spacing } from '../constants/spacing';
-import { onVoiceTrigger } from '../utils/voiceTrigger';
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const FAB_SMALL = 64;
 
@@ -356,7 +355,7 @@ export default function HomeScreen() {
   }, [isFirstLaunch]);
 
   // ── Handlers ─────────────────────────────────────────────────
-  const handleFabPress = useCallback(async (source: 'fab' | 'deeplink' = 'fab') => {
+  const handleFabPress = useCallback(async () => {
     haptic.medium();
     if (!gate.isAllowed) { setUpgradeVisible(true); return; }
     const ok = await quotaTracker.checkQuota('create');
@@ -377,13 +376,9 @@ export default function HomeScreen() {
         }).join('\n')
       : undefined;
 
-    voice.startVoice(source, handleApplyIntent, undefined, nearbyCtx);
+    voice.startVoice('fab', handleApplyIntent, undefined, nearbyCtx);
   }, [gate, voice, applyClassifiedIntent, allEvents]);
 
-  // Deeplink 'yusay://voice/start' 수신 시 자동 마이크 활성
-  useEffect(() => {
-    return onVoiceTrigger(() => handleFabPress('deeplink'));
-  }, [handleFabPress]);
 
   // DB 반영 즉시 화면 갱신: useSchedules(CRUD)와 useEventsForDate(display)가 분리돼 있어
   // applyClassifiedIntent 완료 후 바로 reloadForDate + reloadSchedules를 호출해야
@@ -648,7 +643,7 @@ export default function HomeScreen() {
 
           <Pressable
             style={[styles.fab, voice.phase === 'listening' && styles.fabActive]}
-            onPress={isVoiceActive ? undefined : () => handleFabPress('fab')}
+            onPress={isVoiceActive ? undefined : () => handleFabPress()}
             disabled={isVoiceActive}
             hitSlop={isVoiceActive ? undefined : 8}
           >

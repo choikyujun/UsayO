@@ -163,20 +163,21 @@ class AudioSessionService {
   }
 
   // 소유권 반납. 직렬화 + 소유자 리소스 정리(unload) 완료 후 반환. 소유자 아니면 안전 no-op.
-  releaseMic(owner: MicOwner): Promise<void> {
-    return this.serialize(() => this._releaseMicInner(owner));
+  releaseMic(owner: MicOwner, caller = 'unknown'): Promise<void> {
+    console.log(`[Mic] release ← caller=${caller} owner='${owner}'`);
+    return this.serialize(() => this._releaseMicInner(owner, caller));
   }
 
-  private async _releaseMicInner(owner: MicOwner): Promise<void> {
+  private async _releaseMicInner(owner: MicOwner, caller: string): Promise<void> {
     if (this._micOwner !== owner) {
-      console.log(`[Mic] release → no-op owner='${owner}' (current='${this._micOwner ?? 'none'}')`);
+      console.log(`[Mic] release → no-op owner='${owner}' caller=${caller} (current='${this._micOwner ?? 'none'}')`);
       return;
     }
     // 소유권을 유지한 채 정리(unload)를 완료한 뒤 비운다 → 반납 시점과 unload 시점 일치.
     const cleanup = await this._runOwnerCleanup();
     this._micOwner = null;
     this._ownerSince = 0;
-    console.log(`[Mic] release → done owner='${owner}' cleanup=${cleanup}`);
+    console.log(`[Mic] release → done owner='${owner}' caller=${caller} cleanup=${cleanup}`);
   }
 
   // Called at app startup — caches permission + warms up audio session (no recording)

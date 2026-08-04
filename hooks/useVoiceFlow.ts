@@ -13,7 +13,7 @@ import { ClassifiedIntent } from '../types';
 type OnAutoSave = (intent: ClassifiedIntent) => Promise<string | undefined>;
 
 // startVoice 호출 출처. 로그로 남겨 이중 시작의 실제 유입 경로를 특정한다.
-export type VoiceStartSource = 'fab' | 'deeplink' | 'voice-route' | 'retry' | 'voice-input';
+export type VoiceStartSource = 'fab' | 'voice-route' | 'retry' | 'voice-input';
 
 // 마지막 startVoice 시작 시각(모듈 레벨 = 모든 useVoiceFlow 인스턴스 공유).
 // 시간창 기반 중복 시작 차단: 딥링크 setTimeout(500) 등으로 첫 시작이 이미 끝난 뒤
@@ -85,9 +85,9 @@ export function useVoiceFlow() {
     isProcessingRef.current        = false;
     store.reset();
 
-    // 딥링크/voice-route 진입은 소음 측정을 완전히 생략(기본 임계값=voice 모드). 콜드 경로에서
-    // 측정이 마이크/권한을 점유해 경합을 만드는 것을 애초에 차단(부트스트랩 생략만으로는 부족).
-    if (source === 'deeplink' || source === 'voice-route') {
+    // voice-route(위젯 딥링크는 이 라우트로 진입) 진입은 소음 측정을 완전히 생략(기본 임계값=
+    // voice 모드). 콜드 경로에서 측정이 마이크/권한을 점유해 경합을 만드는 것을 애초에 차단.
+    if (source === 'voice-route') {
       console.log(`[Mic] ${source} — startVoice 소음 측정 생략`);
     } else {
       try {
@@ -143,7 +143,7 @@ export function useVoiceFlow() {
       const s = useVoiceStore.getState();
       if (s.phase === 'listening' && audioSessionService.micOwner !== 'voice') {
         console.log('[VoiceFlow] watchdog: recording 미도달(전역 소유자≠voice) → fail 전이');
-        audioSessionService.releaseMic('voice').catch(() => {});
+        audioSessionService.releaseMic('voice', 'watchdog').catch(() => {});
         s.setPhase('fail');
         s.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
       }
@@ -356,7 +356,7 @@ export function useVoiceFlow() {
 
   const retryVoice = useCallback(() => {
     // reset 경로에서도 마이크 소유권을 반드시 반납(락 누수 방지). 소유자 아니면 안전 no-op.
-    audioSessionService.releaseMic('voice').catch(() => {});
+    audioSessionService.releaseMic('voice', 'retry').catch(() => {});
     store.reset();
   }, [store]);
 

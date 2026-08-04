@@ -35,7 +35,6 @@ import { ttsService } from '../services/voice/TTSService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { noiseDetector } from '../services/voice/NoiseDetectorService';
 import { requestNotificationPermission, setupNotificationTapHandler } from '../services/notifications';
-import { triggerVoiceFromDeeplink } from '../utils/voiceTrigger';
 
 // 인증 호출 타임아웃. Edge Function 콜드스타트를 감안해도 정상 응답은 수 초 내.
 // 이 시간을 넘으면 네트워크가 hang한 것으로 보고 실패로 흘려(무한 로딩 방지) 빈 상태로 진입.
@@ -138,11 +137,11 @@ function AppRoot() {
       const parsed = Linking.parse(url);
       console.log('[Deeplink] parsed:', parsed);
 
-      // yusay://voice/start
-      if (parsed.path === 'voice/start' || parsed.hostname === 'voice') {
-        router.replace('/');
-        setTimeout(() => triggerVoiceFromDeeplink(), 500);
-      }
+      // 음성 딥링크(yusay://voice)는 expo-router가 /voice 라우트를 직접 연다.
+      // 예전엔 여기서 router.replace('/')+홈 오버레이 트리거로 이중 처리해, /voice(모달)와
+      // 레이스가 나고 router.replace가 녹음 중 /voice를 dismiss → 언마운트 release로 마이크를
+      // 뺏기며 실패했다. 이제 별도 처리하지 않고 expo-router의 /voice 단일 경로만 쓴다.
+      // (dedup은 위에서 유지 — 연타/중복 URL 로깅 방지)
     }
 
     Linking.getInitialURL().then(url => { if (url) handleDeeplink(url, 'initial'); });

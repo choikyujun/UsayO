@@ -98,6 +98,12 @@ export default function VoiceModal() {
     prevPhase.current = voice.phase;
   }, [voice.phase, voice.confirmMessage]);
 
+  // 라우트 생명주기 로그 — 딥링크 dismiss로 인한 언마운트(과거 release 원인) 여부 확인용.
+  useEffect(() => {
+    console.log('[VoiceRoute] mount');
+    return () => console.log('[VoiceRoute] unmount');
+  }, []);
+
   // 마운트 즉시 녹음 시작 (탭 한 번으로 바로 시작)
   useEffect(() => {
     voice.startVoice('voice-route');

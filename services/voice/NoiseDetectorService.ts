@@ -94,7 +94,7 @@ export class NoiseDetectorService {
       return this.buildResult(DEFAULT_BG_LEVEL);
     } finally {
       // 선점으로 owner가 voice로 이전됐으면 releaseMic는 no-op(소유자 불일치). unload 완료까지 await.
-      await audioSessionService.releaseMic('noise-measure');
+      await audioSessionService.releaseMic('noise-measure', 'noise-measure');
     }
   }
 
