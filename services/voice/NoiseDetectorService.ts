@@ -38,7 +38,7 @@ export class NoiseDetectorService {
   }
 
   async measureBackgroundNoise(): Promise<NoiseAnalysis> {
-    const { granted } = await Audio.requestPermissionsAsync();
+    const granted = await audioSessionService.ensureMicPermission('noise-measure');
     if (!granted) {
       return this.buildResult(DEFAULT_BG_LEVEL);
     }

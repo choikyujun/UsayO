@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Audio } from 'expo-av';
 import { router } from 'expo-router';
 import { Check, Mic } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
+import { audioSessionService } from '../../services/voice/AudioSessionService';
 
 const BENEFITS = [
   '말하는 순간에만 사용해요',
@@ -19,7 +19,8 @@ export default function PermissionMicScreen() {
   }, []);
 
   async function handleAllow() {
-    const { granted } = await Audio.requestPermissionsAsync();
+    // 게이트 경유 — 미허용이면 게이트가 실제 요청(다이얼로그)을 띄운다(온보딩은 명시적 부여 자리).
+    const granted = await audioSessionService.ensureMicPermission('onboarding');
     await AsyncStorage.setItem('onboarding_mic_granted', granted ? 'true' : 'false');
 
     if (!granted) {

@@ -85,27 +85,33 @@ export function useVoiceFlow() {
     isProcessingRef.current        = false;
     store.reset();
 
-    try {
-      const cached = audioSessionService.getCachedNoise();
-      if (cached) {
-        // 60초 이내 캐시 → 즉시 사용 (측정 스킵)
-        if ((cached.recommendation === 'hybrid' || cached.recommendation === 'text') && cached.snr < 10) {
-          store.setHybridMode(true);
-          store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
-          return;
+    // 딥링크/voice-route 진입은 소음 측정을 완전히 생략(기본 임계값=voice 모드). 콜드 경로에서
+    // 측정이 마이크/권한을 점유해 경합을 만드는 것을 애초에 차단(부트스트랩 생략만으로는 부족).
+    if (source === 'deeplink' || source === 'voice-route') {
+      console.log(`[Mic] ${source} — startVoice 소음 측정 생략`);
+    } else {
+      try {
+        const cached = audioSessionService.getCachedNoise();
+        if (cached) {
+          // 60초 이내 캐시 → 즉시 사용 (측정 스킵)
+          if ((cached.recommendation === 'hybrid' || cached.recommendation === 'text') && cached.snr < 10) {
+            store.setHybridMode(true);
+            store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
+            return;
+          }
+        } else {
+          // 캐시 없음 → 측정 후 캐시 저장
+          const noise = await noiseDetector.measureBackgroundNoise();
+          store.setNoiseAnalysis(noise);
+          audioSessionService.setCachedNoise(noise.snr, noise.recommendation);
+          if (noise.recommendation === 'hybrid' && noise.snr < 10) {
+            store.setHybridMode(true);
+            store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
+            return;
+          }
         }
-      } else {
-        // 캐시 없음 → 측정 후 캐시 저장
-        const noise = await noiseDetector.measureBackgroundNoise();
-        store.setNoiseAnalysis(noise);
-        audioSessionService.setCachedNoise(noise.snr, noise.recommendation);
-        if (noise.recommendation === 'hybrid' && noise.snr < 10) {
-          store.setHybridMode(true);
-          store.setHybridInputState({ prefillText: '', isVoiceMode: false, fallbackReason: 'noise' });
-          return;
-        }
-      }
-    } catch { /* 소음 측정 실패 무시 */ }
+      } catch { /* 소음 측정 실패 무시 */ }
+    }
 
     store.setPhase('listening');
     let ok = await recorder.startRecording();

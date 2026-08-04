@@ -11,10 +11,66 @@ interface NoiseCache {
 
 export type MicOwner = 'voice' | 'noise-measure';
 
+const PERM_REQUEST_TIMEOUT_MS = 5000; // Android 콜백 유실 대비 — 초과 시 false 확정(무한 대기 방지)
+
 class AudioSessionService {
   private _permissionGranted = false;
   private _preinitDone = false;
   private _noiseCache: NoiseCache | null = null;
+  private _permReqInFlight: Promise<boolean> | null = null; // 진행 중 권한 요청(중복 요청 차단)
+
+  // ── 마이크 권한 단일 게이트 ──────────────────────────────────
+  // 모든 권한 확인/요청의 유일한 진입점. Audio.requestPermissionsAsync를 직접 부르는 곳이
+  // 여럿이면 콜드 딥링크에서 동시 요청 경합으로 콜백이 유실돼 멈춘다 → 이 게이트로 일원화.
+  //  (a) 캐시 granted면 즉시 true.  (b) getPermissionsAsync로 확인 → granted면 요청 없이 true.
+  //  (c) 미허용이면 requestPermissionsAsync — 이미 in-flight면 그 Promise를 공유(두 번 요청 안 함).
+  //  타임아웃(5초) 초과 시 false 확정(요청 자체는 백그라운드로 계속, in-flight 유지).
+  async ensureMicPermission(caller: string): Promise<boolean> {
+    if (this._permissionGranted) return true;
+
+    // (b) 상태 확인 — 요청(다이얼로그) 없이. 콜백 유실로 요청이 매달려도 실제 granted면 여기서 회복.
+    try {
+      const { status, granted } = await Audio.getPermissionsAsync();
+      console.log(`[Perm] check → ${granted ? 'granted' : status} (caller=${caller})`);
+      if (granted) { this._permissionGranted = true; return true; }
+    } catch (e) {
+      console.log('[Perm] check 오류:', (e as Error)?.message);
+    }
+
+    // (c) 진행 중 요청이 있으면 공유(중복 요청 금지)
+    if (this._permReqInFlight) {
+      console.log(`[Perm] request → 대기 중인 in-flight에 합류 (caller=${caller})`);
+      return this._raceTimeout(this._permReqInFlight, caller);
+    }
+
+    // 새 요청 — in-flight는 요청이 '실제로 끝날 때'만 해제(타임아웃으로 해제하지 않아 재요청 경합 방지)
+    const req = this._requestOnce(caller);
+    this._permReqInFlight = req;
+    req.finally(() => { if (this._permReqInFlight === req) this._permReqInFlight = null; });
+    return this._raceTimeout(req, caller);
+  }
+
+  private async _requestOnce(caller: string): Promise<boolean> {
+    try {
+      const { granted } = await Audio.requestPermissionsAsync();
+      this._permissionGranted = granted;
+      console.log(`[Perm] request → ${granted ? 'granted' : 'denied'} (caller=${caller})`);
+      return granted;
+    } catch (e) {
+      console.log(`[Perm] request → error (caller=${caller}):`, (e as Error)?.message);
+      return false;
+    }
+  }
+
+  private _raceTimeout(p: Promise<boolean>, caller: string): Promise<boolean> {
+    return Promise.race([
+      p,
+      new Promise<boolean>(res => setTimeout(() => {
+        console.log(`[Perm] request → timeout (caller=${caller})`);
+        res(false);
+      }, PERM_REQUEST_TIMEOUT_MS)),
+    ]);
+  }
 
   // ── 마이크 단일 소유권 게이트 ────────────────────────────────
   // Audio.Recording은 동시에 하나만 준비할 수 있다('Only one Recording object').
@@ -127,8 +183,7 @@ class AudioSessionService {
   async preinit(): Promise<void> {
     const t0 = Date.now();
     try {
-      const { granted } = await Audio.requestPermissionsAsync();
-      this._permissionGranted = granted;
+      const granted = await this.ensureMicPermission('preinit');
       if (granted) {
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
@@ -147,12 +202,8 @@ class AudioSessionService {
   // Returns false if permission was not granted
   async prepareForRecording(): Promise<boolean> {
     const t0 = Date.now();
-    if (!this._preinitDone) {
-      const { granted } = await Audio.requestPermissionsAsync();
-      this._permissionGranted = granted;
-      this._preinitDone = true;
-    }
-    if (!this._permissionGranted) return false;
+    const granted = await this.ensureMicPermission('prepareForRecording');
+    if (!granted) return false;
 
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: true,
