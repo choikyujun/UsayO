@@ -108,10 +108,17 @@ export function useVoiceFlow() {
     } catch { /* 소음 측정 실패 무시 */ }
 
     store.setPhase('listening');
-    const ok = await recorder.startRecording();
+    let ok = await recorder.startRecording();
     if (!ok) {
-      // 시작 실패(마이크 점유/권한/예외) → terminal 상태로 전이해 'listening' 갇힘 방지.
-      console.log('[VoiceFlow] startRecording 실패 → fail 전이');
+      // 마이크 획득 실패 → 1회 자동 재시도. acquireMic는 직렬화라 진행 중 정리(unload/release)
+      // 뒤에 실행되지만, 외부 지연(선점 abort 등) 여유를 위해 짧게 대기 후 재시도. 무한 루프 방지 위해 1회만.
+      console.log('[Voice] 마이크 획득 재시도 1회');
+      await new Promise(r => setTimeout(r, 250));
+      ok = await recorder.startRecording();
+    }
+    if (!ok) {
+      // 재시도까지 실패 → terminal 상태로 전이해 'listening' 갇힘 방지.
+      console.log('[VoiceFlow] startRecording 재시도까지 실패 → fail 전이');
       store.setPhase('fail');
       store.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
     }

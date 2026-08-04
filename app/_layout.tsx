@@ -151,14 +151,32 @@ function AppRoot() {
   }, []);
 
   useEffect(() => {
-    audioSessionService.preinit()
-      .then(() => noiseDetector.measureBackgroundNoise())
-      .then(noise => {
+    (async () => {
+      await audioSessionService.preinit();
+
+      // 딥링크(yusay://voice)로 실행된 경우 부트스트랩 소음 측정을 생략한다.
+      // 측정이 마이크를 점유(가변 ~1.4초+)하면 voice 선점(abort 대기)이 길어져 간헐적으로
+      // "마이크를 사용할 수 없어요"로 실패했다. 선점/abort로 처리하는 대신 애초에 경합을
+      // 만들지 않는다(측정 생략 시 기본 임계값=voice 모드, 이미 구현된 경로).
+      let isVoiceDeeplink = false;
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl) {
+          const p = Linking.parse(initialUrl);
+          isVoiceDeeplink = p.path === 'voice/start' || p.hostname === 'voice';
+        }
+      } catch { /* 초기 URL 조회 실패 → 일반 실행으로 간주 */ }
+
+      if (isVoiceDeeplink) {
+        console.log('[Mic] 딥링크 진입 — 소음 측정 생략');
+      } else {
+        const noise = await noiseDetector.measureBackgroundNoise();
         audioSessionService.setCachedNoise(noise.snr, noise.recommendation);
-        return audioSessionService.cleanup();
-      })
-      .then(() => import('../services/voice/warmup').then(m => m.warmupVoiceServices()))
-      .catch(() => {});
+        await audioSessionService.cleanup();
+      }
+
+      await import('../services/voice/warmup').then(m => m.warmupVoiceServices());
+    })().catch(() => {});
     requestNotificationPermission().catch(() => {});
     return setupNotificationTapHandler();
   }, []);
