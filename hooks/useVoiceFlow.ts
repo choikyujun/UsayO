@@ -22,6 +22,12 @@ let lastVoiceStartAt = 0;
 // setTimeout(500)보다 충분히 크되, 사용자의 의도적 빠른 재시도(≥1.5초)는 막지 않도록 1500ms.
 const VOICE_START_DEDUP_MS = 1500;
 
+// CREATE 자동 저장(confidence>=0.85 즉시 저장) 스위치. false로 고정 — 모든 진입점에서
+// 확인 카드를 거치도록 통일(오인식 일정이 확인 없이 저장되는 최악의 실패 차단, 진입점 간
+// 동작 일관성 확보). onAutoSave 콜백 자체는 제거하지 않는다 — QUERY 실행(조회+요약 반환)에
+// 여전히 필요하기 때문. 재활성화하려면 이 값만 true로.
+const AUTO_SAVE_CREATE = false;
+
 // 워치독 타임아웃. 딥링크 콜드 경로는 소음 측정 선점 대기(~1.4초)를 거쳐 녹음이 시작되므로
 // 3초로는 부족해 오탐했다. phase='listening'은 소음 측정 이후에 세팅되지만 여유를 둬 6초.
 const WATCHDOG_MS = 6000;
@@ -248,9 +254,10 @@ export function useVoiceFlow() {
       '| onAutoSave:', !!onAutoSave,
     );
 
-    // ── confidence >= 0.85 CREATE: 즉시 자동 저장 ────────────────
+    // ── confidence >= 0.85 CREATE: 즉시 자동 저장 (AUTO_SAVE_CREATE=false로 비활성) ──
     // (자동 저장은 CREATE 전용. QUERY/NAVIGATION/RESCHEDULE_UNDO 등은 위/아래에서 별도 처리)
-    if (confidence >= 0.85 && onAutoSave && !requiresConfirm && resolvedIntent.intent === 'CREATE') {
+    // AUTO_SAVE_CREATE=false이면 이 블록은 진입하지 않고 아래 확인 카드 경로로 흐른다.
+    if (AUTO_SAVE_CREATE && confidence >= 0.85 && onAutoSave && !requiresConfirm && resolvedIntent.intent === 'CREATE') {
       console.log('[VoiceFlow] DB 저장 호출 (auto-save), time:', resolvedIntent.startDateTime?.date ?? 'none');
       store.setTranscript(result.sttResult?.transcript ?? null);
       store.setClassifiedIntent(resolvedIntent);
