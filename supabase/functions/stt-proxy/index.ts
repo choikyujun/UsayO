@@ -14,7 +14,7 @@ const WHISPER_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const SUPPORTED_LANGUAGES = ['ko', 'en', 'ja', 'th', 'id', 'vi'];
 
 // 무료 플랜 월 음성 명령 상한 (단일 버킷). 클라이언트 featureGates.FREE_COMMAND_LIMIT와 동일 값 유지.
-const FREE_COMMAND_LIMIT = 60;
+const FREE_COMMAND_LIMIT = 50;
 
 // 일반 발화용 도메인 어휘 프롬프트 (constants/voiceVocabulary.ts와 동일 소스)
 const CALENDAR_TERMS = [

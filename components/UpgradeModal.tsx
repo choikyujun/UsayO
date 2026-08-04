@@ -12,7 +12,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import Purchases from 'react-native-purchases';
 import { Colors } from '../constants/colors';
-import { GateType } from '../constants/featureGates';
+import { GateType, FREE_COMMAND_LIMIT } from '../constants/featureGates';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { Spacing } from '../constants/spacing';
 
@@ -28,7 +28,8 @@ interface Props {
 // ── 게이트별 컨텐츠 ──────────────────────────────────────────
 
 const PRO_FEATURES = [
-  '음성 일정 무제한 (Free: 월 50회)',
+  // 숫자는 FREE_COMMAND_LIMIT 한 곳에서만 관리(서버 stt-proxy와 동일 값).
+  `음성 일정 무제한 (Free: 월 ${FREE_COMMAND_LIMIT}회)`,
   'AI 빈 슬롯 제안',
 ];
 

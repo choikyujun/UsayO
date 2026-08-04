@@ -1,6 +1,6 @@
 // 무료 플랜 월 음성 명령 상한 (단일 버킷). 서버 stt-proxy FREE_COMMAND_LIMIT와 동일 값 유지.
 // 1 음성 명령 = STT(default) 1회 + 인텐트 1회를 1로 계수. confirm STT·멀티 저장은 미계수.
-export const FREE_COMMAND_LIMIT = 60;
+export const FREE_COMMAND_LIMIT = 50;
 
 export const FEATURE_GATES = {
   // ── 음성 사용량: 단일 "월 음성 명령" 버킷(FREE_COMMAND_LIMIT) / Pro·Team 무제한 ──
