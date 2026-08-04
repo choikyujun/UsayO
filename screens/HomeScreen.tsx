@@ -26,13 +26,11 @@ import ReAnimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ConfirmCard from '../components/ConfirmCard';
+import VoiceConfirmLayer from '../components/VoiceConfirmLayer';
 import EditNotificationModal from '../components/EditNotificationModal';
 import EditTimeModal from '../components/EditTimeModal';
 import EditTitleModal from '../components/EditTitleModal';
 import EventActionSheet from '../components/EventActionSheet';
-import InlineConfirmCard from '../components/InlineConfirmCard';
-import MultiConfirmCard from '../components/MultiConfirmCard';
 import RecurringBadge from '../components/RecurringBadge';
 import TimeSpine from '../components/TimeSpine';
 import UpcomingSection from '../components/UpcomingSection';
@@ -418,18 +416,6 @@ export default function HomeScreen() {
     toggleEventComplete(event.id, !!event.completed_at).catch(() => {});
   }, [toggleEventComplete, patchEvent]);
 
-  const handleConfirm = useCallback(async () => {
-    ttsService.stop();
-    if (voice.classifiedIntent?.events?.length) {
-      await voice.confirmMultiAction(async (intents: ClassifiedIntent[]) => {
-        for (const i of intents) await handleApplyIntent(i);
-      });
-    } else {
-      await voice.confirmAction(async (intent: ClassifiedIntent) => {
-        await handleApplyIntent(intent);
-      });
-    }
-  }, [voice, handleApplyIntent]);
 
   const handleReschedule = useCallback((eventId: string, newTime: Date) => {
     const event = events.find(e => e.id === eventId);
@@ -579,35 +565,13 @@ export default function HomeScreen() {
       )}
 
       {/* ── 확인 카드 (Modal 없이 absolute overlay) ──────────────── */}
-      {voice.phase === 'confirming' && voice.classifiedIntent && (
-        voice.classifiedIntent.events?.length ? (
-          // 복수 일정: MultiConfirmCard
-          <MultiConfirmCard
-            events={voice.classifiedIntent.events}
-            transcript={voice.transcript}
-            onConfirm={handleConfirm}
-            onCancel={handleCancelVoice}
-          />
-        ) : voice.confirmSource === 'voice' ? (
-          // 단일 음성 입력: InlineConfirmCard (자동 마이크 재활성)
-          <InlineConfirmCard
-            intent={voice.classifiedIntent}
-            transcript={voice.transcript}
-            onConfirm={handleConfirm}
-            onCancel={handleCancelVoice}
-          />
-        ) : (
-          // 하이브리드(텍스트) 입력: 기존 버튼 카드
-          <View style={styles.confirmLayer} pointerEvents="box-none">
-            <ConfirmCard
-              intent={voice.classifiedIntent}
-              transcript={voice.transcript}
-              onConfirm={handleConfirm}
-              onRetry={handleRetry}
-            />
-          </View>
-        )
-      )}
+      {/* 확인 단계 3분기(복수/단일음성/텍스트)는 공용 VoiceConfirmLayer로 통일 — /voice와 동일 */}
+      <VoiceConfirmLayer
+        voice={voice}
+        onSave={async (i) => { await handleApplyIntent(i); }}
+        onCancel={handleCancelVoice}
+        onRetry={handleRetry}
+      />
 
       {/* ── 재스케줄 취소 토스트 (10초) ─────────────────────────── */}
       <Animated.View

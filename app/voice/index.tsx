@@ -10,12 +10,11 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ConfirmCard from '../../components/ConfirmCard';
+import VoiceConfirmLayer from '../../components/VoiceConfirmLayer';
 import { Colors, useColors } from '../../constants/colors';
 import { useVoiceFlow } from '../../hooks/useVoiceFlow';
 import { useRecorderTelemetryStore } from '../../stores/useRecorderTelemetryStore';
 import { useSchedules } from '../../hooks/useSchedules';
-import { ttsService } from '../../services/voice/TTSService';
 import { useCurrentDate } from '../../hooks/useCurrentDate';
 import { Spacing } from '../../constants/spacing';
 
@@ -47,7 +46,10 @@ export default function VoiceModal() {
   const closeOnce = useCallback(() => {
     if (closedRef.current) return;
     closedRef.current = true;
-    router.back();
+    // 딥링크로 진입하면 /voice가 스택 루트라 back할 대상이 없어 router.back()이 no-op이 된다
+    // (저장 후 모달이 안 닫히던 원인). 그 경우 홈으로 replace해 확실히 닫는다.
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
   }, []);
 
   useEffect(() => {
@@ -89,14 +91,8 @@ export default function VoiceModal() {
     }
   }, [voice.micStatus, voice.phase]);
 
-  // Speak confirm message when entering confirming phase
-  const prevPhase = useRef(voice.phase);
-  useEffect(() => {
-    if (prevPhase.current !== 'confirming' && voice.phase === 'confirming' && voice.confirmMessage) {
-      ttsService.speak(voice.confirmMessage);
-    }
-    prevPhase.current = voice.phase;
-  }, [voice.phase, voice.confirmMessage]);
+  // 확인 메시지 발화는 useVoiceFlow가 phase='confirming' 진입 시 전역으로 1회 수행한다
+  // (여기서 또 발화하면 이중 TTS) → /voice 자체 발화 제거.
 
   // 라우트 생명주기 로그 — 딥링크 dismiss로 인한 언마운트(과거 release 원인) 여부 확인용.
   useEffect(() => {
@@ -130,17 +126,10 @@ export default function VoiceModal() {
     }
   }, [voice.phase, closeOnce]);
 
-  const handleConfirm = useCallback(async () => {
-    await voice.confirmAction(async (intent) => {
-      await applyClassifiedIntent(intent);
-      await reload();
-    });
-  }, [voice, applyClassifiedIntent, reload]);
-
   const handleClose = useCallback(() => {
     voice.cancelVoice();
-    router.back();
-  }, [voice]);
+    closeOnce();
+  }, [voice, closeOnce]);
 
   // listening 중 배경 탭 → 즉시 종료 + STT 처리 / 그 외엔 닫기
   const handleBackdropPress = useCallback(() => {
@@ -169,17 +158,13 @@ export default function VoiceModal() {
         {/* ── PROCESSING ── */}
         {voice.phase === 'processing' && <PhaseProcessing />}
 
-        {/* ── CONFIRMING ── */}
-        {voice.phase === 'confirming' && voice.classifiedIntent && (
-          <View style={styles.confirmWrap}>
-            <ConfirmCard
-              intent={voice.classifiedIntent}
-              transcript={voice.transcript}
-              onConfirm={handleConfirm}
-              onRetry={() => { voice.retryVoice(); }}
-            />
-          </View>
-        )}
+        {/* ── CONFIRMING ── 공용 VoiceConfirmLayer(복수/단일음성/텍스트 3분기 + 음성 응답) */}
+        <VoiceConfirmLayer
+          voice={voice}
+          onSave={async (i) => { await applyClassifiedIntent(i); await reload(); }}
+          onCancel={handleClose}
+          onRetry={() => voice.retryVoice()}
+        />
 
         {/* ── SUCCESS ── */}
         {/* success: TTS로만 피드백, 시각 UI 없음 */}
