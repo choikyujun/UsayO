@@ -51,6 +51,10 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
 
   const recordingRef     = useRef<Audio.Recording | null>(null);
   const startingRef      = useRef(false); // startRecording 재진입(동시 호출) 가드
+  // 시작 세대 카운터. cancel/unmount가 진행 중 시작을 무효화하는 데 쓴다. createAsync가
+  // 오래 걸리는 동안 취소/언마운트되면 세대가 어긋나므로, 반환된 Recording을 보관하지 않고
+  // 즉시 unload해 '고아 Recording'(하드웨어 점유)을 방지한다.
+  const startGenRef      = useRef(0);
   const lastUriRef       = useRef<string | null>(null);
   const levelTimerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const maxTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,6 +130,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       return false;
     }
     startingRef.current = true;
+    const myGen = ++startGenRef.current; // 이 시작의 세대 — cancel/unmount 시 어긋나면 무효
 
     setError(null);
     setSilenceProgress(0);
@@ -188,6 +193,18 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
         ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
         isMeteringEnabled: true,
       });
+
+      // createAsync가 오래 걸리는 동안 cancel/unmount/재시작으로 이 시작이 무효화됐으면,
+      // 반환된 Recording을 recordingRef에 보관하지 않고 즉시 unload한다 → '고아 Recording'
+      // (하드웨어 점유)로 이후 createAsync가 계속 실패하는 것을 방지(핵심 수정).
+      if (myGen !== startGenRef.current) {
+        console.log('[Mic] createAsync 완료했으나 무효(취소/언마운트됨) → 고아 방지 unload');
+        try { await recording.stopAndUnloadAsync(); } catch { /* 무시 */ }
+        try { deleteAudioFile(recording.getURI()); } catch { /* 무시 */ }
+        await audioSessionService.releaseMic('voice', 'start-cancelled');
+        setStatus('idle');
+        return false;
+      }
       console.log('[Mic] audioMode→recording active:', Date.now() - t0, 'ms');
 
       recordingRef.current = recording;
@@ -260,7 +277,13 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
 
     } catch (e) {
       const msg = e instanceof Error ? e.message : '녹음 시작 실패';
-      console.log('[Recorder] startRecording error:', msg);
+      // 실패 사유 분류 — 다음 진단 가능하게. 'Only one Recording'은 고아 Recording이 아직
+      // 하드웨어를 점유 중이란 신호(수정 1이 재발을 막아야 함).
+      const reason = /only one recording/i.test(msg) ? 'orphan(Only one Recording)'
+                   : /permission/i.test(msg)        ? 'permission'
+                   : /interrupt|focus|audio session/i.test(msg) ? 'audio-session'
+                   : 'other';
+      console.log(`[Mic] start-fail reason=${reason} msg="${msg}"`);
       // 실패 정리: 소유권 반납이 onAbort로 부분 Recording unload+파일삭제 수행(정리 완료 대기).
       clearTimers();
       await audioSessionService.releaseMic('voice', 'start-fail');
@@ -273,6 +296,15 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
   }, [clearTimers]);
 
   const cancelRecording = useCallback((caller = 'cancel') => {
+    // 진행 중 시작을 무효화한다(항상). createAsync가 await 중이면 완료 시 세대 불일치로
+    // 반환된 Recording을 즉시 unload한다 → 고아 방지.
+    startGenRef.current++;
+    // 멱등: 정리할 게 없으면(녹음도 없고 시작 진행도 아님) 여기서 끝낸다. 모달 닫힘 시
+    // 여러 레코더 인스턴스가 각각 cancel/unmount를 여러 번 호출해 releaseMic이 폭주하던
+    // 것을 방지(cancel 6회 + unmount 2회 → 실질 1회).
+    if (!recordingRef.current && !startingRef.current) {
+      return;
+    }
     clearTimers();
     startingRef.current = false;
     // [프라이버시] recordingRef의 unload+파일삭제는 releaseMic의 onAbort가 단일 경로로
@@ -293,7 +325,10 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
   useEffect(() => {
     return () => {
       clearTimers();
-      // 언마운트 → 소유권 반납(onAbort가 unload 수행, 누수 방지)
+      // 언마운트 → 진행 중 시작 무효화(createAsync 완료 시 세대 불일치로 고아 unload됨) +
+      // 소유권 반납(onAbort가 unload 수행, 누수 방지). InlineConfirmCard의 확인-응답 레코더가
+      // 모달 닫힘과 동시에 언마운트되며 createAsync가 뒤늦게 끝나 고아를 남기던 회귀를 차단.
+      startGenRef.current++;
       audioSessionService.releaseMic('voice', 'unmount').catch(() => {});
     };
   }, [clearTimers]);
