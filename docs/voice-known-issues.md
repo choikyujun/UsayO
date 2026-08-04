@@ -36,3 +36,30 @@
 - `app/voice/index.tsx` — 마운트 자동시작(`voice-route`).
 - `app/_layout.tsx` — 딥링크 핸들러(`setTimeout(500)`, dedup 2초).
 - `screens/HomeScreen.tsx` — `onVoiceTrigger` → `handleFabPress('deeplink')`.
+
+## 2. i18n 미구현 — 현재는 한국어 단독 (출시 범위 영향)
+
+> 2026-08-04 기록. 무료 한도 50회 확정 작업(`7db3395`) 중 전수 조사에서 확인.
+
+### 현재 상태
+- **i18n 라이브러리가 없다**(i18next / react-i18next / expo-localization / lingui 등 미설치).
+  `useTranslation`·`getLocales`·locales/ 디렉터리 등 번역 인프라도 없음.
+- 모든 사용자 노출 문자열이 **한국어로 소스에 하드코딩**돼 있다(UI 라벨, 페이월 카피,
+  TTS 문구, 안내/에러 메시지 등). → 현재 코드 상태로는 **한국어 단독 출시만 가능**.
+
+### 사업 기준과의 간극
+- 프로젝트 전제는 **다국어(국내+글로벌)** 였고, 언어 코드는 i18n으로 처리하기로 돼 있었다
+  (CLAUDE.md 하드룰). 현 구현은 이 전제를 아직 충족하지 못한다.
+- 따라서 **출시 범위(초기 한국어 한정)와 스토어 문구**에 이 점을 명시적으로 반영해야 한다.
+  (다국어 지원을 암시하는 스토어 카피·스크린샷은 실제 지원 전까지 지양.)
+
+### 향후 조치(판단 보류 — 지시 없이 착수 금지)
+- **WokyToky의 13개 언어 i18n 자산 재활용 가능 여부를 별도 검토**한다(키 구조·번역 커버리지·
+  라이선스·문자열 포맷 호환). 재활용 가능하면 도입 비용이 크게 준다.
+- 도입 시: (a) 하드코딩 문자열을 키로 추출, (b) 한도 숫자 같은 동적 값은 보간(interpolation)으로,
+  (c) TTS 문구의 언어별 조사·어순 차이 처리(예: 을/를 — 별도 known-issue 후보).
+
+## 관련 코드 위치 (i18n)
+- 전역: 사용자 노출 문자열 전반(하드코딩 한국어). 대표적으로 `components/UpgradeModal.tsx`
+  (페이월 카피), `services/voice/TTSService.ts`(음성 문구), 각 `screens/*`·`components/*` 라벨.
+- 참고: 무료 한도 숫자는 `constants/featureGates.ts`의 `FREE_COMMAND_LIMIT` 한 곳으로 이미 통합됨.
