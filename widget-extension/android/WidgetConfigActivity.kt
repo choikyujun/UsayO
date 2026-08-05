@@ -66,7 +66,7 @@ class WidgetConfigActivity : Activity() {
 
   private fun buildUi() {
     val prefs = getSharedPreferences("widget_prefs", MODE_PRIVATE)
-    val currentAlpha = prefs.getInt("alpha_$appWidgetId", 100)
+    val currentAlpha = prefs.getInt("alpha_$appWidgetId", WidgetDataManager.DEFAULT_ALPHA)
 
     val root = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL

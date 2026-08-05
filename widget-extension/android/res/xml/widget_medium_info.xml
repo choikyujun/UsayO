@@ -14,5 +14,4 @@
   android:resizeMode="horizontal|vertical"
   android:widgetCategory="home_screen"
   android:widgetFeatures="reconfigurable"
-  android:description="@string/app_name"
-  android:configure="com.yusay.app.widget.WidgetConfigActivity" />
+  android:description="@string/app_name" />

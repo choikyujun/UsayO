@@ -52,9 +52,13 @@ object WidgetDataManager {
     }
   }
 
+  // 기본 배경 불투명도 — 저장값 없을 때(최초 배치). 목업의 글래스 톤(흰 배경 72%)에 맞춘다.
+  // 100(완전 불투명)은 첫인상이 과하게 solid, 너무 낮으면 흐릿 → 72로 균형.
+  const val DEFAULT_ALPHA = 72
+
   fun getWidgetAlpha(context: Context, appWidgetId: Int): Int {
     val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
-    return prefs.getInt("alpha_$appWidgetId", 100)
+    return prefs.getInt("alpha_$appWidgetId", DEFAULT_ALPHA)
   }
 
   // 카테고리 색 바. personal은 연한 톤(wave), 그 외(work/important)는 퍼플.
