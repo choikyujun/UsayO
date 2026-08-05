@@ -63,3 +63,27 @@
 - 전역: 사용자 노출 문자열 전반(하드코딩 한국어). 대표적으로 `components/UpgradeModal.tsx`
   (페이월 카피), `services/voice/TTSService.ts`(음성 문구), 각 `screens/*`·`components/*` 라벨.
 - 참고: 무료 한도 숫자는 `constants/featureGates.ts`의 `FREE_COMMAND_LIMIT` 한 곳으로 이미 통합됨.
+
+## 3. 홈 화면 이중 소스(useSchedules / useEventsForDate) — 단일화 후속 과제
+
+> 2026-08-05 기록. "다가올 일정 삭제 시 상단 요약 stale" 버그 수정 중 확인.
+
+### 현재 상태
+- HomeScreen은 두 데이터 소스를 병행한다:
+  - `useSchedules`(allEvents, D+0~D+7) — CRUD 함수 + "다가올 일정" 목록.
+  - `useEventsForDate`(monthEvents → 오늘 필터) — 상단 요약·TimeSpine·reschedule 낙관 패치.
+- 모든 뮤테이션이 **두 소스를 함께 갱신**하도록 정렬해 두었다(reloadForDate+reloadSchedules
+  또는 양쪽 낙관 패치). 삭제·완료(upcoming)에서 useEventsForDate를 빠뜨렸던 것이 위 버그였고
+  수정 완료.
+- 구조적 취약점: **새 뮤테이션을 추가할 때 한쪽 소스를 빠뜨리면 같은 버그가 재발**한다.
+  두 소스가 각자 상태를 들고 있어 어긋날 여지가 상존.
+
+### 향후 조치(별도 리팩터 — 출시 후 착수, 지시 없이 진행 금지)
+- 요약·TimeSpine을 `allEvents`(useSchedules) 단일 소스에서 파생하도록 통일 검토.
+- 회귀 위험이 큼: `useEventsForDate`에 요약·TimeSpine·**reschedule 낙관 패치(스냅백 방지)**·
+  월 카운트(달력 점)·`loading` 스켈레톤·다수 reload 경로가 얽혀 있음. 단순 치환이 아니라
+  각 소비처를 하나씩 옮기며 검증해야 함.
+
+## 관련 코드 위치 (이중 소스)
+- `screens/HomeScreen.tsx` — 두 훅 병행 + 각 뮤테이션 핸들러.
+- `hooks/useEventsForDate.ts`(monthEvents·patchEvent·removeEvent) / `hooks/useSchedules.ts`(allEvents·CRUD).

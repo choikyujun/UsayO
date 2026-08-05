@@ -127,7 +127,7 @@ export default function HomeScreen() {
 
   // Events for the selected date
   const {
-    events, loading, reload: reloadForDate, patchEvent,
+    events, loading, reload: reloadForDate, patchEvent, removeEvent,
   } = useEventsForDate(selectedDate, anchorMonth);
 
   // CRUD-only: voice commands, undo, lastCreatedId; events includes D+0~D+7 for upcoming section
@@ -400,16 +400,27 @@ export default function HomeScreen() {
 
   const handleDeleteUpcoming = useCallback((event: CalEvent) => {
     const eventId = event.id;
+    // 두 소스 모두 낙관적 갱신 — 목록(useSchedules)과 상단 요약/스파인(useEventsForDate)이
+    // 어긋나지 않게. 이전엔 useSchedules만 갱신해 요약이 stale로 남았다(재시작해야 반영).
+    console.log(`[Home] delete-upcoming id=${eventId} → removeEvent + deleteEventById`);
+    removeEvent(eventId);
     deleteEventById(eventId).catch(() => {});
     showUndo('일정이 삭제됐어요', () => {
       supabase.from('events').update({ deleted_at: null }).eq('id', eventId)
-        .then(() => { reloadSchedules().catch(() => {}); refreshWidget('homeDeleteUndo').catch(() => {}); });
+        .then(() => {
+          // 복원: 두 소스 다 재조회(낙관적 제거를 서버 상태로 되돌림).
+          reloadForDate().catch(() => {});
+          reloadSchedules().catch(() => {});
+          refreshWidget('homeDeleteUndo').catch(() => {});
+        });
     });
-  }, [deleteEventById, showUndo, reloadSchedules]);
+  }, [deleteEventById, removeEvent, showUndo, reloadForDate, reloadSchedules]);
 
   const handleCompleteUpcoming = useCallback((event: CalEvent) => {
+    // 상단 요약도 즉시 반영되게 useEventsForDate도 낙관적 패치(completeToday와 동일 패턴).
+    patchEvent(event.id, { completed_at: event.completed_at ? null : new Date().toISOString() });
     toggleEventComplete(event.id, !!event.completed_at).catch(() => {});
-  }, [toggleEventComplete]);
+  }, [toggleEventComplete, patchEvent]);
 
   const handleCompleteToday = useCallback((event: CalEvent) => {
     const willComplete = !event.completed_at;

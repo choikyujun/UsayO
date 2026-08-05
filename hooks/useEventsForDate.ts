@@ -20,6 +20,7 @@ export function useEventsForDate(selectedDate: string, anchorYearMonth: string) 
 
   const load = useCallback(async () => {
     const seq = ++reqSeqRef.current; // 최신 요청만 상태 반영(stale clobber 방지)
+    console.log(`[Home] reload 요청 seq=${seq}`);
     setLoading(true);
     try {
       const { from, to } = monthBounds(anchorYearMonth);
@@ -72,7 +73,11 @@ export function useEventsForDate(selectedDate: string, anchorYearMonth: string) 
       );
 
       // 최신 요청만 반영 — stale(인증 전/이전 달 등) 응답은 조용히 폐기
-      if (seq !== reqSeqRef.current) return;
+      if (seq !== reqSeqRef.current) {
+        console.log(`[Home] reload 응답 → seq=${seq} events=${merged.length} discarded (latest=${reqSeqRef.current})`);
+        return;
+      }
+      console.log(`[Home] reload 응답 → seq=${seq} events=${merged.length} accepted`);
       setMonthEvents(merged);
     } finally {
       // 최신 요청만 로딩 종료
@@ -115,5 +120,11 @@ export function useEventsForDate(selectedDate: string, anchorYearMonth: string) 
     setMonthEvents(prev => prev.map(e => e.id === eventId ? { ...e, ...updates } : e));
   }
 
-  return { events, loading, monthCounts, reload: load, patchEvent };
+  // 낙관적 제거 — 삭제 직후 상단 요약/스파인이 즉시 반영되게 monthEvents에서 빼낸다.
+  // (patchEvent(deleted_at)로는 selectedDate 필터가 걸러내지 못해 제거되지 않음)
+  function removeEvent(eventId: string) {
+    setMonthEvents(prev => prev.filter(e => e.id !== eventId));
+  }
+
+  return { events, loading, monthCounts, reload: load, patchEvent, removeEvent };
 }
