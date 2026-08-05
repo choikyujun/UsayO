@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import org.json.JSONObject
 
 private const val PREFS_NAME = "com.yusay.app.widget"
 private const val PREFS_KEY = "widget_data"
@@ -15,11 +14,12 @@ class YuSayWidgetBridgeModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("YuSayWidgetBridge")
 
-    AsyncFunction("updateWidget") { data: Map<String, Any> ->
+    // JS에서 직렬화한 JSON 문자열을 그대로 받아 저장한다(A′). 중첩 객체를 Map<String,Any>로
+    // 변환하다 실패하던 문제 제거 — 읽기 측 WidgetDataManager가 이 문자열을 JSONObject로 파싱.
+    AsyncFunction("updateWidget") { data: String ->
       val context = requireNotNull(appContext.reactContext)
-      val json = JSONObject(data).toString()
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-      prefs.edit().putString(PREFS_KEY, json).apply()
+      prefs.edit().putString(PREFS_KEY, data).apply()
       triggerWidgetUpdate(context)
     }
 

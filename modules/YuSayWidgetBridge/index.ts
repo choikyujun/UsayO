@@ -16,7 +16,8 @@ export async function updateWidget(data: WidgetData): Promise<void> {
     return;
   }
   try {
-    await NativeWidget.updateWidget(data);
+    // 중첩 객체 대신 직렬화된 JSON 문자열을 넘긴다(A′). 네이티브는 이 문자열을 그대로 저장.
+    await NativeWidget.updateWidget(JSON.stringify(data));
     console.log('[Widget] native write → ok');
   } catch (e) {
     console.log('[Widget] native write → failed', e instanceof Error ? e.message : String(e));

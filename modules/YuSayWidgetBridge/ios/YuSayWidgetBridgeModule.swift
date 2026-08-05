@@ -8,14 +8,11 @@ public class YuSayWidgetBridgeModule: Module {
   public func definition() -> ModuleDefinition {
     Name("YuSayWidgetBridge")
 
-    AsyncFunction("updateWidget") { (data: [String: Any]) throws in
-      guard let jsonData = try? JSONSerialization.data(withJSONObject: data),
-            let jsonString = String(data: jsonData, encoding: .utf8) else {
-        throw NSError(domain: "YuSayWidgetBridge", code: 1,
-                      userInfo: [NSLocalizedDescriptionKey: "Failed to serialize widget data"])
-      }
+    // JS에서 직렬화한 JSON 문자열을 그대로 받아 저장한다(A′ — Android와 시그니처 정합).
+    // 읽기 측 WidgetDataModel.load()가 이 문자열을 JSONDecoder로 파싱.
+    AsyncFunction("updateWidget") { (data: String) in
       let defaults = UserDefaults(suiteName: appGroup)
-      defaults?.set(jsonString, forKey: widgetDataKey)
+      defaults?.set(data, forKey: widgetDataKey)
       defaults?.synchronize()
 
       if #available(iOS 14.0, *) {
