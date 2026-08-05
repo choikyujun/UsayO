@@ -265,7 +265,7 @@ export function useSchedules(date: string, daysAhead = 0) {
       setRecurringParents(allParents);
       setEvents(merged);
       setSchedules(merged.map(evToSchedule));
-      widgetService.push(merged, merged).catch(() => {});
+      widgetService.push(merged, merged, `useSchedules.load(date=${date},+${daysAhead})`).catch(() => {});
     } catch {
       // 미인증 상태에서는 빈 목록 유지
     } finally {
