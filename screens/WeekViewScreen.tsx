@@ -20,6 +20,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader from '../components/AppHeader';
 import InlineConfirmCard from '../components/InlineConfirmCard';
+import { refreshWidget } from '../services/widget/widgetRefresh';
 import MultiConfirmCard from '../components/MultiConfirmCard';
 import EditTimeModal from '../components/EditTimeModal';
 import EditTitleModal from '../components/EditTitleModal';
@@ -127,6 +128,7 @@ export default function WeekViewScreen() {
     supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', realId)
       .then(({ error }) => { if (error) console.error('[WeekView] delete failed:', error.message); });
     reload();
+    refreshWidget('weekDelete').catch(() => {});
   }
 
   function handleDeleteRecurring(event: Event, scope: RecurringDeleteScope) {
@@ -147,6 +149,7 @@ export default function WeekViewScreen() {
         .then(({ error }) => { if (error) console.error('[WeekView] delete recurring failed:', error.message); });
     }
     reload();
+    refreshWidget('weekDeleteRecurring').catch(() => {});
   }
 
   // ── Week swipe gesture ──────────────────────────────────────────────

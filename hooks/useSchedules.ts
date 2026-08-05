@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase, ensureAuth } from '../lib/supabase';
 import { Database, Event } from '../types/database';
 import { ClassifiedIntent, VoiceCommand } from '../types';
-import { widgetService } from '../services/widget/WidgetService';
-import { expandRecurringEvent, EventException } from '../utils/recurrenceHelpers';
+import { refreshWidget } from '../services/widget/widgetRefresh';
+import { eventsDateRange, fetchExpandedEvents } from '../utils/fetchExpandedEvents';
 import { scheduleEventNotification, cancelEventNotification, getEnabledOffsets } from '../services/notifications';
 import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측 · voice-verify]
 import { useAuthStore } from '../stores/useAuthStore';
@@ -183,14 +183,6 @@ async function searchEventsByQuery(query: string, hintDate?: string): Promise<Ev
   return [];
 }
 
-function dateRange(fromDate: string, daysAhead: number) {
-  const from = `${fromDate}T00:00:00.000Z`;
-  const toDay = new Date(fromDate + 'T00:00:00.000Z');
-  toDay.setUTCDate(toDay.getUTCDate() + daysAhead);
-  const toDate = toDay.toISOString().split('T')[0];
-  return { from, to: `${toDate}T23:59:59.999Z` };
-}
-
 export function useSchedules(date: string, daysAhead = 0) {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -203,69 +195,15 @@ export function useSchedules(date: string, daysAhead = 0) {
     const seq = ++reqSeqRef.current; // 요청 시퀀스 — 최신 요청만 상태 반영(stale clobber 방지)
     setLoading(true);
     try {
-      const { from, to } = dateRange(date, daysAhead);
-      const fromDate = new Date(from);
-      const toDate   = new Date(to);
-
-      // 1. 비반복 일정 + 범위 내 시작하는 반복 부모
-      const { data: eventData, error: fetchError } = await supabase
-        .from('events')
-        .select('*')
-        .gte('start_at', from)
-        .lte('start_at', to)
-        .is('deleted_at', null)
-        .order('start_at', { ascending: true });
-
-      if (fetchError) {
-        console.error('[Events] fetch error:', fetchError);
-        return;
-      }
-
-      // 2. 범위 밖에서 시작된 반복 부모 별도 fetch
-      const { data: earlyParents } = await supabase
-        .from('events')
-        .select('*')
-        .eq('is_recurring', true)
-        .lt('start_at', from)
-        .is('deleted_at', null);
-
-      const allParents = [
-        ...((eventData ?? []).filter(e => e.is_recurring && !e.parent_event_id)),
-        ...(earlyParents ?? []),
-      ];
-
-      // 3. exception 목록 fetch — 마이그레이션 미적용 시 조용히 스킵
-      const parentIds = allParents.map(p => p.id);
-      let exceptions: EventException[] = [];
-      if (parentIds.length > 0) {
-        try {
-          const { data: exData, error: exError } = await supabase
-            .from('event_exceptions')
-            .select('*')
-            .in('parent_id', parentIds);
-          if (!exError) exceptions = (exData ?? []) as EventException[];
-        } catch {
-          // event_exceptions 테이블 미존재 → 예외 없이 계속
-        }
-      }
-
-      // 4. 반복 인스턴스 확장
-      const instances = allParents.flatMap(p =>
-        expandRecurringEvent(p, fromDate, toDate, exceptions),
-      );
-
-      // 5. 비반복 일정만 남기고 인스턴스와 합산
-      const oneTime = (eventData ?? []).filter(e => !e.is_recurring);
-      const merged = [...oneTime, ...instances].sort(
-        (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
-      );
+      const { from, to } = eventsDateRange(date, daysAhead);
+      const { events: merged, parents: allParents } = await fetchExpandedEvents(from, to);
 
       // 최신 요청만 반영 — stale(인증 전/이전 달 등) 응답은 조용히 폐기(에러 아님)
       if (seq !== reqSeqRef.current) return;
       setRecurringParents(allParents);
       setEvents(merged);
       setSchedules(merged.map(evToSchedule));
-      widgetService.push(merged, merged, `useSchedules.load(date=${date},+${daysAhead})`).catch(() => {});
+      // 위젯 push는 여기서 하지 않는다 — refreshWidget(오늘 기준 단일 경로)가 전담(화면 날짜 범위와 분리).
     } catch {
       // 미인증 상태에서는 빈 목록 유지
     } finally {
@@ -331,7 +269,7 @@ export function useSchedules(date: string, daysAhead = 0) {
     }
   }
 
-  async function applyClassifiedIntent(intent: ClassifiedIntent): Promise<string | undefined> {
+  async function applyClassifiedIntentInner(intent: ClassifiedIntent): Promise<string | undefined> {
     const userId = await ensureAuth();
     console.log('[Schedules] applyClassifiedIntent userId:', userId);
 
@@ -649,6 +587,14 @@ export function useSchedules(date: string, daysAhead = 0) {
     return undefined;
   }
 
+  // 뮤테이션 성공 후 위젯을 오늘 기준으로 갱신(QUERY는 읽기 전용이라 제외). 모든 진입점
+  // (FAB/위젯 딥링크/일·주·월 뷰)이 이 함수를 거치므로 여기 한 곳에서 갱신을 보장.
+  async function applyClassifiedIntent(intent: ClassifiedIntent): Promise<string | undefined> {
+    const result = await applyClassifiedIntentInner(intent);
+    if (intent.intent !== 'QUERY') refreshWidget(`apply:${intent.intent}`).catch(() => {});
+    return result;
+  }
+
   async function toggleEventComplete(eventId: string, currentlyCompleted: boolean): Promise<void> {
     const completedAt = currentlyCompleted ? null : new Date().toISOString();
     setEvents(prev => prev.map(e =>
@@ -658,6 +604,7 @@ export function useSchedules(date: string, daysAhead = 0) {
       .from('events')
       .update({ completed_at: completedAt })
       .eq('id', eventId);
+    refreshWidget('toggleComplete').catch(() => {});
   }
 
   async function deleteEventById(eventId: string): Promise<void> {
@@ -666,6 +613,7 @@ export function useSchedules(date: string, daysAhead = 0) {
       supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', eventId),
       cancelEventNotification(eventId),
     ]);
+    refreshWidget('delete').catch(() => {});
   }
 
   async function undoSave(eventId: string): Promise<void> {
@@ -675,6 +623,7 @@ export function useSchedules(date: string, daysAhead = 0) {
       .eq('id', eventId);
     setEvents(prev => prev.filter(e => e.id !== eventId));
     setLastCreatedId(null);
+    refreshWidget('undoSave').catch(() => {});
   }
 
   async function rescheduleEvent(eventId: string, newStart: Date, newEnd: Date): Promise<void> {
@@ -697,6 +646,7 @@ export function useSchedules(date: string, daysAhead = 0) {
         console.log('[Notifications] drag 재예약 실패:', e),
       );
     }
+    refreshWidget('reschedule').catch(() => {});
   }
 
   async function undoRescheduleEvent(
@@ -721,6 +671,7 @@ export function useSchedules(date: string, daysAhead = 0) {
         console.log('[Notifications] undo 재예약 실패:', e),
       );
     }
+    refreshWidget('undoReschedule').catch(() => {});
   }
 
   return {

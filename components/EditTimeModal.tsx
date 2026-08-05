@@ -1,6 +1,7 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react-native';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { refreshWidget } from '../services/widget/widgetRefresh';
 import {
   Animated, Modal, Platform, Pressable, StyleSheet, Text, View,
 } from 'react-native';
@@ -185,6 +186,7 @@ function EditTimeModal({ visible, event, onClose, onSaved }: Props) {
         }
       }
 
+      refreshWidget('editTime').catch(() => {});
       onSaved();
       onClose();
     } finally {

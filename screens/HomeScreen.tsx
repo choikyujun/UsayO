@@ -49,6 +49,7 @@ import { useFeatureGate } from '../hooks/useFeatureGate';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useSchedules } from '../hooks/useSchedules';
 import { useVoiceFlow } from '../hooks/useVoiceFlow';
+import { refreshWidget } from '../services/widget/widgetRefresh';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
 import { persistNotificationOffset } from '../services/notifications';
 import { ttsService } from '../services/voice/TTSService';
@@ -402,7 +403,7 @@ export default function HomeScreen() {
     deleteEventById(eventId).catch(() => {});
     showUndo('일정이 삭제됐어요', () => {
       supabase.from('events').update({ deleted_at: null }).eq('id', eventId)
-        .then(() => reloadSchedules().catch(() => {}));
+        .then(() => { reloadSchedules().catch(() => {}); refreshWidget('homeDeleteUndo').catch(() => {}); });
     });
   }, [deleteEventById, showUndo, reloadSchedules]);
 

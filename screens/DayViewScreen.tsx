@@ -35,6 +35,7 @@ import VoiceInputOverlay from '../components/VoiceInputOverlay';
 import { useColors } from '../constants/colors';
 import { useDayEvents } from '../hooks/useDayEvents';
 import { useSchedules } from '../hooks/useSchedules';
+import { refreshWidget } from '../services/widget/widgetRefresh';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { supabase } from '../lib/supabase';
 import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset } from '../services/notifications';
@@ -121,9 +122,10 @@ export default function DayViewScreen() {
         if (error) console.error('[DayView] delete failed:', error.message);
         else {
           reload();
+          refreshWidget('dayDelete').catch(() => {});
           showUndo('일정이 삭제됐어요', () => {
             supabase.from('events').update({ deleted_at: null }).eq('id', realId)
-              .then(() => reload());
+              .then(() => { reload(); refreshWidget('dayDeleteUndo').catch(() => {}); });
           });
         }
       });
@@ -138,21 +140,21 @@ export default function DayViewScreen() {
       supabase.from('event_exceptions').insert({ parent_id: parentId, instance_date: instDate, is_deleted: true })
         .then(({ error }) => {
           if (error) console.error('[DayView] exception insert failed:', error.message);
-          else reload();
+          else { reload(); refreshWidget('dayDeleteRecurring:this').catch(() => {}); }
         });
     } else if (scope === 'future') {
       const d = new Date(instDate); d.setDate(d.getDate() - 1);
       supabase.from('events').update({ recurrence_end_date: d.toISOString().split('T')[0] }).eq('id', parentId)
         .then(({ error }) => {
           if (error) console.error('[DayView] recurrence_end_date update failed:', error.message);
-          else reload();
+          else { reload(); refreshWidget('dayDeleteRecurring:future').catch(() => {}); }
         });
     } else {
       cancelEventNotification(parentId).catch(e => console.log('[Notifications] cancel 실패:', e));
       supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', parentId)
         .then(({ error }) => {
           if (error) console.error('[DayView] delete recurring failed:', error.message);
-          else reload();
+          else { reload(); refreshWidget('dayDeleteRecurring:all').catch(() => {}); }
         });
     }
   }
@@ -160,7 +162,10 @@ export default function DayViewScreen() {
   function handleCompleteEvent(event: Event) {
     const completed_at = event.completed_at ? null : new Date().toISOString();
     supabase.from('events').update({ completed_at }).eq('id', event.id)
-      .then(({ error }) => { if (error) console.error('[DayView] complete failed:', error.message); });
+      .then(({ error }) => {
+        if (error) console.error('[DayView] complete failed:', error.message);
+        else refreshWidget('dayComplete').catch(() => {});
+      });
   }
 
   // ── Voice flow ──────────────────────────────────────────────────────

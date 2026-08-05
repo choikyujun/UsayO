@@ -1,5 +1,6 @@
 import { X } from 'lucide-react-native';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { refreshWidget } from '../services/widget/widgetRefresh';
 import {
   Animated, KeyboardAvoidingView, Modal, Platform,
   Pressable, StyleSheet, Text, TextInput, View,
@@ -104,6 +105,7 @@ function EditTitleModal({ visible, event, onClose, onSaved }: Props) {
         }
       }
 
+      refreshWidget('editTitle').catch(() => {});
       onSaved();
       onClose();
     } finally {

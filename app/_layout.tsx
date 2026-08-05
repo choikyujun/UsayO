@@ -8,7 +8,7 @@ import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
-import { LogBox, Platform, Text, TextInput, useColorScheme } from 'react-native';
+import { AppState, LogBox, Platform, Text, TextInput, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // 개발 빌드에서 노란 배너 완전 억제 (console.error는 여전히 터미널에 출력됨)
@@ -29,6 +29,7 @@ import { supabase, supabaseConfigError } from '../lib/supabase';
 import ConfigErrorScreen from '../components/ConfigErrorScreen';
 import { signInWithDevice } from '../services/auth/deviceAuth';
 import { useAuthStore } from '../stores/useAuthStore';
+import { refreshWidget } from '../services/widget/widgetRefresh';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
 import { ttsService } from '../services/voice/TTSService';
@@ -101,6 +102,19 @@ export default function RootLayout() {
 function AppRoot() {
   const colorScheme = useColorScheme();
   const colors = useColors();
+
+  // 위젯 갱신: 인증 완료(userId 확정) 시 1회 + 포그라운드 복귀 시. refreshWidget이 오늘 기준으로
+  // 데이터를 다시 계산해 push한다. 포그라운드 복귀는 크로스디바이스 변경을 반영(realtime 미도입).
+  const widgetUserId = useAuthStore(s => s.userId);
+  useEffect(() => {
+    if (widgetUserId) refreshWidget('auth-ready').catch(() => {});
+  }, [widgetUserId]);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active') refreshWidget('foreground').catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
 
   // 장기 세션 중 토큰 만료 → 자동 재인증
   // initializing 중에는 무시 (signOut({ scope: 'local' }) 가 SIGNED_OUT을 발생시키므로)
