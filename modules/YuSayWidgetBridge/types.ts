@@ -5,10 +5,22 @@ export interface WidgetEvent {
   colorTag?: string;
 }
 
+// Android 컬렉션 위젯이 그대로 렌더하는 플랫 row. 그룹/현재선/과거·완료 판정은 JS에서 계산해
+// 네이티브는 단순 렌더만 하도록 한다(로직 이원화 방지).
+export type WidgetRow =
+  | { type: 'day'; label: string; isToday: boolean }
+  | { type: 'event'; id: string; time: string; title: string; category: string; completed: boolean; past: boolean }
+  | { type: 'now'; time: string }
+  | { type: 'empty' };
+
 export interface WidgetData {
+  // ── iOS 하위호환(기존 위젯 UI) — 기존 필드 유지 ──
   nextEvent: WidgetEvent | null;
   todayEvents: WidgetEvent[]; // max 3
   todayRemainingCount: number;
+  // ── Android 컬렉션 위젯(과거 3일·오늘·앞으로 7일 그룹) ──
+  rows: WidgetRow[];
+  nowLabel: string; // 현재 HH:mm
   updatedAt: string;
 }
 

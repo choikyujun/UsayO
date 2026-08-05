@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UsayO 위젯 목업 v4</title>
+<style>
+  :root { --purple:#534AB7; --ink:#26215C; --wave:#AFA9EC; --done:#1D9E75; --whisper:#EEEDFE; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    font-family:-apple-system,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    background:#f6f6f8; color:#1a1a1f; padding:40px 24px 80px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:1100px; margin:0 auto; }
+  h1 { font-size:22px; font-weight:700; letter-spacing:-.02em; margin-bottom:6px; }
+  .sub { font-size:13px; color:#6b6b78; margin-bottom:40px; line-height:1.6; }
+  .row { display:flex; gap:34px; flex-wrap:wrap; align-items:flex-start; }
+  .col { flex:1; min-width:300px; }
+  .label { font-size:11px; font-weight:700; letter-spacing:.08em; color:#8a8a96; text-transform:uppercase; margin-bottom:4px; }
+  .caption { font-size:12px; color:#6b6b78; margin-bottom:14px; line-height:1.6; min-height:34px; }
+
+  .home {
+    border-radius:26px; padding:18px;
+    background:radial-gradient(120% 90% at 20% 0%,#6d7fb8 0%,#47517d 45%,#2b2f4a 100%);
+    box-shadow:0 18px 40px rgba(20,20,40,.22);
+  }
+  .widget {
+    border-radius:22px; background:rgba(255,255,255,.72);
+    backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+    overflow:hidden; display:flex; flex-direction:column;
+  }
+  .h4x4 { height:340px; }
+  .h4x2 { height:158px; }
+
+  .whead { display:flex; align-items:center; gap:7px; padding:13px 11px 11px 14px; border-bottom:1px solid rgba(38,33,92,.10); flex-shrink:0; }
+  .whead.tight { padding:10px 9px 8px 12px; gap:5px; }
+  .wtitle { font-size:14px; font-weight:700; color:var(--ink); letter-spacing:-.01em; }
+  .wtitle.sm { font-size:13px; }
+  .wdate { font-size:11.5px; color:#6f6b8e; margin-left:2px; }
+  .wdate.sm { font-size:10.5px; }
+  .inline { display:flex; align-items:baseline; gap:6px; }
+  .spacer { flex:1; }
+  .icobtn { width:30px; height:30px; border-radius:15px; display:grid; place-items:center; background:var(--purple); flex-shrink:0; }
+  .icobtn.sm { width:26px; height:26px; border-radius:13px; }
+  .icobtn.ghost { background:rgba(83,74,183,.10); }
+  .icobtn.plain { background:transparent; }
+  svg { display:block; }
+
+  .wlist { flex:1; overflow-y:auto; padding:2px 0 6px; }
+  .wlist::-webkit-scrollbar { width:3px; }
+  .wlist::-webkit-scrollbar-thumb { background:rgba(38,33,92,.18); border-radius:3px; }
+
+  .daysep { display:flex; align-items:center; gap:7px; padding:9px 14px 5px; }
+  .daysep.tight { padding:7px 12px 4px; }
+  .dayname { font-size:10.5px; font-weight:700; letter-spacing:.04em; color:#8a86a3; }
+  .dayname.today { color:var(--purple); }
+  .dayrule { flex:1; height:1px; background:rgba(38,33,92,.07); }
+
+  .item { display:flex; align-items:center; gap:9px; padding:0 6px 0 14px; }
+  .item.tight { padding:0 5px 0 12px; gap:7px; }
+  .itembody { display:flex; align-items:baseline; gap:9px; flex:1; padding:8px 0; min-width:0; }
+  .itembody.tight { gap:7px; padding:6px 0; }
+  .bar { width:3px; height:15px; border-radius:2px; background:var(--purple); flex-shrink:0; align-self:center; }
+  .bar.personal { background:var(--wave); }
+  .time { font-size:11.5px; font-variant-numeric:tabular-nums; color:#55516f; width:46px; flex-shrink:0; font-weight:600; }
+  .time.sm { font-size:11px; width:42px; }
+  .name { font-size:13px; color:#22202e; letter-spacing:-.01em; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .name.sm { font-size:12.5px; }
+
+  .check { width:34px; height:34px; flex-shrink:0; display:grid; place-items:center; border-radius:17px; }
+  .check.sm { width:30px; height:30px; }
+  .checkbox { width:17px; height:17px; border-radius:9px; border:1.6px solid rgba(38,33,92,.28); }
+  .checkbox.sm { width:15px; height:15px; border-radius:8px; }
+  .check.on .checkbox { background:var(--done); border-color:var(--done); display:grid; place-items:center; }
+
+  .item.past { opacity:.42; }
+  .item.finished .name { color:#8a86a3; text-decoration:line-through; text-decoration-color:rgba(138,134,163,.5); }
+
+  .now { display:flex; align-items:center; gap:8px; padding:3px 14px 5px; }
+  .now.tight { padding:2px 12px 4px; }
+  .nowdot { width:5px; height:5px; border-radius:3px; background:#E5484D; flex-shrink:0; }
+  .nowline { flex:1; height:1px; background:#E5484D; opacity:.45; }
+  .nowtxt { font-size:10px; color:#E5484D; font-weight:700; font-variant-numeric:tabular-nums; }
+  .empty { padding:5px 14px 7px 26px; font-size:12px; color:#9a97ac; }
+
+  /* 설정 화면 */
+  .phone {
+    width:270px; border-radius:26px; background:#fff; overflow:hidden;
+    box-shadow:0 18px 40px rgba(20,20,40,.16); border:1px solid #e6e6ee;
+  }
+  .pbar { height:34px; display:flex; align-items:center; padding:0 16px; border-bottom:1px solid #eeeef4; }
+  .ptitle { font-size:13px; font-weight:700; color:var(--ink); }
+  .pbody { padding:18px 16px 20px; }
+  .plabel { font-size:11.5px; font-weight:600; color:#6b6b78; margin-bottom:12px; }
+  .preview {
+    border-radius:14px; padding:12px;
+    background:radial-gradient(120% 90% at 20% 0%,#6d7fb8 0%,#47517d 45%,#2b2f4a 100%);
+    margin-bottom:20px;
+  }
+  .pwidget { border-radius:12px; background:rgba(255,255,255,.55); padding:9px 10px; }
+  .pwrow { display:flex; align-items:baseline; gap:7px; }
+  .pwtitle { font-size:11px; font-weight:700; color:var(--ink); }
+  .pwdate { font-size:9.5px; color:#6f6b8e; }
+  .pwitem { display:flex; align-items:baseline; gap:7px; margin-top:7px; }
+  .pwbar { width:2.5px; height:11px; border-radius:2px; background:var(--purple); align-self:center; }
+  .pwtime { font-size:9.5px; font-weight:600; color:#55516f; font-variant-numeric:tabular-nums; }
+  .pwname { font-size:10.5px; color:#22202e; }
+
+  .slider { position:relative; height:4px; border-radius:2px; background:#e8e8f0; margin:0 4px 8px; }
+  .sfill { position:absolute; left:0; top:0; bottom:0; width:55%; border-radius:2px; background:var(--purple); }
+  .sknob { position:absolute; left:55%; top:50%; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:9px; background:#fff; border:2px solid var(--purple); box-shadow:0 2px 5px rgba(38,33,92,.2); }
+  .srange { display:flex; justify-content:space-between; font-size:10.5px; color:#9a97ac; padding:0 4px; }
+  .pbtn { margin-top:20px; height:40px; border-radius:12px; background:var(--purple); display:grid; place-items:center; }
+  .pbtntxt { font-size:13px; font-weight:600; color:#fff; }
+
+  .notes { margin-top:44px; border-top:1px solid #e3e3ea; padding-top:22px; }
+  .notes h2 { font-size:14px; font-weight:700; margin-bottom:12px; letter-spacing:-.01em; }
+  .notes ul { list-style:none; }
+  .notes li { font-size:13px; color:#45434f; line-height:1.75; padding-left:15px; position:relative; }
+  .notes li::before { content:""; position:absolute; left:0; top:10px; width:4px; height:4px; border-radius:2px; background:var(--wave); }
+  .notes b { color:#1a1a1f; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>UsayO 위젯 — 최종</h1>
+  <p class="sub">헤더 아이콘 3개(설정 · 추가 · 음성). 설정은 언제든 다시 열 수 있습니다.</p>
+
+  <div class="row">
+
+    <!-- 4x4 -->
+    <div class="col">
+      <div class="label">4 × 4</div>
+      <p class="caption">설정은 회색 외곽선, 추가는 연한 배경, 음성은 퍼플 채움. 색 농도가 위계입니다.</p>
+      <div class="home">
+        <div class="widget h4x4">
+          <div class="whead">
+            <div>
+              <div class="wtitle">오늘</div>
+              <div class="wdate">8월 5일 화요일</div>
+            </div>
+            <div class="spacer"></div>
+            <div class="icobtn plain"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a86a3" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+            <div class="icobtn ghost"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#534AB7" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            <div class="icobtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
+          </div>
+          <div class="wlist">
+            <div class="daysep"><span class="dayname">8월 2일 토</span><span class="dayrule"></span></div>
+            <div class="item past finished">
+              <div class="itembody"><span class="bar personal"></span><span class="time">14:00</span><span class="name">치과</span></div>
+              <div class="check on"><span class="checkbox"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+            </div>
+            <div class="daysep"><span class="dayname">8월 4일 월</span><span class="dayrule"></span></div>
+            <div class="item past">
+              <div class="itembody"><span class="bar"></span><span class="time">10:00</span><span class="name">주간 회의</span></div>
+              <div class="check"><span class="checkbox"></span></div>
+            </div>
+            <div class="daysep"><span class="dayname today">오늘 · 8월 5일 화</span><span class="dayrule"></span></div>
+            <div class="item past finished">
+              <div class="itembody"><span class="bar"></span><span class="time">09:00</span><span class="name">출근</span></div>
+              <div class="check on"><span class="checkbox"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+            </div>
+            <div class="now"><span class="nowdot"></span><span class="nowline"></span><span class="nowtxt">15:42</span></div>
+            <div class="item">
+              <div class="itembody"><span class="bar"></span><span class="time">17:00</span><span class="name">미팅</span></div>
+              <div class="check"><span class="checkbox"></span></div>
+            </div>
+            <div class="item">
+              <div class="itembody"><span class="bar"></span><span class="time">18:00</span><span class="name">회의</span></div>
+              <div class="check"><span class="checkbox"></span></div>
+            </div>
+            <div class="daysep"><span class="dayname">8월 6일 수</span><span class="dayrule"></span></div>
+            <div class="item">
+              <div class="itembody"><span class="bar personal"></span><span class="time">14:00</span><span class="name">점심 약속</span></div>
+              <div class="check"><span class="checkbox"></span></div>
+            </div>
+            <div class="item">
+              <div class="itembody"><span class="bar personal"></span><span class="time">15:00</span><span class="name">축구 시합</span></div>
+              <div class="check"><span class="checkbox"></span></div>
+            </div>
+            <div class="daysep"><span class="dayname">8월 7일 목</span><span class="dayrule"></span></div>
+            <div class="empty">일정 없음</div>
+            <div class="daysep"><span class="dayname">8월 8일 금</span><span class="dayrule"></span></div>
+            <div class="item">
+              <div class="itembody"><span class="bar"></span><span class="time">11:00</span><span class="name">거래처 방문</span></div>
+              <div class="check"><span class="checkbox"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4x2 -->
+    <div class="col">
+      <div class="label">4 × 2</div>
+      <p class="caption">아이콘 3개를 26dp로 줄이고 헤더를 한 줄로 접었습니다.</p>
+      <div class="home">
+        <div class="widget h4x2">
+          <div class="whead tight">
+            <div class="inline">
+              <span class="wtitle sm">오늘</span>
+              <span class="wdate sm">8월 5일 화</span>
+            </div>
+            <div class="spacer"></div>
+            <div class="icobtn plain sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a86a3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+            <div class="icobtn ghost sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#534AB7" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            <div class="icobtn sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
+          </div>
+          <div class="wlist">
+            <div class="item past finished tight">
+              <div class="itembody tight"><span class="bar"></span><span class="time sm">09:00</span><span class="name sm">출근</span></div>
+              <div class="check sm on"><span class="checkbox sm"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+            </div>
+            <div class="now tight"><span class="nowdot"></span><span class="nowline"></span><span class="nowtxt">15:42</span></div>
+            <div class="item tight">
+              <div class="itembody tight"><span class="bar"></span><span class="time sm">17:00</span><span class="name sm">미팅</span></div>
+              <div class="check sm"><span class="checkbox sm"></span></div>
+            </div>
+            <div class="item tight">
+              <div class="itembody tight"><span class="bar"></span><span class="time sm">18:00</span><span class="name sm">회의</span></div>
+              <div class="check sm"><span class="checkbox sm"></span></div>
+            </div>
+            <div class="daysep tight"><span class="dayname">8월 6일 수</span><span class="dayrule"></span></div>
+            <div class="item tight">
+              <div class="itembody tight"><span class="bar personal"></span><span class="time sm">14:00</span><span class="name sm">점심 약속</span></div>
+              <div class="check sm"><span class="checkbox sm"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 설정 화면 -->
+    <div class="col" style="flex:0 0 auto">
+      <div class="label">설정 화면</div>
+      <p class="caption">헤더 설정 아이콘으로 언제든 다시 엽니다.</p>
+      <div class="phone">
+        <div class="pbar"><span class="ptitle">위젯 설정</span></div>
+        <div class="pbody">
+          <div class="plabel">미리보기</div>
+          <div class="preview">
+            <div class="pwidget">
+              <div class="pwrow"><span class="pwtitle">오늘</span><span class="pwdate">8월 5일 화</span></div>
+              <div class="pwitem"><span class="pwbar"></span><span class="pwtime">17:00</span><span class="pwname">미팅</span></div>
+              <div class="pwitem"><span class="pwbar"></span><span class="pwtime">18:00</span><span class="pwname">회의</span></div>
+            </div>
+          </div>
+          <div class="plabel">배경 투명도</div>
+          <div class="slider"><span class="sfill"></span><span class="sknob"></span></div>
+          <div class="srange"><span>투명</span><span>불투명</span></div>
+          <div class="pbtn"><span class="pbtntxt">저장</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="notes">
+    <h2>구현 메모</h2>
+    <ul>
+      <li><b>아이콘 3개의 위계.</b> 설정은 배경 없는 회색 아웃라인, 추가는 연한 퍼플 배경, 음성은 퍼플 채움. 주 동작이 한눈에 구분됩니다.</li>
+      <li><b>설정 재진입 두 경로.</b> 헤더 아이콘이 주 경로이고, <code>appwidget-provider</code>에 재구성 플래그를 켜서 길게 누르기 메뉴에서도 열리게 합니다.</li>
+      <li><b>설정 화면에 미리보기.</b> 슬라이더를 움직이면 위 미리보기가 즉시 반영돼 저장 전에 결과를 봅니다. 저장 후 위젯을 확인하러 나갈 필요가 없습니다.</li>
+      <li><b>슬라이더 양끝 라벨.</b> 숫자 퍼센트 대신 "투명 / 불투명"으로 씁니다. 사용자가 조정하는 건 값이 아니라 보이는 정도입니다.</li>
+      <li><b>투명도는 배경에만.</b> 글자와 아이콘은 항상 불투명해야 밝은 배경화면에서도 읽힙니다.</li>
+      <li><b>완료 버튼은 두 크기 모두 유지.</b> 크기에 따라 기능이 달라지면 혼란스럽습니다. 4×2는 30dp로 줄입니다.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

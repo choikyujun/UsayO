@@ -33,11 +33,10 @@ class YuSayWidgetBridgeModule : Module() {
 
   private fun triggerWidgetUpdate(context: Context) {
     val widgetManager = AppWidgetManager.getInstance(context)
-    // provider 클래스(YuSaySmallWidget/YuSayMediumWidget)는 :app(위젯 확장)에 있다.
+    // provider 클래스(YuSayMediumWidget)는 :app(위젯 확장)에 있다.
     // 이 모듈이 그 클래스에 컴파일 의존하지 않도록 문자열 클래스명으로 ComponentName을 만든다.
-    // (런타임에 시스템이 앱 패키지의 리시버로 해석 — 기능 동일)
+    // (런타임에 시스템이 앱 패키지의 리시버로 해석 — 기능 동일). Small 위젯은 제거됨.
     val providerClassNames = listOf(
-      "com.yusay.app.widget.YuSaySmallWidget",
       "com.yusay.app.widget.YuSayMediumWidget",
     )
     for (className in providerClassNames) {

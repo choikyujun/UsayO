@@ -151,6 +151,25 @@ function AppRoot() {
       const parsed = Linking.parse(url);
       console.log('[Deeplink] parsed:', parsed);
 
+      // 위젯 완료 토글(yusay:///?w=complete&id&done) — 화면 이동 없이 completed_at만 갱신 후 위젯 재계산.
+      // 앱의 완료 기능과 동일. done=1 완료, done=0 해제.
+      const w = parsed.queryParams?.w;
+      if (w === 'complete') {
+        const id = parsed.queryParams?.id ? String(parsed.queryParams.id) : null;
+        const done = parsed.queryParams?.done === '1';
+        if (id) {
+          supabase.from('events')
+            .update({ completed_at: done ? new Date().toISOString() : null })
+            .eq('id', id)
+            .then(({ error }) => {
+              if (error) console.log('[Widget] complete via deeplink 실패:', error.message);
+              refreshWidget('widgetComplete').catch(() => {});
+            });
+        }
+        return; // 홈으로만 열리고 별도 네비게이션 없음
+      }
+      // 'add' 등 기타 위젯 액션은 홈으로 열리기만 한다(별도 네비게이션 없음).
+
       // 음성 딥링크(yusay://voice)는 expo-router가 /voice 라우트를 직접 연다.
       // 예전엔 여기서 router.replace('/')+홈 오버레이 트리거로 이중 처리해, /voice(모달)와
       // 레이스가 나고 router.replace가 녹음 중 /voice를 dismiss → 언마운트 release로 마이크를

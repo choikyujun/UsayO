@@ -40,8 +40,23 @@ export function withYuSayWidgetsAndroid(config: any) {
       } as any);
     }
 
-    ensureReceiver('YuSaySmallWidget', 'widget_small_info');
+    // Small 위젯 제거 — Medium(4x2↔4x4 리사이즈) 하나로 통일.
     ensureReceiver('YuSayMediumWidget', 'widget_medium_info');
+
+    // 컬렉션(ListView) 어댑터 서비스 — RemoteViewsService는 BIND_REMOTEVIEWS 권한이 필요.
+    const services = (app.service ??= []);
+    const svcExists = services.some(
+      (s: any) => s.$?.['android:name']?.includes('WidgetListService'),
+    );
+    if (!svcExists) {
+      services.push({
+        $: {
+          'android:name': '.widget.WidgetListService',
+          'android:permission': 'android.permission.BIND_REMOTEVIEWS',
+          'android:exported': 'false',
+        },
+      } as any);
+    }
 
     // WidgetConfigActivity — 투명도 슬라이더
     const activities = (app.activity ??= []);
@@ -82,12 +97,13 @@ export function withYuSayWidgetsAndroid(config: any) {
       fs.mkdirSync(javaDir, { recursive: true });
       fs.mkdirSync(path.join(resDir, 'layout'), { recursive: true });
       fs.mkdirSync(path.join(resDir, 'xml'), { recursive: true });
+      fs.mkdirSync(path.join(resDir, 'drawable'), { recursive: true });
 
-      // Copy Kotlin sources
+      // Copy Kotlin sources (Small 제거, 컬렉션 서비스 추가)
       for (const file of [
         'WidgetDataManager.kt',
-        'YuSaySmallWidget.kt',
         'YuSayMediumWidget.kt',
+        'WidgetListService.kt',
         'WidgetConfigActivity.kt',
       ]) {
         fs.copyFileSync(path.join(SRC, file), path.join(javaDir, file));
@@ -97,8 +113,14 @@ export function withYuSayWidgetsAndroid(config: any) {
       // :yusay-widget-bridge 가 이 Expo 모듈을 제공/등록하며, :app 에도 두면 duplicate-class 로
       // 빌드가 실패한다. (:app 는 위젯 provider/res/manifest만 담당)
 
-      // Copy layout XMLs
-      for (const file of ['widget_small.xml', 'widget_medium.xml']) {
+      // Copy layout XMLs (컬렉션 위젯 루트 + 아이템 row 레이아웃들)
+      for (const file of [
+        'widget_medium.xml',
+        'widget_row_day.xml',
+        'widget_row_event.xml',
+        'widget_row_now.xml',
+        'widget_row_empty.xml',
+      ]) {
         fs.copyFileSync(
           path.join(SRC, 'res', 'layout', file),
           path.join(resDir, 'layout', file),
@@ -106,10 +128,19 @@ export function withYuSayWidgetsAndroid(config: any) {
       }
 
       // Copy XML resources
-      for (const file of ['widget_small_info.xml', 'widget_medium_info.xml']) {
+      for (const file of ['widget_medium_info.xml']) {
         fs.copyFileSync(
           path.join(SRC, 'res', 'xml', file),
           path.join(resDir, 'xml', file),
+        );
+      }
+
+      // Copy drawables (벡터 아이콘·배경). widget-extension/android/res/drawable 전체를 복사.
+      const srcDrawable = path.join(SRC, 'res', 'drawable');
+      for (const file of fs.readdirSync(srcDrawable)) {
+        fs.copyFileSync(
+          path.join(srcDrawable, file),
+          path.join(resDir, 'drawable', file),
         );
       }
 

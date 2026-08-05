@@ -2,24 +2,27 @@ package com.yusay.app.widget
 
 import android.content.Context
 import org.json.JSONObject
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 private const val PREFS_NAME = "com.yusay.app.widget"
 private const val PREFS_KEY = "widget_data"
 
-data class WidgetEvent(
-  val id: String,
-  val title: String,
-  val startAt: String,
-  val colorTag: String?,
+// JS(WidgetService)가 계산해 보낸 플랫 row. 네이티브는 그대로 렌더만 한다.
+// type: "day" | "event" | "now" | "empty"
+data class WidgetRow(
+  val type: String,
+  val label: String = "",
+  val isToday: Boolean = false,
+  val id: String = "",
+  val time: String = "",
+  val title: String = "",
+  val category: String = "work",
+  val completed: Boolean = false,
+  val past: Boolean = false,
 )
 
 data class WidgetData(
-  val nextEvent: WidgetEvent?,
-  val todayEvents: List<WidgetEvent>,
-  val todayRemainingCount: Int,
+  val rows: List<WidgetRow>,
+  val nowLabel: String,
 )
 
 object WidgetDataManager {
@@ -28,33 +31,22 @@ object WidgetDataManager {
     val raw = prefs.getString(PREFS_KEY, null) ?: return null
     return try {
       val json = JSONObject(raw)
-
-      val nextEventJson = if (json.isNull("nextEvent")) null else json.getJSONObject("nextEvent")
-      val nextEvent = nextEventJson?.let {
-        WidgetEvent(
-          id = it.getString("id"),
-          title = it.getString("title"),
-          startAt = it.getString("startAt"),
-          colorTag = if (it.isNull("colorTag")) null else it.getString("colorTag"),
+      val rowsArray = json.optJSONArray("rows")
+      val rows = if (rowsArray == null) emptyList() else (0 until rowsArray.length()).map { i ->
+        val r = rowsArray.getJSONObject(i)
+        WidgetRow(
+          type = r.optString("type", "event"),
+          label = r.optString("label", ""),
+          isToday = r.optBoolean("isToday", false),
+          id = r.optString("id", ""),
+          time = r.optString("time", ""),
+          title = r.optString("title", ""),
+          category = r.optString("category", "work"),
+          completed = r.optBoolean("completed", false),
+          past = r.optBoolean("past", false),
         )
       }
-
-      val eventsArray = json.getJSONArray("todayEvents")
-      val todayEvents = (0 until eventsArray.length()).map { i ->
-        val e = eventsArray.getJSONObject(i)
-        WidgetEvent(
-          id = e.getString("id"),
-          title = e.getString("title"),
-          startAt = e.getString("startAt"),
-          colorTag = if (e.isNull("colorTag")) null else e.getString("colorTag"),
-        )
-      }
-
-      WidgetData(
-        nextEvent = nextEvent,
-        todayEvents = todayEvents,
-        todayRemainingCount = json.getInt("todayRemainingCount"),
-      )
+      WidgetData(rows = rows, nowLabel = json.optString("nowLabel", ""))
     } catch (e: Exception) {
       null
     }
@@ -65,20 +57,9 @@ object WidgetDataManager {
     return prefs.getInt("alpha_$appWidgetId", 100)
   }
 
-  fun formatTime(isoString: String): String {
-    return try {
-      val formats = arrayOf(
-        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-        "yyyy-MM-dd'T'HH:mm:ss'Z'",
-        "yyyy-MM-dd'T'HH:mm:ss",
-      )
-      var date: Date? = null
-      for (fmt in formats) {
-        try { date = SimpleDateFormat(fmt, Locale.getDefault()).parse(isoString); break } catch (_: Exception) {}
-      }
-      date?.let { SimpleDateFormat("HH:mm", Locale.getDefault()).format(it) } ?: ""
-    } catch (e: Exception) {
-      ""
-    }
+  // 카테고리 색 바. personal은 연한 톤(wave), 그 외(work/important)는 퍼플.
+  fun categoryColor(category: String): Int {
+    return if (category == "personal") android.graphics.Color.parseColor("#AFA9EC")
+    else android.graphics.Color.parseColor("#534AB7")
   }
 }
