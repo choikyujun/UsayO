@@ -84,7 +84,7 @@ class AudioSessionService {
   // **녹음 최대 길이(MAX_DURATION_MS)보다 반드시 커야 한다**: 정상 녹음은 max에서
   // 자동 종료·반납되므로, 이보다 긴 시간 잡혀 있으면 그 락은 '라이브 녹음이 아니라
   // 누수'로 확정된다 → stale 회수가 라이브 녹음을 건드릴 일이 원천적으로 없다.
-  private static readonly STALE_LOCK_MS = MAX_DURATION_MS + 10_000; // 현재 40초
+  private static readonly STALE_LOCK_MS = MAX_DURATION_MS + 10_000; // 현재 25초(MAX 15s + 10s)
 
   // 모든 소유권 연산(acquire/release)을 한 줄로 세우는 직렬화 뮤텍스.
   // 소유권 상태 평가와 실제 리소스 정리(unload)가 '원자적'으로 끝나게 해, 전이(선점) 도중
