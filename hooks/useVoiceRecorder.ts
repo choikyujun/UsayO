@@ -18,7 +18,12 @@ const LEVEL_INTERVAL  = 100;     // 측정 인터벌 (ms)
 // 소음 적응: 무음 임계 = max(SILENCE_DB, 배경레벨 + 이 마진). 배경 대비 이만큼 이내로 조용해지면
 // "말 끝남"으로 본다. 마진이 배경 변동폭보다 커야 배경 자체가 임계를 넘나들며 타이머를 리셋하지 않음.
 const SILENCE_MARGIN_DB = 8;
-const NOISE_FLOOR_MIN_DB = -70;  // 배경 추정 하한(계측 글리치 방어)
+// 배경 레벨(floor) 추정 — running-min은 말 중간의 순간 무음·무효 샘플에 끌려 하한으로 붕괴하므로
+// '최근 구간의 하위 백분위수'로 지속적 배경만 잡는다.
+const NOISE_WINDOW_SAMPLES = 30;   // 최근 3초(100ms×30) 창
+const NOISE_PERCENTILE      = 0.25; // 하위 25백분위 = 배경 클러스터(순간 dip·발화 피크에 강건)
+const NOISE_VALID_MIN_DB    = -90;  // 이하(-90 이하)는 무신호/글리치 → floor 추정에서 제외
+const NOISE_MIN_SAMPLES     = 5;    // 이만큼 모이기 전엔 적응 안 함(임계 = SILENCE_DB 유지)
 
 export interface VoiceRecorderState {
   status: MicStatus;
@@ -64,7 +69,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
   const maxTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTimeRef     = useRef<number>(0);
   const silenceStartRef  = useRef<number | null>(null); // 무음 시작 타임스탬프
-  const noiseFloorRef    = useRef<number | null>(null);  // 배경 소음 레벨 추정(유효 db의 running-min)
+  const noiseSamplesRef  = useRef<number[]>([]);          // 최근 유효 db 창(배경 레벨 백분위 추정용)
   const autoStopRef      = useRef<(() => Promise<string | null>) | null>(null);
   const onAutoStopRef    = useRef(options?.onAutoStop);
   onAutoStopRef.current  = options?.onAutoStop;
@@ -215,7 +220,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       recordingRef.current = recording;
       startTimeRef.current = Date.now();
       silenceStartRef.current = null;
-      noiseFloorRef.current = null; // 새 녹음마다 배경 추정 초기화
+      noiseSamplesRef.current = []; // 새 녹음마다 배경 추정 창 초기화
       speechMsRef.current = 0; // 새 녹음 시작 시 누적 발화 리셋
       setStatus('recording');
 
@@ -235,21 +240,26 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
         const normalized = Math.max(0, Math.min(1, (db + 160) / 160));
         setAudioLevel(normalized);
 
-        // 배경 소음 추정: 유효 db(-100 초과)의 running-min. 계측 오류(-160 기본)는 제외.
-        // 워밍업 포함 매 샘플 갱신 → 배경이 낮은(조용한) 구간을 배경 레벨로 학습.
-        if (db > -100) {
-          noiseFloorRef.current = noiseFloorRef.current === null
-            ? Math.max(db, NOISE_FLOOR_MIN_DB)
-            : Math.max(Math.min(noiseFloorRef.current, db), NOISE_FLOOR_MIN_DB);
+        // 배경 소음 추정: 유효 db(-90 초과)만 최근 창에 모아, 하위 백분위수(p25)를 배경으로 본다.
+        // running-min과 달리 순간 무음·무효 샘플에 끌려 내려가지 않고 '지속적 배경'을 잡는다.
+        const buf = noiseSamplesRef.current;
+        if (db > NOISE_VALID_MIN_DB) {
+          buf.push(db);
+          if (buf.length > NOISE_WINDOW_SAMPLES) buf.shift();
         }
-        const floor = noiseFloorRef.current ?? SILENCE_DB;
+        let floor = SILENCE_DB; // 표본 부족 시 적응 안 함(임계 -40 유지)
+        if (buf.length >= NOISE_MIN_SAMPLES) {
+          const sorted = [...buf].sort((a, b) => a - b);
+          floor = sorted[Math.floor(NOISE_PERCENTILE * (sorted.length - 1))];
+        }
         // 소음 적응형 무음 임계: 조용한 환경(배경 낮음)에선 기존 SILENCE_DB(-40) 유지,
         // 소음 환경(배경 높음)에선 배경+마진으로 상향 → "배경 대비 조용해졌는가"로 판정.
         const silenceThresholdDb = Math.max(SILENCE_DB, floor + SILENCE_MARGIN_DB);
 
         // 검증용: 약 1초마다 배경 레벨·적용 임계 로그(소음 환경에서 무음이 안 잡혀도 값 확인 가능).
+        // floor는 최근 창(n) 유효 표본의 p25(백분위)임을 함께 남긴다.
         if (elapsed % 1000 < LEVEL_INTERVAL) {
-          console.log(`[Recorder] level db=${db.toFixed(0)} floor=${floor.toFixed(0)} thr=${silenceThresholdDb.toFixed(0)} elapsed=${elapsed}ms`);
+          console.log(`[Recorder] level db=${db.toFixed(0)} floor=${floor.toFixed(0)}(p25 n=${buf.length}) thr=${silenceThresholdDb.toFixed(0)} elapsed=${elapsed}ms`);
         }
 
         // 워밍업 기간 또는 소리가 있는 경우 → 무음 타이머 리셋
@@ -278,7 +288,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
         const progress = Math.min(1, silenceElapsed / silenceMsRef.current);
         setSilenceProgress(progress);
 
-        console.log(`[Recorder] silence ${silenceElapsed}ms / ${silenceMsRef.current}ms (${Math.round(progress * 100)}%) db=${db.toFixed(0)} floor=${floor.toFixed(0)} thr=${silenceThresholdDb.toFixed(0)}`);
+        console.log(`[Recorder] silence ${silenceElapsed}ms / ${silenceMsRef.current}ms (${Math.round(progress * 100)}%) db=${db.toFixed(0)} floor=${floor.toFixed(0)}(p25 n=${buf.length}) thr=${silenceThresholdDb.toFixed(0)}`);
 
         if (silenceElapsed >= silenceMsRef.current) {
           silenceStartRef.current = null;
