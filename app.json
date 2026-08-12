@@ -53,7 +53,8 @@
       "./plugins/withYuSayWidgets",
       "./plugins/withRemovePermissions",
       "@react-native-community/datetimepicker",
-      "expo-font"
+      "expo-font",
+      "react-native-iap"
     ],
     "jsEngine": "hermes",
     "extra": {
