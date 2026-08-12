@@ -212,15 +212,15 @@ export default function TimeSpine({
   function handleDelete(event: Event) {
     setHiddenIds(prev => new Set([...prev, event.id]));
 
-    if (deletedItem) {
-      clearTimeout(deletedItem.timeoutId);
-      commitDelete(deletedItem.event);
-    }
+    // 즉시 DB 반영(다가올 일정 삭제와 동일 패턴). 이전엔 5초 뒤 지연 커밋이었는데, 그 지연이
+    // refreshWidget(서버 재조회) 시점에 삭제 전 데이터를 읽게 해 위젯이 undo 창만큼 뒤처졌다.
+    // 이제 undo는 복원(deleted_at=null)으로 처리하고, 타이머는 토스트/undo 참조 정리만 담당.
+    commitDelete(event);
 
+    if (deletedItem) clearTimeout(deletedItem.timeoutId);
     Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
 
     const timeoutId = setTimeout(() => {
-      commitDelete(event);
       Animated.timing(toastOpacity, { toValue: 0, duration: 250, useNativeDriver: true })
         .start(() => setDeletedItem(null));
     }, 5000);
@@ -231,6 +231,7 @@ export default function TimeSpine({
   function handleUndoDelete() {
     if (!deletedItem) return;
     clearTimeout(deletedItem.timeoutId);
+    restoreDelete(deletedItem.event); // 즉시 커밋됐으므로 undo는 DB 복원 + 위젯 갱신
     setHiddenIds(prev => {
       const next = new Set(prev);
       next.delete(deletedItem.event.id);
@@ -238,6 +239,20 @@ export default function TimeSpine({
     });
     setDeletedItem(null);
     Animated.timing(toastOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+  }
+
+  function restoreDelete(event: Event) {
+    const realId = isVirtualInstance(event.id)
+      ? (parseInstanceId(event.id)?.parentId ?? event.id)
+      : event.id;
+    supabase
+      .from('events')
+      .update({ deleted_at: null })
+      .eq('id', realId)
+      .then(({ error }) => {
+        if (error) console.error('[TimeSpine] undo restore failed:', error.message);
+        else refreshWidget('timeSpineUndo').catch(() => {});
+      });
   }
 
   function commitDelete(event: Event) {
@@ -325,12 +340,11 @@ export default function TimeSpine({
     });
   }
 
+  // 삭제는 즉시 커밋되므로 언마운트 시 추가 커밋 불필요(타이머만 정리). 이전 지연-커밋 모델의
+  // 잔재였음.
   useEffect(() => {
     return () => {
-      if (deletedItem) {
-        clearTimeout(deletedItem.timeoutId);
-        commitDelete(deletedItem.event);
-      }
+      if (deletedItem) clearTimeout(deletedItem.timeoutId);
     };
   }, [deletedItem]);
 
