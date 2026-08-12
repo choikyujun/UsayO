@@ -9,7 +9,7 @@ import { evaluateConfirmSTT } from '../utils/voiceResponseMatcher';
 import { ClassifiedIntent } from '../types';
 import { Spacing } from '../constants/spacing';
 
-const AUTO_CONFIRM_MS    = 5000;
+const AUTO_SAVE_COUNTDOWN_S = 3;    // 확인 TTS 종료 후 자동 저장까지 카운트다운(초)
 const RECORD_MAX_MS      = 3500;
 const MAX_REASK          = 2;    // 발화 미인식 시 재질문 최대 횟수
 
@@ -106,13 +106,20 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
   console.log('[ConfirmCard/Inline] 렌더 시점:', new Date().toISOString());
 
   const [micActive, setMicActive] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null); // 자동 저장까지 남은 초(null=미진행/일시정지)
 
   const confirmedRef   = useRef(false);
-  const autoTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pausedRef      = useRef(false); // 카드 탭 시 자동 저장 일시정지(재시작 안 함)
   const recordStopRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reAskCountRef  = useRef(0);
   const isActiveRef    = useRef(true);
   const recorder = useVoiceRecorder({ silenceMs: 2000 }); // 확인 응답용 무음 여유(일반 발화 불변)
+
+  const clearCountdown = useCallback(() => {
+    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+    setCountdown(null);
+  }, []);
 
   const slideY  = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -121,11 +128,19 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
   const resolve = useCallback((result: 'confirm' | 'cancel') => {
     if (confirmedRef.current) return;
     confirmedRef.current = true;
-    if (autoTimerRef.current)  clearTimeout(autoTimerRef.current);
+    clearCountdown();
     if (recordStopRef.current) clearTimeout(recordStopRef.current);
     recorder.cancelRecording();
     result === 'confirm' ? onConfirm() : onCancel();
-  }, [onConfirm, onCancel, recorder]);
+  }, [onConfirm, onCancel, recorder, clearCountdown]);
+
+  // 카드 탭 → 자동 저장 카운트다운 일시정지(취소/저장이 아님 — 사용자가 읽고 결정 중이라는 신호).
+  // 이후엔 음성("저장"/"취소") 또는 버튼으로만 진행. 자동 재시작하지 않는다.
+  const pauseCountdown = useCallback(() => {
+    if (confirmedRef.current || countdownRef.current == null) return;
+    pausedRef.current = true;
+    clearCountdown();
+  }, [clearCountdown]);
 
   // ── 슬라이드인 애니메이션 ────────────────────────────────────
   useEffect(() => {
@@ -144,8 +159,24 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
     isActiveRef.current = true;
 
     const buttonWait = async () => {
-      if (autoTimerRef.current) { clearTimeout(autoTimerRef.current); autoTimerRef.current = null; }
+      clearCountdown();
+      pausedRef.current = true; // 재질문 초과 → 자동 저장 중단, 버튼/음성 대기
       await ttsService.speak('잘 못 들었어요. 화면의 버튼을 눌러주세요.', undefined, undefined, true).catch(() => {});
+    };
+
+    // 확인 TTS 종료 후 자동 저장 카운트다운. 매초 hadSpeech를 확인해 사용자가 말하기 시작하면
+    // 보류하고(음성 판정을 따름), 침묵으로 0이 되면 자동 저장(confirm).
+    const startCountdown = () => {
+      if (pausedRef.current || confirmedRef.current || !isActiveRef.current) return;
+      let remaining = AUTO_SAVE_COUNTDOWN_S;
+      setCountdown(remaining);
+      countdownRef.current = setInterval(() => {
+        if (confirmedRef.current || !isActiveRef.current) { clearCountdown(); return; }
+        if (recorder.hadSpeech()) { clearCountdown(); return; } // 발화 시작 → 보류
+        remaining -= 1;
+        if (remaining <= 0) { clearCountdown(); resolve('confirm'); return; }
+        setCountdown(remaining);
+      }, 1000);
     };
 
     const recordDone = async () => {
@@ -156,10 +187,10 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
 
       const spoke = recorder.hadSpeech(); // 녹음 중 유효 발화(-40dB↑) 감지 여부
       if (!spoke) {
-        // 무응답(침묵). 첫 사이클이면 5초 자동확정 타이머가 처리(사용자 침묵=동의).
-        // 재질문 이후의 무응답이면 자동확정 금지 → 버튼 대기.
-        if (reAskCountRef.current === 0 && autoTimerRef.current) {
-          console.log('[ConfirmCard/Inline] 무응답(침묵) — 5초 자동확정 대기');
+        // 무응답(침묵). 첫 사이클이면 자동 저장 카운트다운이 처리(사용자 침묵=동의).
+        // 재질문 이후의 무응답이면 자동 저장 금지 → 버튼 대기.
+        if (reAskCountRef.current === 0) {
+          console.log('[ConfirmCard/Inline] 무응답(침묵) — 자동 저장 카운트다운이 처리');
         } else {
           console.log('[ConfirmCard/Inline] 재질문 후 무응답 — 버튼 대기');
           await buttonWait();
@@ -167,8 +198,8 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
         return;
       }
 
-      // 발화 감지 → 자동확정 금지(사용자가 말했으므로 반드시 판정 결과를 따른다)
-      if (autoTimerRef.current) { clearTimeout(autoTimerRef.current); autoTimerRef.current = null; }
+      // 발화 감지 → 자동 저장 금지(사용자가 말했으므로 반드시 판정 결과를 따른다)
+      clearCountdown();
 
       let action: 'confirm' | 'cancel' | 'unknown' = 'unknown';
       if (uri) {
@@ -203,15 +234,15 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
       if (!isActiveRef.current || confirmedRef.current) { recorder.cancelRecording(); return; }
       setMicActive(true);
 
-      // 자동 저장 타이머: 마이크 오픈(=질문 재생 후) 기준 5초. 발화 감지 시 recordDone에서 취소됨.
-      autoTimerRef.current = setTimeout(() => resolve('confirm'), AUTO_CONFIRM_MS);
+      // 확인 TTS가 끝난 뒤(=여기)부터 3초 카운트다운 시작. 발화 감지/카드 탭 시 보류·정지.
+      startCountdown();
       recordStopRef.current = setTimeout(recordDone, RECORD_MAX_MS);
     };
 
     run();
     return () => {
       isActiveRef.current = false;
-      if (autoTimerRef.current)  clearTimeout(autoTimerRef.current);
+      clearCountdown();
       if (recordStopRef.current) clearTimeout(recordStopRef.current);
       recorder.cancelRecording();
     };
@@ -225,12 +256,15 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
     intent.deleteTargetQuery;
 
   return (
-    // 화면 어디든 탭 → 즉시 취소
-    <Pressable style={StyleSheet.absoluteFill} onPress={() => resolve('cancel')}>
+    <View style={StyleSheet.absoluteFill}>
+      {/* 배경(카드 밖) 탭 → 취소 */}
+      <Pressable style={StyleSheet.absoluteFill} onPress={() => resolve('cancel')} />
       <View style={styles.overlay} pointerEvents="box-none">
         <Animated.View
           style={[styles.card, { transform: [{ translateY: slideY }], opacity }]}
         >
+         {/* 카드 본문 탭 → 카운트다운 일시정지(취소/저장 아님) */}
+         <Pressable onPress={pauseCountdown}>
           {/* 인텐트 배지 */}
           <View style={styles.headerRow}>
             <View style={styles.intentBadge}>
@@ -287,20 +321,39 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
             )}
           </View>
 
-          {/* 하단 상태 — 파형 아이콘 또는 힌트 */}
+         </Pressable>
+
+          {/* 하단 상태 — 카운트다운 / 파형 / 힌트 */}
           <View style={styles.footer}>
-            {micActive ? (
+            {countdown != null ? (
+              <>
+                {micActive && <MiniWaveform active={micActive} color={colors.primary} />}
+                <Text style={styles.countdownText}>{countdown}초 후 저장</Text>
+              </>
+            ) : pausedRef.current ? (
+              <Text style={styles.footerHint}>저장 또는 취소를 선택하세요</Text>
+            ) : micActive ? (
               <>
                 <MiniWaveform active={micActive} color={colors.primary} />
                 <Text style={styles.footerHint}>듣고 있어요</Text>
               </>
             ) : (
-              <Text style={styles.footerHint}>탭하면 취소</Text>
+              <Text style={styles.footerHint}>저장 또는 취소</Text>
             )}
+          </View>
+
+          {/* 버튼 — 취소 / 저장(즉시). 음성 "저장"/"취소"와 동일 동작. */}
+          <View style={styles.buttonRow}>
+            <Pressable style={styles.btnCancel} onPress={() => resolve('cancel')}>
+              <Text style={styles.btnCancelText}>취소</Text>
+            </Pressable>
+            <Pressable style={styles.btnSave} onPress={() => resolve('confirm')}>
+              <Text style={styles.btnSaveText}>저장</Text>
+            </Pressable>
           </View>
         </Animated.View>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -370,13 +423,55 @@ function makeStyles(c: AppTheme) {
       color: c.textMuted,
     },
     footer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
       alignItems: 'center',
-      gap: 6,
+      gap: 8,
+      minHeight: 24,
     },
     footerHint: {
       fontSize: 12,
       color: c.textMuted,
       textAlign: 'center',
+    },
+    countdownText: {
+      fontSize: 13,
+      fontFamily: 'Pretendard-SemiBold',
+      fontWeight: '600',
+      color: c.primary,
+      textAlign: 'center',
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+      marginTop: Spacing.base,
+    },
+    btnCancel: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 14,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    btnCancelText: {
+      fontSize: 15,
+      fontFamily: 'Pretendard-SemiBold',
+      fontWeight: '600',
+      color: c.textMuted,
+    },
+    btnSave: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 14,
+      alignItems: 'center',
+      backgroundColor: c.primary,
+    },
+    btnSaveText: {
+      fontSize: 15,
+      fontFamily: 'Pretendard-SemiBold',
+      fontWeight: '600',
+      color: '#FFFFFF',
     },
   });
 }
