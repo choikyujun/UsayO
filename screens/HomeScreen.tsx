@@ -3,11 +3,12 @@ import { useUndoToast } from '../contexts/UndoToastContext';
 import { supabase } from '../lib/supabase';
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Mic, Settings2 } from 'lucide-react-native';
+import { Mic, Settings2, Share2 } from 'lucide-react-native';
 import AppHeader from '../components/AppHeader';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   Pressable,
@@ -50,6 +51,7 @@ import { useOnboarding } from '../hooks/useOnboarding';
 import { useSchedules } from '../hooks/useSchedules';
 import { useVoiceFlow } from '../hooks/useVoiceFlow';
 import { refreshWidget } from '../services/widget/widgetRefresh';
+import ShareScheduleModal from '../components/ShareScheduleModal';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
 import { persistNotificationOffset } from '../services/notifications';
 import { ttsService } from '../services/voice/TTSService';
@@ -394,6 +396,16 @@ export default function HomeScreen() {
     voice.cancelVoice();
   }, [voice]);
 
+  // 일정 공유 — 오늘 일정이 없으면 안내만, 시트 미표시.
+  const [shareVisible, setShareVisible] = useState(false);
+  const handleSharePress = useCallback(() => {
+    if (events.length === 0) {
+      Alert.alert('공유할 일정이 없어요', '오늘 일정을 추가한 뒤 다시 시도해주세요.');
+      return;
+    }
+    setShareVisible(true);
+  }, [events]);
+
   const handleLongPressUpcoming = useCallback((event: CalEvent) => {
     setSheetEvent(event);
   }, []);
@@ -507,8 +519,15 @@ export default function HomeScreen() {
         {/* ── 통합 헤더 (홈: 5탭만 — 날짜·시각·힌트는 아래로 강등) ──── */}
         <AppHeader currentTab="home" tabsOnly />
 
-        {/* ── 설정 아이콘 (우상단 절대 위치) ──────────────────────── */}
+        {/* ── 공유·설정 아이콘 (우상단 절대 위치) ──────────────────── */}
         <View style={[styles.avatarRow, { top: insets.top + 6 }]}>
+          <Pressable
+            onPress={handleSharePress}
+            style={styles.avatarBtn}
+            hitSlop={12}
+          >
+            <Share2 size={20} color={Colors.textTertiary} />
+          </Pressable>
           <Pressable
             onPress={() => router.push('/settings')}
             style={styles.avatarBtn}
@@ -653,6 +672,14 @@ export default function HomeScreen() {
         onDismiss={voice.dismissHybrid}
       />
 
+      {/* ── 일정 공유(기본 공유 시트) ────────────────────────────── */}
+      <ShareScheduleModal
+        visible={shareVisible}
+        events={events}
+        date={today}
+        onClose={() => setShareVisible(false)}
+      />
+
       {/* ── 다가올 일정 long-press → EventActionSheet ────────────── */}
       <EventActionSheet
         event={sheetEvent}
@@ -722,6 +749,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       position: 'absolute',
       right: 16,
       zIndex: 10,
+      flexDirection: 'row',
+      gap: 8,
     },
     avatarBtn: {
       width: 36,
