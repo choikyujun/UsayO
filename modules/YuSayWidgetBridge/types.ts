@@ -9,7 +9,7 @@ export interface WidgetEvent {
 // 네이티브는 단순 렌더만 하도록 한다(로직 이원화 방지).
 export type WidgetRow =
   | { type: 'day'; label: string; isToday: boolean }
-  | { type: 'event'; id: string; time: string; title: string; category: string; completed: boolean; past: boolean; recurring: boolean }
+  | { type: 'event'; id: string; time: string; title: string; location: string; category: string; completed: boolean; past: boolean; recurring: boolean }
   | { type: 'now'; time: string }
   | { type: 'empty' };
 

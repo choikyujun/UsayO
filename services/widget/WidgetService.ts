@@ -2,12 +2,20 @@ import { clearWidget, updateWidget, widgetBridgePresent, WidgetData, WidgetEvent
 import { localDateStr } from '../../utils/timeHelpers';
 import { isVirtualInstance } from '../../utils/recurrenceHelpers';
 
-type PushEvent = { id: string; title: string; start_at: string; color_tag?: string; category?: string | null; completed_at?: string | null };
+type PushEvent = { id: string; title: string; start_at: string; color_tag?: string; category?: string | null; completed_at?: string | null; location?: string | null };
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
+// 현재 시각 선용(24h). 목업의 빨간 "15:42"와 동일.
 function hhmm(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+// 항목 시각 표기 — 앱 홈 형식에 맞춘 "오전 9:00" / "오후 12:30"(12시간 + 오전/오후).
+function ampmTime(d: Date): string {
+  const h = d.getHours();
+  const m = d.getMinutes();
+  return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`;
 }
 
 // 과거 3일 · 오늘 · 앞으로 7일을 날짜별로 그룹핑한 플랫 row 배열을 만든다.
@@ -46,8 +54,9 @@ function buildRows(events: PushEvent[], now: Date): { rows: WidgetRow[]; todayIn
       return {
         type: 'event',
         id: e.id,
-        time: hhmm(start),
+        time: ampmTime(start),
         title: e.title,
+        location: e.location ?? '',
         category: e.category ?? 'work',
         completed: !!e.completed_at,
         past: start.getTime() < nowMs,
@@ -58,7 +67,8 @@ function buildRows(events: PushEvent[], now: Date): { rows: WidgetRow[]; todayIn
     };
 
     if (isToday) {
-      // 예정(첫 미래 일정) 앞에 현재 시각 선을 끼운다.
+      // 오늘은 일정이 없어도 헤더 + 현재 시각 선 + "오늘 일정 없음"을 유지(현재 위치를 잃지 않게).
+      // (day 헤더는 위에서 이미 push됨)
       let nowInserted = false;
       for (const e of dayEvents) {
         if (!nowInserted && new Date(e.start_at).getTime() >= nowMs) {
@@ -69,9 +79,12 @@ function buildRows(events: PushEvent[], now: Date): { rows: WidgetRow[]; todayIn
       }
       if (!nowInserted) rows.push({ type: 'now', time: nowLabel }); // 남은 예정 없으면 맨 끝
       if (dayEvents.length === 0) rows.push({ type: 'empty' });
+    } else if (dayEvents.length > 0) {
+      // 5-A: 일정 있는 날만 표시. 빈 날은 day 헤더도 넣지 않는다(아래에서 되돌림).
+      dayEvents.forEach(e => rows.push(toRow(e)));
     } else {
-      if (dayEvents.length === 0) rows.push({ type: 'empty' });
-      else dayEvents.forEach(e => rows.push(toRow(e)));
+      // 빈 날(과거·미래) → 방금 push한 day 헤더를 제거해 아무것도 표시하지 않는다.
+      rows.pop();
     }
   }
   return { rows, todayIndex };

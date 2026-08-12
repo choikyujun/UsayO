@@ -63,6 +63,14 @@ private class WidgetListFactory(private val context: Context) : RemoteViewsServi
     v.setTextViewText(R.id.event_time, row.time)
     v.setTextViewText(R.id.event_title, row.title)
 
+    // 장소(있을 때만) — 앱 홈 항목과 통일. 없으면 숨김(제목만).
+    if (row.location.isNotBlank()) {
+      v.setTextViewText(R.id.event_location, row.location)
+      v.setViewVisibility(R.id.event_location, android.view.View.VISIBLE)
+    } else {
+      v.setViewVisibility(R.id.event_location, android.view.View.GONE)
+    }
+
     // 완료: 취소선 + 회색 제목 + 채운 체크. 미완료: 일반 제목 + 빈 원.
     if (row.completed) {
       v.setTextColor(R.id.event_title, Color.parseColor("#8A86A3"))
