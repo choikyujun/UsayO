@@ -87,3 +87,37 @@
 ## 관련 코드 위치 (이중 소스)
 - `screens/HomeScreen.tsx` — 두 훅 병행 + 각 뮤테이션 핸들러.
 - `hooks/useEventsForDate.ts`(monthEvents·patchEvent·removeEvent) / `hooks/useSchedules.ts`(allEvents·CRUD).
+
+## 4. 위젯·음성 실기 검증 통과 (2026-08-12, tag: v-widget-voice-verified)
+
+> 커밋 `caa6556` 기준. 위젯 재작성(컬렉션/옵션B/스크롤/폰트) + 소음 적응형 녹음 실기 검증 완료.
+
+### 검증 통과 항목
+- **위젯 UI**: 컬렉션(과거3+오늘+7일), 빈 날 숨김(오늘 예외), 항목 형식(오전/오후·제목·장소),
+  최초 오늘 위치 스크롤, 폰트 +3sp(시각 잘림 없음), 배경 투명도 기본 72%.
+- **위젯 완료(옵션 B)**: 완료 원 탭 시 앱 안 열고 즉시 반영 + 대기 큐, 앱 실행 시 Supabase 동기화.
+  반복(가상 인스턴스) 완료 원은 비활성.
+- **위젯 갱신 트리거**: 홈 삭제(TimeSpine 즉시 커밋)·다가올 삭제·완료·이동·생성 모두 반영.
+  (홈 삭제 후 위젯 반영 지연 3~4초는 런처 특성상 정상 범위로 확인됨.)
+- **음성 소음 적응**: 무음 임계 = max(-40, 배경 p25 + 8dB). 최근 3초 창 p25로 floor 안정
+  (running-min 붕괴 문제 해소). 조용한 환경은 -40 유지.
+- **음성 안전망**: 마이크 재탭 수동 종료(말 끝남), 15초 상한 정상.
+
+### 남은 관찰 항목 (미해결·수정 금지 — 재현/필요 시 착수)
+1. **refreshWidget 중복 호출 + 레이스**: 홈 삭제 시 `timeSpineDelete` 직후 `foreground`가 연달아
+   호출됨(결과는 동일하나 불필요한 중복). 여러 refreshWidget이 동시 실행되면 먼저 시작한 stale
+   fetch가 나중에 도착해 덮어쓸 **이론적 레이스**가 있음. 실기에서 재현되면 refreshWidget에
+   "최신 요청만 반영"하는 seq 가드를 추가한다. (현재 미재현.)
+2. **위젯 완료의 서버 반영 지연(옵션 B)**: 완료는 앱 다음 실행/포그라운드 시 Supabase에 반영됨.
+   앱을 오래 안 열면 다른 기기와 어긋난다(realtime 미도입 모델과 일관). 대기 큐 7일 경과 폐기.
+3. **반복 일정 위젯 완료 비활성**: 가상 인스턴스는 completed_at 단일 모델로 완료 반영이 안 돼
+   완료 원을 비활성 처리. 부모 매핑/인스턴스별 완료는 후속 과제.
+4. **위젯 플러그인 .ts↔.js 동기화 함정**: `plugins/withYuSayWidgets/*.ts`를 고치면 컴파일된
+   `.js`도 함께 갱신해야 한다(app.json은 .js를 사용). 누락 시 EAS 빌드가 "Unknown error. See
+   logs of the Prebuild build phase"로만 표시돼 원인 파악이 어렵다. 로컬 `npx expo prebuild
+   -p android --clean`으로 재현하면 실제 스택(예: ENOENT copy)이 드러난다.
+
+## 관련 코드 위치 (위젯·음성)
+- 위젯: `widget-extension/android/*`(provider·컬렉션 서비스·리시버·레이아웃),
+  `modules/YuSayWidgetBridge/*`(브릿지), `services/widget/*`(refreshWidget·push·drain).
+- 음성 무음 적응: `hooks/useVoiceRecorder.ts`(p25 floor), `constants/voiceRecording.ts`(15초 상한).
