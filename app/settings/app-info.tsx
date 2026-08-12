@@ -21,7 +21,7 @@ export default function AppInfoRoute() {
             ['버전', '1.0.0'],
             ['빌드', '2026.05'],
             ['플랫폼', 'iOS / Android'],
-            ['개발사', 'YuSay Inc.'],
+            ['개발사', 'Jinsungc'],
           ].map(([label, value], i) => (
             <View key={label} style={[styles.row, i > 0 && styles.rowBorder]}>
               <Text style={styles.rowLabel}>{label}</Text>
@@ -31,7 +31,7 @@ export default function AppInfoRoute() {
         </View>
 
         <Text style={styles.copyright}>
-          © 2026 YuSay Inc. All rights reserved.{'\n'}
+          © 2026 Jinsungc. All rights reserved.{'\n'}
           음성 인식 기술 powered by Whisper &amp; Claude.
         </Text>
       </ScrollView>

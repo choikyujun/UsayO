@@ -7,7 +7,7 @@ import { VoiceServiceError, classifyProxyError } from './voiceErrors';
 // Claude 호출/키는 intent-proxy(서버 secret)가 전담. 클라이언트엔 URL·키를 두지 않는다.
 const MODEL = 'claude-haiku-4-5-20251001';  // 실시간 처리 → 속도 우선 (Claude Haiku 4.5)
 
-const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(YuSay)의 자연어 처리 엔진입니다.
+const SYSTEM_PROMPT = `당신은 음성 캘린더 앱(UsayO)의 자연어 처리 엔진입니다.
 사용자의 한국어 발화를 분석하여 반드시 유효한 JSON만 반환하세요. 다른 텍스트는 절대 포함하지 마세요.
 
 ## 인텐트 분류
