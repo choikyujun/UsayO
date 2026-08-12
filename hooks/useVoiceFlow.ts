@@ -176,7 +176,10 @@ export function useVoiceFlow() {
 
     console.log('[VoiceFlow] STT triggered:', uri);
     store.setLoadingStage('analyzing');
+    // 실패 안내 TTS는 orchestrator가 아니라 여기(processUri)가 관장한다 → skipTTS로 억제.
+    // 자동 1회 재시도가 성공할 수 있는데 첫 실패에서 "잘 못 들었어요"를 말해버리는 혼란을 막는다.
     const result = await runVoiceFlow(uri, {
+      skipTTS: true,
       prefillContext: prefillContextRef.current,
       nearbyEventsContext: nearbyEventsContextRef.current,
     });
@@ -186,27 +189,36 @@ export function useVoiceFlow() {
 
     if (!result.success || !result.intent) {
       const errType = result.error?.type;
-      // lowConfidence/noSpeech: TTS는 orchestrator에서 이미 완료 → 마이크 자동 재시작 (1회)
+      // 인식 실패(lowConfidence/noSpeech)는 자동 1회 재시도. 첫 실패는 '조용히' 재시도(안내 없음) —
+      // 재시도가 성공할 수 있는데 "잘 못 들었어요"를 먼저 말해버리는 혼란을 없앤다.
       if (errType === 'lowConfidence' || errType === 'noSpeech') {
         if (!isRetryRef.current && !isCancelledRef.current) {
           isRetryRef.current    = true;
           isProcessingRef.current = false;
           store.setPhase('listening');
+          console.log('[VoiceFlow] 인식 실패 → 조용히 자동 재시도(안내 억제)');
           const ok = await recorder.startRecording();
           if (!ok) {
             store.setPhase('fail');
             store.setError({ type: 'micUnavailable', message: '마이크를 사용할 수 없습니다. 다시 시도해 주세요.' });
           }
         } else {
+          // 재시도까지 실패 → 이때만 안내한다.
           isRetryRef.current = false;
           if (!isCancelledRef.current) {
             store.setPhase('fail');
+            ttsService.speak(ttsService.generateErrorMessage(errType)).catch(() => {});
             store.setError(result.error ?? { type: 'unknown', message: '처리 실패' });
           }
         }
         return;
       }
+      // 그 외 오류(server/network/STT타임아웃/unknown): 재시도 없이 즉시 안내 + fail.
+      // quotaExceeded(UpgradeModal·TTS는 HomeScreen)·permission·micUnavailable(시각 안내)은 제외.
       store.setPhase('fail');
+      if (errType === 'network' || errType === 'server' || errType === 'unknown') {
+        ttsService.speak(ttsService.generateErrorMessage(errType)).catch(() => {});
+      }
       store.setError(result.error ?? { type: 'unknown', message: '처리 실패' });
       return;
     }

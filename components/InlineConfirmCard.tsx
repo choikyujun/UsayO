@@ -114,7 +114,10 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
   const recordStopRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reAskCountRef  = useRef(0);
   const isActiveRef    = useRef(true);
-  const recorder = useVoiceRecorder({ silenceMs: 2000 }); // 확인 응답용 무음 여유(일반 발화 불변)
+  // 확인 응답용 무음 여유(일반 발화 불변) + hadSpeech 견고화: 초기 300ms 트랜지언트 무시 +
+  // 300ms 누적 발화가 있어야 hadSpeech=true → 마이크 오픈 직후 주변음/TTS잔향 오탐으로 카운트다운이
+  // 잘못 보류되는 것을 방지.
+  const recorder = useVoiceRecorder({ silenceMs: 2000, speechWarmupMs: 300, minSpeechMs: 300 });
 
   const clearCountdown = useCallback(() => {
     if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
@@ -140,6 +143,7 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
     if (confirmedRef.current || countdownRef.current == null) return;
     pausedRef.current = true;
     clearCountdown();
+    console.log('[Confirm] countdown paused(tap)');
   }, [clearCountdown]);
 
   // ── 슬라이드인 애니메이션 ────────────────────────────────────
@@ -161,21 +165,35 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
     const buttonWait = async () => {
       clearCountdown();
       pausedRef.current = true; // 재질문 초과 → 자동 저장 중단, 버튼/음성 대기
+      console.log('[Confirm] countdown paused(reask-exhausted)');
       await ttsService.speak('잘 못 들었어요. 화면의 버튼을 눌러주세요.', undefined, undefined, true).catch(() => {});
     };
 
-    // 확인 TTS 종료 후 자동 저장 카운트다운. 매초 hadSpeech를 확인해 사용자가 말하기 시작하면
-    // 보류하고(음성 판정을 따름), 침묵으로 0이 되면 자동 저장(confirm).
+    // 확인 TTS 종료 후 3초 카운트다운(3→2→1). 녹음과 '병렬'로 독립 진행 — 진행 중엔 hadSpeech로
+    // 중단하지 않는다. 판정은 '만료 시점'에만: 발화가 있었으면(hadSpeech) 자동 저장을 보류하고
+    // recordDone의 STT 판정을 따르고(취소일 수 있음), 발화가 없었으면 자동 저장한다.
     const startCountdown = () => {
       if (pausedRef.current || confirmedRef.current || !isActiveRef.current) return;
       let remaining = AUTO_SAVE_COUNTDOWN_S;
       setCountdown(remaining);
+      console.log('[Confirm] countdown start');
       countdownRef.current = setInterval(() => {
         if (confirmedRef.current || !isActiveRef.current) { clearCountdown(); return; }
-        if (recorder.hadSpeech()) { clearCountdown(); return; } // 발화 시작 → 보류
         remaining -= 1;
-        if (remaining <= 0) { clearCountdown(); resolve('confirm'); return; }
-        setCountdown(remaining);
+        if (remaining > 0) {
+          setCountdown(remaining);
+          console.log(`[Confirm] countdown tick ${remaining}`);
+          return;
+        }
+        clearCountdown();
+        if (recorder.hadSpeech()) {
+          // 발화 감지 → 자동 저장 보류. recordDone(recordStopRef로 보장)이 STT로 판정 →
+          // 저장/취소/재질문. 막다른 흐름 아님.
+          console.log('[Confirm] countdown fired → defer(speech), STT 판정 대기');
+        } else {
+          console.log('[Confirm] countdown fired(save)');
+          resolve('confirm');
+        }
       }, 1000);
     };
 
@@ -200,6 +218,7 @@ export default function InlineConfirmCard({ intent, transcript, onConfirm, onCan
 
       // 발화 감지 → 자동 저장 금지(사용자가 말했으므로 반드시 판정 결과를 따른다)
       clearCountdown();
+      console.log('[Confirm] countdown cleared(speech) → STT 판정');
 
       let action: 'confirm' | 'cancel' | 'unknown' = 'unknown';
       if (uri) {

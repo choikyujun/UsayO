@@ -117,6 +117,22 @@
    logs of the Prebuild build phase"로만 표시돼 원인 파악이 어렵다. 로컬 `npx expo prebuild
    -p android --clean`으로 재현하면 실제 스택(예: ENOENT copy)이 드러난다.
 
+## 5. 확인 카드 자동 저장·재시도 안내 수정 (2026-08-xx) + 잔여 관찰
+
+> 확인 카드 3초 카운트다운 병렬화 + 자동 재시도 실패 안내 억제 + STT 타임아웃 수정 중 기록.
+
+### 남은 관찰 항목 (미해결·수정 금지 — 원인 확인 시 착수)
+5. **녹음 파일 <1024바이트 즉시 noSpeech**: `SpeechRecognitionService`가 파일 크기 1024바이트
+   미만이면 Whisper 호출 없이 즉시 noSpeech 처리한다(0바이트 파일 방어). 실사용에서 정상 발화인데도
+   이 판정이 나오면, 녹음이 데이터 없이 만들어진 것 — 오디오 세션 글리치(선점/재초기화), 마이크
+   재탭(A)이 시작 직후 너무 빨리 종료, 또는 소음 적응(C)이 초기 순간 무음에서 조기 auto-stop한
+   경우가 후보. 지금은 자동 1회 재시도가 '조용히' 이를 흡수하도록 수정했으나(안내 억제), 애초에
+   빈 녹음이 생기는 근본 원인은 미규명 — 실기 로그(녹음 크기·시작~종료 간격)로 재현 시 조사한다.
+   현재는 미수정.
+6. **STT 콜드스타트 ~8~9초**: stt-proxy Edge Function 유휴 후 첫 호출이 느림. 타임아웃 15초를
+   두었고(초과 시 1회 안내 + 늦은 응답 무시), warmup 핑은 아직 미도입 — 실사용에서 반복되면
+   부트스트랩/포그라운드 warmup으로 대응(별건).
+
 ## 관련 코드 위치 (위젯·음성)
 - 위젯: `widget-extension/android/*`(provider·컬렉션 서비스·리시버·레이아웃),
   `modules/YuSayWidgetBridge/*`(브릿지), `services/widget/*`(refreshWidget·push·drain).

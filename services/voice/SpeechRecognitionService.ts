@@ -56,9 +56,15 @@ export class SpeechRecognitionService {
     // 오디오를 base64로 인코딩해 stt-proxy(서버)로 전송. 키/multipart/prompt는 서버가 처리.
     const audioBase64 = await file.base64();
 
-    const { data: proxyData, error: proxyError } = await supabase.functions.invoke('stt-proxy', {
-      body: { audioBase64, language: lang, mode },
-    });
+    // STT 타임아웃 15초. Edge 콜드스타트가 보통 8~9초라 여유를 두되, 그 이상 늘어지면 한 번만
+    // 실패로 전환한다. Promise.race라 타임아웃 후 늦게 도착한 invoke 응답은 무시됨(중복 처리 방지).
+    const STT_TIMEOUT_MS = 15_000;
+    const { data: proxyData, error: proxyError } = await Promise.race([
+      supabase.functions.invoke('stt-proxy', { body: { audioBase64, language: lang, mode } }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new VoiceServiceError('server', `stt-proxy timeout ${STT_TIMEOUT_MS}ms`)), STT_TIMEOUT_MS),
+      ),
+    ]);
 
     // 프록시 오류 → 원인 타입으로 분류해 던진다(문구는 UI가 결정).
     if (proxyError) {
