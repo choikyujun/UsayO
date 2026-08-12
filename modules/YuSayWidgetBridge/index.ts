@@ -28,3 +28,14 @@ export async function clearWidget(): Promise<void> {
   if (!NativeWidget) return;
   return NativeWidget.clearWidget();
 }
+
+// 옵션 B: 완료 대기 큐 조회/제거. 모듈 부재(iOS 등)면 안전한 기본값.
+export async function getPendingCompletions(): Promise<string> {
+  if (!NativeWidget) return '[]';
+  try { return await NativeWidget.getPendingCompletions(); } catch { return '[]'; }
+}
+
+export async function removePendingCompletion(id: string): Promise<void> {
+  if (!NativeWidget) return;
+  try { await NativeWidget.removePendingCompletion(id); } catch { /* 무시 */ }
+}

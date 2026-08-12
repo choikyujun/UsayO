@@ -58,13 +58,11 @@ class YuSayMediumWidget : AppWidgetProvider() {
           scrollPrefs.edit().putBoolean("scrolled_$id", true).apply()
         }
 
-        // 리스트 아이템 클릭 템플릿. MUTABLE(fill-in이 data를 채움) + 반드시 '명시적' Intent.
-        // Android 12+는 MUTABLE + 암시적(implicit) PendingIntent 생성 시 IllegalArgumentException을
-        // 던진다 → 그러면 onUpdate가 죽어 RemoteViews가 null이 되고 배치가 실패한다.
-        // 컴포넌트를 MainActivity로 명시해 회피. fill-in의 data(yusay:///?w=complete 등)는 병합됨.
-        val templateIntent = Intent(Intent.ACTION_VIEW)
-          .setClassName(context.packageName, "${context.packageName}.MainActivity")
-        val templatePi = PendingIntent.getActivity(context, id * 10 + 4, templateIntent, MUTABLE)
+        // 리스트 아이템 클릭 템플릿 — WidgetActionReceiver로 가는 '브로드캐스트'. fill-in extra의
+        // action(open|complete)으로 리시버가 분기한다(완료는 앱을 안 열고 처리 = 옵션 B).
+        // MUTABLE(fill-in이 extra를 채움) + 명시적 컴포넌트(리시버) → Android 12+ 제약 회피.
+        val templateIntent = Intent(context, WidgetActionReceiver::class.java)
+        val templatePi = PendingIntent.getBroadcast(context, id * 10 + 4, templateIntent, MUTABLE)
         views.setPendingIntentTemplate(R.id.widget_list, templatePi)
 
         // 헤더 아이콘: 설정(재구성) — 명시적 컴포넌트라 IMMUTABLE로 안전.

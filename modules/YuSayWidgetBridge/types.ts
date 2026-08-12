@@ -9,7 +9,7 @@ export interface WidgetEvent {
 // 네이티브는 단순 렌더만 하도록 한다(로직 이원화 방지).
 export type WidgetRow =
   | { type: 'day'; label: string; isToday: boolean }
-  | { type: 'event'; id: string; time: string; title: string; category: string; completed: boolean; past: boolean }
+  | { type: 'event'; id: string; time: string; title: string; category: string; completed: boolean; past: boolean; recurring: boolean }
   | { type: 'now'; time: string }
   | { type: 'empty' };
 
@@ -30,4 +30,13 @@ export interface IYuSayWidgetBridge {
   // 저장소에 그대로 putString/set하고, 읽기 측(WidgetDataManager/WidgetDataModel)이 파싱한다.
   updateWidget(payload: string): Promise<void>;
   clearWidget(): Promise<void>;
+  // 옵션 B: 위젯에서 탭한 완료의 서버 동기화 대기 큐(JSON 문자열). 앱 실행 시 드레인.
+  getPendingCompletions(): Promise<string>;
+  removePendingCompletion(id: string): Promise<void>;
+}
+
+export interface PendingCompletion {
+  id: string;
+  done: boolean;
+  ts: number; // epoch ms
 }

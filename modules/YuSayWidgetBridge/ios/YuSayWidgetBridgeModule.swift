@@ -29,5 +29,13 @@ public class YuSayWidgetBridgeModule: Module {
         WidgetCenter.shared.reloadAllTimelines()
       }
     }
+
+    // 옵션 B(Android 위젯의 완료 대기 큐)는 iOS에 해당 없음 — 스텁으로 시그니처만 맞춘다.
+    AsyncFunction("getPendingCompletions") { () -> String in
+      return "[]"
+    }
+    AsyncFunction("removePendingCompletion") { (_: String) in
+      // no-op (iOS)
+    }
   }
 }

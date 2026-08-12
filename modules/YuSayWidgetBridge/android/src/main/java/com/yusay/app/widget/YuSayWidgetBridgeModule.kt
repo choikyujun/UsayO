@@ -6,9 +6,11 @@ import android.content.Context
 import android.content.Intent
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import org.json.JSONArray
 
 private const val PREFS_NAME = "com.yusay.app.widget"
 private const val PREFS_KEY = "widget_data"
+private const val PENDING_KEY = "pending_completions" // 위젯에서 탭한 완료의 서버 동기화 대기 큐
 
 class YuSayWidgetBridgeModule : Module() {
   override fun definition() = ModuleDefinition {
@@ -28,6 +30,26 @@ class YuSayWidgetBridgeModule : Module() {
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       prefs.edit().remove(PREFS_KEY).apply()
       triggerWidgetUpdate(context)
+    }
+
+    // 옵션 B: 위젯에서 탭한 완료의 대기 큐를 앱(JS)이 읽어 Supabase로 동기화한다.
+    // WidgetActionReceiver가 같은 prefs(PENDING_KEY)에 적재 → 여기서 읽고, 성공분을 제거.
+    AsyncFunction("getPendingCompletions") {
+      val context = requireNotNull(appContext.reactContext)
+      context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getString(PENDING_KEY, "[]") ?: "[]"
+    }
+
+    AsyncFunction("removePendingCompletion") { id: String ->
+      val context = requireNotNull(appContext.reactContext)
+      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      val arr = try { JSONArray(prefs.getString(PENDING_KEY, "[]")) } catch (e: Exception) { JSONArray() }
+      val out = JSONArray()
+      for (i in 0 until arr.length()) {
+        val o = arr.optJSONObject(i) ?: continue
+        if (o.optString("id") != id) out.put(o)
+      }
+      prefs.edit().putString(PENDING_KEY, out.toString()).apply()
     }
   }
 

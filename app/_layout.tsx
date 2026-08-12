@@ -29,7 +29,7 @@ import { supabase, supabaseConfigError } from '../lib/supabase';
 import ConfigErrorScreen from '../components/ConfigErrorScreen';
 import { signInWithDevice } from '../services/auth/deviceAuth';
 import { useAuthStore } from '../stores/useAuthStore';
-import { refreshWidget } from '../services/widget/widgetRefresh';
+import { syncAndRefreshWidget } from '../services/widget/widgetRefresh';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
 import { ttsService } from '../services/voice/TTSService';
@@ -103,15 +103,16 @@ function AppRoot() {
   const colorScheme = useColorScheme();
   const colors = useColors();
 
-  // 위젯 갱신: 인증 완료(userId 확정) 시 1회 + 포그라운드 복귀 시. refreshWidget이 오늘 기준으로
-  // 데이터를 다시 계산해 push한다. 포그라운드 복귀는 크로스디바이스 변경을 반영(realtime 미도입).
+  // 위젯 갱신: 인증 완료(userId 확정) 시 1회 + 포그라운드 복귀 시. syncAndRefreshWidget이 먼저
+  // 위젯에서 탭한 완료 대기 큐를 Supabase로 반영하고(옵션 B), 그다음 오늘 기준으로 데이터를 다시
+  // 계산해 push한다. 포그라운드 복귀는 크로스디바이스 변경도 반영(realtime 미도입).
   const widgetUserId = useAuthStore(s => s.userId);
   useEffect(() => {
-    if (widgetUserId) refreshWidget('auth-ready').catch(() => {});
+    if (widgetUserId) syncAndRefreshWidget('auth-ready').catch(() => {});
   }, [widgetUserId]);
   useEffect(() => {
     const sub = AppState.addEventListener('change', s => {
-      if (s === 'active') refreshWidget('foreground').catch(() => {});
+      if (s === 'active') syncAndRefreshWidget('foreground').catch(() => {});
     });
     return () => sub.remove();
   }, []);
@@ -151,24 +152,9 @@ function AppRoot() {
       const parsed = Linking.parse(url);
       console.log('[Deeplink] parsed:', parsed);
 
-      // 위젯 완료 토글(yusay:///?w=complete&id&done) — 화면 이동 없이 completed_at만 갱신 후 위젯 재계산.
-      // 앱의 완료 기능과 동일. done=1 완료, done=0 해제.
-      const w = parsed.queryParams?.w;
-      if (w === 'complete') {
-        const id = parsed.queryParams?.id ? String(parsed.queryParams.id) : null;
-        const done = parsed.queryParams?.done === '1';
-        if (id) {
-          supabase.from('events')
-            .update({ completed_at: done ? new Date().toISOString() : null })
-            .eq('id', id)
-            .then(({ error }) => {
-              if (error) console.log('[Widget] complete via deeplink 실패:', error.message);
-              refreshWidget('widgetComplete').catch(() => {});
-            });
-        }
-        return; // 홈으로만 열리고 별도 네비게이션 없음
-      }
-      // 'add' 등 기타 위젯 액션은 홈으로 열리기만 한다(별도 네비게이션 없음).
+      // 위젯 완료는 이제 딥링크가 아니라 WidgetActionReceiver(브로드캐스트) + 대기 큐로 처리한다
+      // (앱을 열지 않음 = 옵션 B). 여기서는 별도 처리 없음. 'add' 등 기타 위젯 액션은 홈으로
+      // 열리기만 한다(별도 네비게이션 없음).
 
       // 음성 딥링크(yusay://voice)는 expo-router가 /voice 라우트를 직접 연다.
       // 예전엔 여기서 router.replace('/')+홈 오버레이 트리거로 이중 처리해, /voice(모달)와

@@ -1,5 +1,6 @@
 import { clearWidget, updateWidget, widgetBridgePresent, WidgetData, WidgetEvent, WidgetRow } from '../../modules/YuSayWidgetBridge';
 import { localDateStr } from '../../utils/timeHelpers';
+import { isVirtualInstance } from '../../utils/recurrenceHelpers';
 
 type PushEvent = { id: string; title: string; start_at: string; color_tag?: string; category?: string | null; completed_at?: string | null };
 
@@ -50,6 +51,9 @@ function buildRows(events: PushEvent[], now: Date): { rows: WidgetRow[]; todayIn
         category: e.category ?? 'work',
         completed: !!e.completed_at,
         past: start.getTime() < nowMs,
+        // 반복(가상 인스턴스)은 completed_at 단일 모델로 완료 반영이 안 되므로 위젯에서 완료 원을
+        // 비활성 처리(옵션 B에서 서버 미반영 상태가 남는 것을 방지).
+        recurring: isVirtualInstance(e.id),
       };
     };
 

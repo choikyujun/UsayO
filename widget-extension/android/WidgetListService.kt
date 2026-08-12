@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Paint
 import android.net.Uri
+import android.util.Log
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import com.yusay.app.R
@@ -18,10 +19,11 @@ class WidgetListService : RemoteViewsService() {
 private class WidgetListFactory(private val context: Context) : RemoteViewsService.RemoteViewsFactory {
   private var rows: List<WidgetRow> = emptyList()
 
-  override fun onCreate() {}
+  override fun onCreate() { Log.i("WidgetList", "[WidgetList] onCreate") }
   override fun onDestroy() {}
   override fun onDataSetChanged() {
     rows = WidgetDataManager.load(context)?.rows ?: emptyList()
+    Log.i("WidgetList", "[WidgetList] onDataSetChanged getCount=${rows.size}")
   }
 
   override fun getCount(): Int = rows.size
@@ -31,7 +33,9 @@ private class WidgetListFactory(private val context: Context) : RemoteViewsServi
   override fun getLoadingView(): RemoteViews? = null
 
   override fun getViewAt(position: Int): RemoteViews {
-    val row = rows.getOrNull(position) ?: return RemoteViews(context.packageName, R.layout.widget_row_empty)
+    val row = rows.getOrNull(position)
+    Log.i("WidgetList", "[WidgetList] getViewAt($position) type=${row?.type}")
+    if (row == null) return RemoteViews(context.packageName, R.layout.widget_row_empty)
     return when (row.type) {
       "day"   -> dayView(row)
       "now"   -> nowView(row)
@@ -73,14 +77,27 @@ private class WidgetListFactory(private val context: Context) : RemoteViewsServi
     // 과거 일정은 42% 불투명도(완료 취소선과 겹쳐도 무방 — alpha는 뷰 전체에 적용).
     v.setFloat(R.id.event_root, "setAlpha", if (row.past) 0.42f else 1.0f)
 
-    // 항목 탭 = 앱 열기(개별 일정으로 가지 않음). 홈(/)으로 안착 — expo-router unmatched 회피.
-    v.setOnClickFillInIntent(R.id.event_body, Intent().setData(Uri.parse("yusay:///")))
-    // 완료 원 탭 = 완료 토글(딥링크로 앱이 처리). done = 새 상태(현재 완료면 해제=0, 아니면 완료=1).
-    val done = if (row.completed) 0 else 1
+    // 항목 탭 = 앱 열기(개별 일정으로 가지 않음). 브로드캐스트 템플릿에 action=open을 실어 보냄.
     v.setOnClickFillInIntent(
-      R.id.event_check,
-      Intent().setData(Uri.parse("yusay:///?w=complete&id=${Uri.encode(row.id)}&done=$done")),
+      R.id.event_body,
+      Intent().putExtra("action", "open").putExtra("open_uri", "yusay:///"),
     )
+
+    if (row.recurring) {
+      // 반복(가상 인스턴스): completed_at 단일 모델로 완료 반영 불가 → 완료 원 비활성(회색·무반응).
+      // fill-in을 붙이지 않아 탭해도 아무 동작 없음(위젯에 거짓 완료가 남는 것을 방지).
+      v.setFloat(R.id.event_check_icon, "setAlpha", 0.3f)
+    } else {
+      v.setFloat(R.id.event_check_icon, "setAlpha", 1.0f)
+      // 완료 원 탭 = 완료 토글(앱 안 열고 처리). done = 새 상태(현재 완료면 해제, 아니면 완료).
+      v.setOnClickFillInIntent(
+        R.id.event_check,
+        Intent()
+          .putExtra("action", "complete")
+          .putExtra("event_id", row.id)
+          .putExtra("done", !row.completed),
+      )
+    }
     return v
   }
 }

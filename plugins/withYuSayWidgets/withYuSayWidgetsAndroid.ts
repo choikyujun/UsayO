@@ -58,6 +58,20 @@ export function withYuSayWidgetsAndroid(config: any) {
       } as any);
     }
 
+    // WidgetActionReceiver — 리스트 클릭 브로드캐스트 수신(항목 열기 / 완료 처리). provider가
+    // 아니므로 intent-filter 없이 명시적 PendingIntent로만 호출된다(exported=false).
+    const actExists = receivers.some(
+      (r: any) => r.$?.['android:name']?.includes('WidgetActionReceiver'),
+    );
+    if (!actExists) {
+      receivers.push({
+        $: {
+          'android:name': '.widget.WidgetActionReceiver',
+          'android:exported': 'false',
+        },
+      } as any);
+    }
+
     // WidgetConfigActivity — 투명도 슬라이더
     const activities = (app.activity ??= []);
     const configExists = activities.some(
@@ -104,6 +118,7 @@ export function withYuSayWidgetsAndroid(config: any) {
         'WidgetDataManager.kt',
         'YuSayMediumWidget.kt',
         'WidgetListService.kt',
+        'WidgetActionReceiver.kt',
         'WidgetConfigActivity.kt',
       ]) {
         fs.copyFileSync(path.join(SRC, file), path.join(javaDir, file));
