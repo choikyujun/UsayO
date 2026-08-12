@@ -8,20 +8,20 @@
   <LinearLayout android:id="@+id/event_body"
     android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
     android:orientation="horizontal" android:gravity="center_vertical"
-    android:paddingTop="8dp" android:paddingBottom="8dp">
-    <ImageView android:id="@+id/event_bar" android:layout_width="3dp" android:layout_height="15dp"
+    android:paddingTop="6dp" android:paddingBottom="6dp">
+    <ImageView android:id="@+id/event_bar" android:layout_width="3dp" android:layout_height="17dp"
       android:background="#534AB7" android:layout_marginEnd="9dp" />
-    <!-- 시각 "오전 9:00" 수용 위해 46dp→68dp 확대 -->
-    <TextView android:id="@+id/event_time" android:layout_width="68dp" android:layout_height="wrap_content"
-      android:textSize="11.5sp" android:textStyle="bold" android:textColor="#55516F"
+    <!-- 시각 "오전 10:30"(+3sp) 수용 위해 68dp→86dp 확대 -->
+    <TextView android:id="@+id/event_time" android:layout_width="86dp" android:layout_height="wrap_content"
+      android:textSize="14.5sp" android:textStyle="bold" android:textColor="#55516F"
       android:maxLines="1" android:ellipsize="end" />
     <!-- 제목: 남는 공간 차지(우선), 말줄임 -->
     <TextView android:id="@+id/event_title" android:layout_width="0dp" android:layout_height="wrap_content"
-      android:layout_weight="1" android:layout_marginStart="9dp" android:textSize="13sp" android:textColor="#22202E"
+      android:layout_weight="1" android:layout_marginStart="9dp" android:textSize="16sp" android:textColor="#22202E"
       android:maxLines="1" android:ellipsize="end" />
-    <!-- 장소(있을 때만): 제목 뒤 회색, 최대 폭 제한 + 말줄임(4x2 좁을 때 제목 우선) -->
+    <!-- 장소(있을 때만): 제목 뒤 회색, 최대 폭 제한 + 말줄임(4x2 좁을 때 제목 우선). +3sp라 폭도 110→130 -->
     <TextView android:id="@+id/event_location" android:layout_width="wrap_content" android:layout_height="wrap_content"
-      android:layout_marginStart="7dp" android:maxWidth="110dp" android:textSize="11.5sp" android:textColor="#8A86A3"
+      android:layout_marginStart="7dp" android:maxWidth="130dp" android:textSize="14.5sp" android:textColor="#8A86A3"
       android:maxLines="1" android:ellipsize="end" android:visibility="gone" />
   </LinearLayout>
 
