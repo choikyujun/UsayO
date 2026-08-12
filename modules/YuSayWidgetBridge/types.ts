@@ -20,6 +20,7 @@ export interface WidgetData {
   todayRemainingCount: number;
   // ── Android 컬렉션 위젯(과거 3일·오늘·앞으로 7일 그룹) ──
   rows: WidgetRow[];
+  todayIndex: number; // 오늘 day 헤더 row 인덱스(위젯 최초 스크롤 위치)
   nowLabel: string; // 현재 HH:mm
   updatedAt: string;
 }

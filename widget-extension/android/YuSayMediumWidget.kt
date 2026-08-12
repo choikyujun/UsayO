@@ -49,6 +49,15 @@ class YuSayMediumWidget : AppWidgetProvider() {
         views.setRemoteAdapter(R.id.widget_list, svcIntent)
         views.setEmptyView(R.id.widget_list, R.id.widget_empty)
 
+        // 최초 렌더 1회만 오늘 위치로 스크롤. 이후 갱신(앱/자체 30분/완료 등)에서는 적용하지 않아
+        // 사용자가 스크롤한 위치가 튀지 않게 한다. (오늘 인덱스는 JS가 계산해 실어 보냄)
+        val scrollPrefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
+        if (!scrollPrefs.getBoolean("scrolled_$id", false)) {
+          val todayIndex = WidgetDataManager.load(context)?.todayIndex ?: 0
+          views.setScrollPosition(R.id.widget_list, todayIndex)
+          scrollPrefs.edit().putBoolean("scrolled_$id", true).apply()
+        }
+
         // 리스트 아이템 클릭 템플릿. MUTABLE(fill-in이 data를 채움) + 반드시 '명시적' Intent.
         // Android 12+는 MUTABLE + 암시적(implicit) PendingIntent 생성 시 IllegalArgumentException을
         // 던진다 → 그러면 onUpdate가 죽어 RemoteViews가 null이 되고 배치가 실패한다.

@@ -11,8 +11,10 @@ function hhmm(d: Date): string {
 
 // 과거 3일 · 오늘 · 앞으로 7일을 날짜별로 그룹핑한 플랫 row 배열을 만든다.
 // 오늘 그룹에는 현재 시각 선을 과거/예정 사이에 끼운다. 일정 없는 날도 헤더 + "일정 없음".
-function buildRows(events: PushEvent[], now: Date): WidgetRow[] {
+// todayIndex = 오늘 day 헤더 row의 인덱스(위젯 최초 스크롤 위치).
+function buildRows(events: PushEvent[], now: Date): { rows: WidgetRow[]; todayIndex: number } {
   const rows: WidgetRow[] = [];
+  let todayIndex = 0;
   const todayStr = localDateStr(now);
   const nowMs = now.getTime();
   const nowLabel = hhmm(now);
@@ -31,6 +33,7 @@ function buildRows(events: PushEvent[], now: Date): WidgetRow[] {
     const label = isToday
       ? `오늘 · ${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAYS[d.getDay()]}`
       : `${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAYS[d.getDay()]}`;
+    if (isToday) todayIndex = rows.length; // 오늘 day 헤더의 인덱스(최초 스크롤 목표)
     rows.push({ type: 'day', label, isToday });
 
     const dayEvents = (byDate.get(dateStr) ?? []).slice().sort(
@@ -67,7 +70,7 @@ function buildRows(events: PushEvent[], now: Date): WidgetRow[] {
       else dayEvents.forEach(e => rows.push(toRow(e)));
     }
   }
-  return rows;
+  return { rows, todayIndex };
 }
 
 export class WidgetService {
@@ -88,13 +91,15 @@ export class WidgetService {
       colorTag: e.color_tag,
     });
 
+    const built = buildRows(events, now);
     const data: WidgetData = {
       // iOS 하위호환 필드
       nextEvent: upcoming[0] ? toWidgetEvent(upcoming[0]) : null,
       todayEvents: upcoming.slice(0, 3).map(toWidgetEvent),
       todayRemainingCount: upcoming.length,
       // Android 컬렉션 위젯
-      rows: buildRows(events, now),
+      rows: built.rows,
+      todayIndex: built.todayIndex,
       nowLabel: hhmm(now),
       updatedAt: now.toISOString(),
     };

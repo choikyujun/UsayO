@@ -23,6 +23,7 @@ data class WidgetRow(
 data class WidgetData(
   val rows: List<WidgetRow>,
   val nowLabel: String,
+  val todayIndex: Int,
 )
 
 object WidgetDataManager {
@@ -46,7 +47,7 @@ object WidgetDataManager {
           past = r.optBoolean("past", false),
         )
       }
-      WidgetData(rows = rows, nowLabel = json.optString("nowLabel", ""))
+      WidgetData(rows = rows, nowLabel = json.optString("nowLabel", ""), todayIndex = json.optInt("todayIndex", 0))
     } catch (e: Exception) {
       null
     }
