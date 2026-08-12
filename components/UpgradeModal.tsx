@@ -10,11 +10,29 @@ import {
   View,
 } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
-import Purchases from 'react-native-purchases';
+import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { Colors } from '../constants/colors';
 import { GateType, FREE_COMMAND_LIMIT } from '../constants/featureGates';
+import { DEFAULT_PRICE } from '../constants/pricing';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { Spacing } from '../constants/spacing';
+
+type Period = 'annual' | 'monthly';
+
+// 가격 문자열("₩39,000", "$39.99")에서 비교용 숫자만 추출(절약률 폴백 계산용).
+function priceToNumber(s: string): number {
+  const n = parseFloat(s.replace(/[^0-9.]/g, ''));
+  return Number.isNaN(n) ? 0 : n;
+}
+
+// 연 결제 절약률(%) = 1 - 연가 / (월가 x 12). 실제 가격에서 계산, 양수일 때만 표시.
+function computeSavingsPct(monthly: number, annual: number): number | null {
+  if (!monthly || !annual) return null;
+  const yearlyIfMonthly = monthly * 12;
+  if (yearlyIfMonthly <= 0) return null;
+  const pct = Math.round((1 - annual / yearlyIfMonthly) * 100);
+  return pct > 0 ? pct : null;
+}
 
 interface Props {
   visible: boolean;
@@ -115,6 +133,8 @@ export default function UpgradeModal({
   const slideY = useRef(new Animated.Value(400)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const [loading, setLoading] = useState(false);
+  const [period, setPeriod] = useState<Period>('annual'); // 기본 선택 = 연간(LTV 유리)
+  const [pkgs, setPkgs] = useState<{ monthly?: PurchasesPackage; annual?: PurchasesPackage }>({});
 
   useEffect(() => {
     if (visible) {
@@ -130,6 +150,30 @@ export default function UpgradeModal({
     }
   }, [visible]);
 
+  // 오퍼링에서 월/연 패키지 로드(가격 표시·구매용). 실패 시 참조가로 폴백.
+  useEffect(() => {
+    if (!visible || upgradeTarget !== 'pro') return;
+    setPeriod('annual'); // 열 때마다 연간 기본으로
+    let cancelled = false;
+    (async () => {
+      try {
+        const offerings = await Purchases.getOfferings();
+        const avail = offerings.current?.availablePackages ?? [];
+        const monthly = avail.find(p => p.packageType === 'MONTHLY');
+        const annual = avail.find(p => p.packageType === 'ANNUAL');
+        if (!cancelled) setPkgs({ monthly, annual });
+      } catch { /* 오퍼링 조회 실패 → 참조가 폴백, 구매 시 재조회 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [visible, upgradeTarget]);
+
+  // 표시 가격: 스토어 우선, 없으면 참조가(DEFAULT_PRICE). 절약률은 실제 숫자에서 계산.
+  const monthlyStr = pkgs.monthly?.product.priceString ?? DEFAULT_PRICE.monthly;
+  const annualStr = pkgs.annual?.product.priceString ?? DEFAULT_PRICE.annual;
+  const monthlyNum = pkgs.monthly?.product.price ?? priceToNumber(DEFAULT_PRICE.monthly);
+  const annualNum = pkgs.annual?.product.price ?? priceToNumber(DEFAULT_PRICE.annual);
+  const savingsPct = computeSavingsPct(monthlyNum, annualNum);
+
   async function handleUpgrade() {
     if (upgradeTarget === 'team') {
       // Team plan requires contacting sales — no direct in-app purchase
@@ -137,12 +181,15 @@ export default function UpgradeModal({
       return;
     }
 
+    const wantType = period === 'annual' ? 'ANNUAL' : 'MONTHLY';
     try {
       setLoading(true);
-      const offerings = await Purchases.getOfferings();
-      const pkg = offerings.current?.availablePackages.find(
-        p => p.packageType === 'MONTHLY'
-      );
+      // 선택 주기 패키지 — 상태에 없으면 오퍼링 재조회.
+      let pkg = period === 'annual' ? pkgs.annual : pkgs.monthly;
+      if (!pkg) {
+        const offerings = await Purchases.getOfferings();
+        pkg = offerings.current?.availablePackages.find(p => p.packageType === wantType);
+      }
 
       if (!pkg) {
         Alert.alert('오류', '상품을 찾을 수 없어요. 잠시 후 다시 시도해주세요.');
@@ -175,13 +222,13 @@ export default function UpgradeModal({
     }
   }
 
-  const ctaLabel = upgradeTarget === 'team'
-    ? '팀 플랜 문의하기'
-    : gateType === 'usage'
-      ? 'Pro로 업그레이드 (₩3,900/월)'
-      : '무료로 시작하기';
+  const ctaLabel = upgradeTarget === 'team' ? '팀 플랜 문의하기' : 'Pro 시작하기';
 
-  const ctaCaption = upgradeTarget === 'pro' ? '7일 후 ₩3,900/월 · 언제든 취소 가능' : undefined;
+  const ctaCaption = upgradeTarget === 'pro'
+    ? (period === 'annual'
+        ? `7일 무료 후 ${annualStr}/년 · 언제든 취소 가능`
+        : `7일 무료 후 ${monthlyStr}/월 · 언제든 취소 가능`)
+    : undefined;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onDismiss}>
@@ -195,6 +242,39 @@ export default function UpgradeModal({
         {gateType === 'hard'  && <HardGate upgradeTarget={upgradeTarget} />}
         {gateType === 'usage' && <UsageGate usageInfo={usageInfo} />}
         {gateType === 'team'  && <TeamGate />}
+
+        {upgradeTarget === 'pro' && (
+          <View style={styles.periodToggle}>
+            <Pressable
+              style={[styles.periodOption, period === 'annual' && styles.periodOptionActive]}
+              onPress={() => setPeriod('annual')}
+            >
+              <View style={styles.periodTop}>
+                <Text style={[styles.periodLabel, period === 'annual' && styles.periodLabelActive]}>연간</Text>
+                {savingsPct != null && (
+                  <View style={styles.saveBadge}>
+                    <Text style={styles.saveBadgeText}>{savingsPct}% 절약</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.periodPrice, period === 'annual' && styles.periodPriceActive]}>
+                {annualStr}<Text style={styles.periodUnit}> / 년</Text>
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.periodOption, period === 'monthly' && styles.periodOptionActive]}
+              onPress={() => setPeriod('monthly')}
+            >
+              <View style={styles.periodTop}>
+                <Text style={[styles.periodLabel, period === 'monthly' && styles.periodLabelActive]}>월간</Text>
+              </View>
+              <Text style={[styles.periodPrice, period === 'monthly' && styles.periodPriceActive]}>
+                {monthlyStr}<Text style={styles.periodUnit}> / 월</Text>
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         <Pressable style={[styles.ctaBtn, loading && styles.ctaBtnDisabled]} onPress={handleUpgrade} disabled={loading}>
           {loading
@@ -309,6 +389,67 @@ const styles = StyleSheet.create({
   },
   usageHighlight: {
     color: Colors.textPrimary,
+    fontFamily: 'Pretendard-Bold',
+    fontWeight: '700',
+  },
+  // 월/연 선택 토글
+  periodToggle: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  periodOption: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.darkBorder,
+    borderRadius: 12,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: 6,
+  },
+  periodOptionActive: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accent + '12',
+  },
+  periodTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 20,
+  },
+  periodLabel: {
+    color: Colors.textMuted,
+    fontSize: 14,
+    fontFamily: 'Pretendard-SemiBold',
+    fontWeight: '600',
+  },
+  periodLabelActive: {
+    color: Colors.textPrimary,
+  },
+  periodPrice: {
+    color: Colors.textMuted,
+    fontSize: 17,
+    fontFamily: 'Pretendard-Bold',
+    fontWeight: '700',
+  },
+  periodPriceActive: {
+    color: Colors.textPrimary,
+  },
+  periodUnit: {
+    fontSize: 12,
+    fontFamily: 'Pretendard-Medium',
+    fontWeight: '500',
+    color: Colors.textMuted,
+  },
+  saveBadge: {
+    backgroundColor: Colors.accent,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  saveBadgeText: {
+    color: Colors.textPrimary,
+    fontSize: 10,
     fontFamily: 'Pretendard-Bold',
     fontWeight: '700',
   },

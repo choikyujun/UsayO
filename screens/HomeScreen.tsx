@@ -44,6 +44,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import HybridInputModal from '../components/HybridInputModal';
 import UpgradeModal from '../components/UpgradeModal';
 import UsageWarningBanner from '../components/UsageWarningBanner';
+import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { Colors, useColors } from '../constants/colors';
 import { useEventsForDate } from '../hooks/useEventsForDate';
 import { useFeatureGate } from '../hooks/useFeatureGate';
@@ -331,7 +332,12 @@ export default function HomeScreen() {
       const ttsMsg = friendlyErrorMessage(voice.error ?? null);
       ttsService.speak(ttsMsg).catch(() => {});
       // 쿼터 초과: 조용히 실패하지 않도록 업그레이드 모달까지 표시 (TTS는 위에서 안내됨).
-      if (voice.error?.type === 'quotaExceeded') setUpgradeVisible(true);
+      // + self-heal: 서버가 유료를 무료로 판정한 경우(웹훅 지연 등)를 서버 검증으로 복구.
+      //   조용히 실패하며, 성공 시 store.plan이 갱신됨. (import 시점 부수효과 없음)
+      if (voice.error?.type === 'quotaExceeded') {
+        subscriptionService.syncSubscriptionToServer().catch(() => {});
+        setUpgradeVisible(true);
+      }
       const t = setTimeout(() => voice.retryVoice(), 2500);
       return () => clearTimeout(t);
     }

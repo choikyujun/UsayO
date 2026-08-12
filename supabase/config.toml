@@ -383,6 +383,9 @@ verify_jwt = true
 [functions.revenuecat-webhook]
 verify_jwt = false
 
+[functions.sync-subscription]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

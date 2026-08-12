@@ -37,7 +37,8 @@ export class SubscriptionService {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     const plan = this._planFromCustomerInfo(customerInfo);
     useSubscriptionStore.getState().setPlan(plan);
-    await this._syncPlanToSupabase(plan, customerInfo);
+    // 구매 직후 서버 즉시 반영(웹훅 지연 공백 제거). 조용히 실패 → 웹훅이 최종 반영.
+    this.syncSubscriptionToServer().catch(() => {});
     return plan;
   }
 
@@ -45,8 +46,18 @@ export class SubscriptionService {
     const info = await Purchases.restorePurchases();
     const plan = this._planFromCustomerInfo(info);
     useSubscriptionStore.getState().setPlan(plan);
-    await this._syncPlanToSupabase(plan, info);
+    this.syncSubscriptionToServer().catch(() => {});
     return plan;
+  }
+
+  // 서버 측 RevenueCat 검증으로 subscriptions/profiles를 즉시 반영(스푸핑 안전).
+  // 구매/복원 직후, 그리고 쿼터 초과 self-heal에서 호출. 실패는 조용히 무시(웹훅이 권위).
+  async syncSubscriptionToServer(): Promise<void> {
+    try {
+      const { data } = await supabase.functions.invoke('sync-subscription');
+      const plan = (data as { plan?: PlanType } | null)?.plan;
+      if (plan) useSubscriptionStore.getState().setPlan(plan);
+    } catch { /* 조용히 실패 — 웹훅이 최종 반영 */ }
   }
 
   async isEligibleForTrial(): Promise<boolean> {
