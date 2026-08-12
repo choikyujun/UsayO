@@ -1,10 +1,10 @@
-package com.yusay.app.widget
+package com.usayo.app.widget
 
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 
-private const val PREFS_NAME = "com.yusay.app.widget"
+private const val PREFS_NAME = "com.usayo.app.widget"
 private const val PREFS_KEY = "widget_data"
 private const val PENDING_KEY = "pending_completions" // 앱 실행 시 Supabase로 동기화할 완료 대기 큐
 

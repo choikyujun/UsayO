@@ -1,4 +1,4 @@
-package com.yusay.app.widget
+package com.usayo.app.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
@@ -7,7 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import com.yusay.app.R
+import com.usayo.app.R
 
 // 컬렉션 위젯의 단일 클릭 템플릿(getBroadcast) 수신처. fill-in의 extra로 동작을 분기한다.
 // - action=open    → 앱(MainActivity) 열기(항목 탭). 딥링크 URI는 open_uri로 전달.
@@ -17,7 +17,7 @@ class WidgetActionReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     when (intent.getStringExtra("action")) {
       "open" -> {
-        val uri = intent.getStringExtra("open_uri") ?: "yusay:///"
+        val uri = intent.getStringExtra("open_uri") ?: "usayo:///"
         try {
           context.startActivity(
             Intent(Intent.ACTION_VIEW, Uri.parse(uri))

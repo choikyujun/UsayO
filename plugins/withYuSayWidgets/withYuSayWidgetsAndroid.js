@@ -120,7 +120,7 @@ function withYuSayWidgetsAndroid(config) {
         'android',
         (mod) => {
             const projectRoot = mod.modRequest.projectRoot;
-            const javaDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'java', 'com', 'yusay', 'app', 'widget');
+            const javaDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'java', 'com', 'usayo', 'app', 'widget');
             const resDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res');
             fs.mkdirSync(javaDir, { recursive: true });
             fs.mkdirSync(path.join(resDir, 'layout'), { recursive: true });

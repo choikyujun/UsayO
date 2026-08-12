@@ -1,4 +1,4 @@
-package com.yusay.app.widget
+package com.usayo.app.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -9,7 +9,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.util.Log
 import android.widget.RemoteViews
-import com.yusay.app.R
+import com.usayo.app.R
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -79,7 +79,7 @@ class YuSayMediumWidget : AppWidgetProvider() {
           R.id.widget_btn_add,
           PendingIntent.getActivity(
             context, id * 10 + 2,
-            Intent(Intent.ACTION_VIEW, Uri.parse("yusay:///?w=add")).setPackage(context.packageName),
+            Intent(Intent.ACTION_VIEW, Uri.parse("usayo:///?w=add")).setPackage(context.packageName),
             IMMUTABLE,
           ),
         )
@@ -87,7 +87,7 @@ class YuSayMediumWidget : AppWidgetProvider() {
           R.id.widget_btn_mic,
           PendingIntent.getActivity(
             context, id * 10 + 3,
-            Intent(Intent.ACTION_VIEW, Uri.parse("yusay://voice")).setPackage(context.packageName),
+            Intent(Intent.ACTION_VIEW, Uri.parse("usayo://voice")).setPackage(context.packageName),
             IMMUTABLE,
           ),
         )

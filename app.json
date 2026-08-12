@@ -3,7 +3,7 @@
     "newArchEnabled": true,
     "name": "UsayO",
     "slug": "usayo",
-    "scheme": "yusay",
+    "scheme": "usayo",
     "version": "1.0.0",
     "runtimeVersion": {
       "policy": "fingerprint"
@@ -20,12 +20,12 @@
     },
     "userInterfaceStyle": "automatic",
     "ios": {
-      "bundleIdentifier": "com.yusay.app",
+      "bundleIdentifier": "com.usayo.app",
       "icon": "./assets/icon.png",
       "supportsTablet": true,
       "entitlements": {
         "com.apple.security.application-groups": [
-          "group.com.yusay.app"
+          "group.com.usayo.app"
         ]
       },
       "infoPlist": {
@@ -34,7 +34,7 @@
       }
     },
     "android": {
-      "package": "com.yusay.app",
+      "package": "com.usayo.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#534AB7"

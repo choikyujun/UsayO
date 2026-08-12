@@ -17,7 +17,7 @@ import { deleteAccount } from '../services/auth/accountDeletion';
 
 // Play 스토어 구독 관리 (구글 구독은 앱에서 해지 불가 — 안내만 가능)
 const PLAY_SUBSCRIPTIONS_URL =
-  'https://play.google.com/store/account/subscriptions?package=com.yusay.app';
+  'https://play.google.com/store/account/subscriptions?package=com.usayo.app';
 
 type Step = 'intro' | 'confirm' | 'deleting';
 

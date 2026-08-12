@@ -5,6 +5,6 @@
     "podspecPath": "ios/YuSayWidgetBridge.podspec"
   },
   "android": {
-    "modules": ["com.yusay.app.widget.YuSayWidgetBridgeModule"]
+    "modules": ["com.usayo.app.widget.YuSayWidgetBridgeModule"]
   }
 }

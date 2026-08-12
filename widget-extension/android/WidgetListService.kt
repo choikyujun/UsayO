@@ -1,4 +1,4 @@
-package com.yusay.app.widget
+package com.usayo.app.widget
 
 import android.content.Context
 import android.content.Intent
@@ -8,7 +8,7 @@ import android.net.Uri
 import android.util.Log
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
-import com.yusay.app.R
+import com.usayo.app.R
 
 // 컬렉션 위젯 어댑터. WidgetDataManager.load()의 플랫 rows를 그대로 렌더한다.
 class WidgetListService : RemoteViewsService() {
@@ -88,7 +88,7 @@ private class WidgetListFactory(private val context: Context) : RemoteViewsServi
     // 항목 탭 = 앱 열기(개별 일정으로 가지 않음). 브로드캐스트 템플릿에 action=open을 실어 보냄.
     v.setOnClickFillInIntent(
       R.id.event_body,
-      Intent().putExtra("action", "open").putExtra("open_uri", "yusay:///"),
+      Intent().putExtra("action", "open").putExtra("open_uri", "usayo:///"),
     )
 
     if (row.recurring) {

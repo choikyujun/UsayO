@@ -1,6 +1,6 @@
 apply plugin: 'com.android.library'
 
-group = 'com.yusay.app.widget'
+group = 'com.usayo.app.widget'
 version = '1.0.0'
 
 // SDK 54 표준 Expo 모듈 패턴. 플러그인 경로를 project(":expo-modules-core").projectDir 로
@@ -20,7 +20,7 @@ buildscript {
 }
 
 android {
-  namespace 'com.yusay.app.widget'
+  namespace 'com.usayo.app.widget'
   compileSdkVersion safeExtGet("compileSdkVersion", 34)
   defaultConfig {
     minSdkVersion safeExtGet("minSdkVersion", 24)

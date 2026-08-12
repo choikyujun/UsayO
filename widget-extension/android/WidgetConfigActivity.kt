@@ -1,4 +1,4 @@
-package com.yusay.app.widget
+package com.usayo.app.widget
 
 import android.app.Activity
 import android.appwidget.AppWidgetManager

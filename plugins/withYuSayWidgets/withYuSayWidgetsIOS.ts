@@ -7,7 +7,7 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 
-const APP_GROUP = 'group.com.yusay.app';
+const APP_GROUP = 'group.com.usayo.app';
 const EXT_NAME = 'YuSayWidget';
 const SRC = path.join(__dirname, '..', '..', 'widget-extension', 'ios');
 const MODULE_IOS_SRC = path.join(__dirname, '..', '..', 'modules', 'YuSayWidgetBridge', 'ios');
@@ -60,7 +60,7 @@ export function withYuSayWidgetsIOS(config: any) {
   // 3. Add WidgetKit extension target to Xcode project
   config = withXcodeProject(config, (mod) => {
     const xcodeProject = mod.modResults;
-    const bundleId = mod.ios?.bundleIdentifier ?? 'com.yusay.app';
+    const bundleId = mod.ios?.bundleIdentifier ?? 'com.usayo.app';
     const extBundleId = `${bundleId}.widget`;
 
     // Avoid double-adding

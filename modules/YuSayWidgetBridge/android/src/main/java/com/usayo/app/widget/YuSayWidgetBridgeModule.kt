@@ -1,4 +1,4 @@
-package com.yusay.app.widget
+package com.usayo.app.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
@@ -8,7 +8,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import org.json.JSONArray
 
-private const val PREFS_NAME = "com.yusay.app.widget"
+private const val PREFS_NAME = "com.usayo.app.widget"
 private const val PREFS_KEY = "widget_data"
 private const val PENDING_KEY = "pending_completions" // 위젯에서 탭한 완료의 서버 동기화 대기 큐
 
@@ -59,7 +59,7 @@ class YuSayWidgetBridgeModule : Module() {
     // 이 모듈이 그 클래스에 컴파일 의존하지 않도록 문자열 클래스명으로 ComponentName을 만든다.
     // (런타임에 시스템이 앱 패키지의 리시버로 해석 — 기능 동일). Small 위젯은 제거됨.
     val providerClassNames = listOf(
-      "com.yusay.app.widget.YuSayMediumWidget",
+      "com.usayo.app.widget.YuSayMediumWidget",
     )
     for (className in providerClassNames) {
       val cn = ComponentName(context.packageName, className)

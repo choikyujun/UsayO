@@ -162,7 +162,7 @@ function AppRoot() {
       // (앱을 열지 않음 = 옵션 B). 여기서는 별도 처리 없음. 'add' 등 기타 위젯 액션은 홈으로
       // 열리기만 한다(별도 네비게이션 없음).
 
-      // 음성 딥링크(yusay://voice)는 expo-router가 /voice 라우트를 직접 연다.
+      // 음성 딥링크(usayo://voice)는 expo-router가 /voice 라우트를 직접 연다.
       // 예전엔 여기서 router.replace('/')+홈 오버레이 트리거로 이중 처리해, /voice(모달)와
       // 레이스가 나고 router.replace가 녹음 중 /voice를 dismiss → 언마운트 release로 마이크를
       // 뺏기며 실패했다. 이제 별도 처리하지 않고 expo-router의 /voice 단일 경로만 쓴다.
@@ -178,7 +178,7 @@ function AppRoot() {
     (async () => {
       await audioSessionService.preinit();
 
-      // 딥링크(yusay://voice)로 실행된 경우 부트스트랩 소음 측정을 생략한다.
+      // 딥링크(usayo://voice)로 실행된 경우 부트스트랩 소음 측정을 생략한다.
       // 측정이 마이크를 점유(가변 ~1.4초+)하면 voice 선점(abort 대기)이 길어져 간헐적으로
       // "마이크를 사용할 수 없어요"로 실패했다. 선점/abort로 처리하는 대신 애초에 경합을
       // 만들지 않는다(측정 생략 시 기본 임계값=voice 모드, 이미 구현된 경로).

@@ -104,7 +104,7 @@ export function withYuSayWidgetsAndroid(config: any) {
       const javaDir = path.join(
         projectRoot,
         'android', 'app', 'src', 'main', 'java',
-        'com', 'yusay', 'app', 'widget',
+        'com', 'usayo', 'app', 'widget',
       );
       const resDir = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res');
 
