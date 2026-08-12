@@ -4,6 +4,9 @@ export const PRODUCT_IDS = {
   teamMonthly: 'com.yusay.team.monthly',
 } as const;
 
+// ⚠️ 이 값은 RevenueCat 대시보드 Entitlement identifier 및
+//    supabase/functions/revenuecat-webhook/index.ts 의 ENTITLEMENT_PRO/TEAM 와 반드시 일치해야 한다.
+//    (세 곳이 어긋나면 서버가 유료 사용자를 무료로 판정한다.)
 export const ENTITLEMENTS = {
   pro: 'pro_access',
   team: 'team_access',

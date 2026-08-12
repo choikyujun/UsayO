@@ -378,6 +378,11 @@ verify_jwt = true
 [functions.delete-account]
 verify_jwt = true
 
+# RevenueCat 웹훅은 Supabase JWT를 보낼 수 없다 → 게이트웨이 검증을 끄고
+# 함수 내부 X-RevenueCat-Secret 헤더(상수 시간 비교)로 인증한다.
+[functions.revenuecat-webhook]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
