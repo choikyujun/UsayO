@@ -32,6 +32,7 @@ import EditTimeModal from './EditTimeModal';
 import EditTitleModal from './EditTitleModal';
 import EditNotificationModal from './EditNotificationModal';
 import EventActionSheet, { RecurringDeleteScope } from './EventActionSheet';
+import { refreshWidget } from '../services/widget/widgetRefresh';
 import { Spacing } from '../constants/spacing';
 
 export type { EventState };
@@ -249,7 +250,10 @@ export default function TimeSpine({
       .from('events')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', realId)
-      .then(({ error }) => { if (error) console.error('[TimeSpine] delete failed:', error.message); });
+      .then(({ error }) => {
+        if (error) console.error('[TimeSpine] delete failed:', error.message);
+        else refreshWidget('timeSpineDelete').catch(() => {}); // DB 반영 후 위젯 재계산
+      });
   }
 
   function handleDeleteRecurring(event: Event, scope: RecurringDeleteScope) {
@@ -263,7 +267,10 @@ export default function TimeSpine({
       supabase
         .from('event_exceptions')
         .insert({ parent_id: parentId, instance_date: instanceDate, is_deleted: true })
-        .then(({ error }) => { if (error) console.error('[TimeSpine] exception insert failed:', error.message); });
+        .then(({ error }) => {
+          if (error) console.error('[TimeSpine] exception insert failed:', error.message);
+          else refreshWidget('timeSpineDeleteRecurring:this').catch(() => {});
+        });
     } else if (scope === 'future') {
       // recurrence_end_date = instanceDate - 1 day
       const d = new Date(instanceDate);
@@ -273,7 +280,10 @@ export default function TimeSpine({
         .from('events')
         .update({ recurrence_end_date: endDate })
         .eq('id', parentId)
-        .then(({ error }) => { if (error) console.error('[TimeSpine] recurrence_end_date update failed:', error.message); });
+        .then(({ error }) => {
+          if (error) console.error('[TimeSpine] recurrence_end_date update failed:', error.message);
+          else refreshWidget('timeSpineDeleteRecurring:future').catch(() => {});
+        });
     } else {
       // 전체: 부모 soft-delete
       cancelEventNotification(parentId).catch(e => console.log('[Notifications] cancel 실패:', e));
@@ -281,7 +291,10 @@ export default function TimeSpine({
         .from('events')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', parentId)
-        .then(({ error }) => { if (error) console.error('[TimeSpine] delete recurring failed:', error.message); });
+        .then(({ error }) => {
+          if (error) console.error('[TimeSpine] delete recurring failed:', error.message);
+          else refreshWidget('timeSpineDeleteRecurring:all').catch(() => {});
+        });
     }
   }
 
