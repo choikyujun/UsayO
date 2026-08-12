@@ -137,3 +137,32 @@
 - 위젯: `widget-extension/android/*`(provider·컬렉션 서비스·리시버·레이아웃),
   `modules/YuSayWidgetBridge/*`(브릿지), `services/widget/*`(refreshWidget·push·drain).
 - 음성 무음 적응: `hooks/useVoiceRecorder.ts`(p25 floor), `constants/voiceRecording.ts`(15초 상한).
+
+## 6. 계정 삭제 기능 도입 (2026-08-12) + 후속 과제
+
+> 구글 플레이 필수 요건(계정 생성 앱의 앱 내 계정 삭제 경로) 대응. Edge Function
+> `delete-account` + 설정>개인정보 "계정 삭제" UI. `auth.admin.deleteUser(hard)` + FK CASCADE로
+> 실삭제. 기존 "내 데이터 삭제"(events 소프트 삭제)와 별개 기능.
+
+### 후속 과제 (지시 없이 착수 금지)
+1. **팀 소유권 이전(현재는 소유 팀 통째 삭제)**: 팀 기능이 UI 미노출(비활성)이라, 계정 삭제 시
+   `teams WHERE owner_id = userId`를 통째로 삭제한다(`teams.owner_id`가 ON DELETE SET NULL이라
+   방치하면 고아 팀이 남기 때문). 팀이 정식 기능이 되면 **소유자 삭제 시 소유권을 다른 멤버에게
+   이전**하는 방식으로 재설계해야 한다(다른 멤버의 공유 데이터 보호). 관련: Edge Function
+   `supabase/functions/delete-account/index.ts`의 소유 팀 삭제 단계.
+2. **Google OAuth grant 서버측 정리**: 계정 삭제 시 `calendar_integrations`는 FK CASCADE로
+   지워져 앱 쪽 연결은 끊기지만, Google 계정 설정에 남은 앱 권한(grant)은 그대로다. 필요 시
+   삭제 전에 Google OAuth revoke 엔드포인트를 호출해 grant를 정리하는 단계 추가(현재 미구현 —
+   보안/프라이버시 강화 항목). 관련: `calendar_integrations`(refresh token 저장).
+
+### 설계 메모 (재인증 가드)
+- `supabase.auth.signOut()`은 SIGNED_OUT을 발생시키고 `app/_layout.tsx`의 onAuthStateChange가
+  이를 토큰 만료로 오인해 `signInWithDevice()`로 즉시 새 계정을 만든다. 계정 삭제 직후에는
+  `services/auth/accountDeletion.ts`의 `isAccountDeletionInProgress()` 플래그로 그 자동 재인증을
+  스킵한다(5초 후 해제). 이 가드를 제거하면 삭제 직후 빈 새 계정이 즉시 생성돼 UX가 깨진다.
+
+## 관련 코드 위치 (계정 삭제)
+- 서버: `supabase/functions/delete-account/index.ts`(verify_jwt=true, 소유 팀 삭제 + 하드 삭제).
+- 클라이언트: `services/auth/accountDeletion.ts`(오케스트레이션·재인증 가드),
+  `components/DeleteAccountModal.tsx`(2단계 확인·로딩 잠금·실패 재시도),
+  `screens/settings/PrivacySettingsScreen.tsx`(진입 버튼), `app/_layout.tsx`(SIGNED_OUT 가드).

@@ -375,6 +375,9 @@ verify_jwt = true
 [functions.stt-proxy]
 verify_jwt = true
 
+[functions.delete-account]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

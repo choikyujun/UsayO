@@ -28,6 +28,7 @@ import UndoToast from '../components/UndoToast';
 import { supabase, supabaseConfigError } from '../lib/supabase';
 import ConfigErrorScreen from '../components/ConfigErrorScreen';
 import { signInWithDevice } from '../services/auth/deviceAuth';
+import { isAccountDeletionInProgress } from '../services/auth/accountDeletion';
 import { useAuthStore } from '../stores/useAuthStore';
 import { syncAndRefreshWidget } from '../services/widget/widgetRefresh';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
@@ -123,6 +124,11 @@ function AppRoot() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT' && initDoneRef.current) {
+        // 계정 삭제로 인한 signOut이면 새 계정을 만들지 않는다(온보딩으로 이동).
+        if (isAccountDeletionInProgress()) {
+          console.log('[Auth] account deletion in progress — skip re-auth');
+          return;
+        }
         signInWithDevice().catch(e =>
           console.log('[Auth] session expired, re-auth failed:', (e as Error).message),
         );

@@ -11,11 +11,13 @@ import {
   Text,
   View,
 } from 'react-native';
+import DeleteAccountModal from '../../components/DeleteAccountModal';
 import FeatureGate from '../../components/FeatureGate';
 import { AppTheme, useColors } from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
 import { SETTINGS_FLAGS } from '../../constants/featureFlags';
 import { Spacing } from '../../constants/spacing';
+import { useSubscriptionStore } from '../../stores/useSubscriptionStore';
 
 const ANALYTICS_KEY = 'yusay_analytics_consent';
 
@@ -25,6 +27,8 @@ export default function PrivacySettingsScreen() {
 
   const [analytics, setAnalytics] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const isSubscribed = useSubscriptionStore(s => s.plan !== 'free');
 
   useEffect(() => {
     AsyncStorage.getItem(ANALYTICS_KEY).then(v => {
@@ -148,6 +152,21 @@ export default function PrivacySettingsScreen() {
           모든 일정·음성 기록이 영구 삭제됩니다. 되돌릴 수 없어요.
         </Text>
       </View>
+
+      <View style={styles.section}>
+        <Pressable style={styles.deleteAccountBtn} onPress={() => setShowDeleteAccount(true)}>
+          <Text style={styles.deleteAccountBtnText}>계정 삭제</Text>
+        </Pressable>
+        <Text style={styles.deleteHint}>
+          계정과 모든 데이터가 영구 삭제됩니다. 되돌릴 수 없어요.
+        </Text>
+      </View>
+
+      <DeleteAccountModal
+        visible={showDeleteAccount}
+        onClose={() => setShowDeleteAccount(false)}
+        isSubscribed={isSubscribed}
+      />
     </ScrollView>
   );
 }
@@ -243,6 +262,13 @@ function makeStyles(c: AppTheme) {
       alignItems: 'center',
     },
     deleteBtnText: { fontSize: 15, color: c.error, fontFamily: 'Pretendard-Bold', fontWeight: '700' },
+    deleteAccountBtn: {
+      backgroundColor: c.error,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    deleteAccountBtnText: { fontSize: 15, color: '#fff', fontFamily: 'Pretendard-Bold', fontWeight: '700' },
     deleteHint: { fontSize: 11, color: c.textMuted, textAlign: 'center', lineHeight: 16 },
   });
 }
