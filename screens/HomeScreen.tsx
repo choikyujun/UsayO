@@ -565,6 +565,7 @@ export default function HomeScreen() {
         <View style={styles.listeningInfo} pointerEvents="none">
           <Text style={styles.listeningLabel}>듣고 있어요...</Text>
           <ListeningLevelBar />
+          <Text style={styles.listeningHint}>다시 눌러 완료</Text>
         </View>
       )}
 
@@ -619,9 +620,16 @@ export default function HomeScreen() {
 
           <Pressable
             style={[styles.fab, voice.phase === 'listening' && styles.fabActive]}
-            onPress={isVoiceActive ? undefined : () => handleFabPress()}
-            disabled={isVoiceActive}
-            hitSlop={isVoiceActive ? undefined : 8}
+            /* 청취 중 재탭 = '말 끝남'(취소 아님) → 녹음 종료·STT. 배경 탭은 취소(뒤 Pressable). */
+            onPress={
+              voice.phase === 'listening'
+                ? () => voice.stopAndProcess(handleApplyIntent)
+                : isVoiceActive
+                ? undefined
+                : () => handleFabPress()
+            }
+            disabled={isVoiceActive && voice.phase !== 'listening'}
+            hitSlop={8}
           >
             <Mic
               size={voice.phase === 'listening' ? 34 : 28}
@@ -796,6 +804,11 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       fontWeight: '700',
       color: c.textPrimary,
       letterSpacing: 0.3,
+    },
+    listeningHint: {
+      marginTop: 8,
+      fontSize: 13,
+      color: c.textMuted,
     },
 
     // ── Processing ───────────────────────────────────────────────

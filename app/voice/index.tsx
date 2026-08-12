@@ -208,9 +208,10 @@ function PhaseListening({
             { transform: [{ scale: pulseScale }], opacity: pulseOpacity },
           ]}
         />
-        <View style={[styles.micBtn, styles.micBtnActive]}>
+        {/* 마이크 재탭 = '말 끝남' → 녹음 종료·STT(하단 완료 버튼과 동일). */}
+        <Pressable onPress={onStop} hitSlop={16} style={[styles.micBtn, styles.micBtnActive]}>
           <Mic size={32} color="#fff" />
-        </View>
+        </Pressable>
       </View>
 
       <View style={styles.levelTrack}>
