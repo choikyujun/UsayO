@@ -3,6 +3,7 @@ import { STTResult } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useSubscriptionStore } from '../../stores/useSubscriptionStore';
 import { VoiceServiceError, classifyProxyError } from './voiceErrors';
+import { voiceTrace } from './voiceTrace'; // [임시 계측 · voice-verify] 직전 녹음 길이 병기
 
 // 서버 쿼터 초과 신호를 상류 오류와 구분하기 위한 전용 에러.
 export class QuotaExceededError extends Error {
@@ -127,7 +128,8 @@ export class SpeechRecognitionService {
 
     try {
       const _r = await this.transcribeWithWhisper(audioUri, language, mode);
-      console.log(`[VOICE][2-STT] MODE=REAL(${mode}) transcript=${JSON.stringify(_r.transcript)} confidence=${_r.confidence} elapsedMs=${Date.now() - _t0}`);
+      // recMs = 이 전사가 나온 녹음의 길이. 실제 발화 길이보다 짧으면 중간 종료(문장 잘림)를 의심.
+      console.log(`[VOICE][2-STT] MODE=REAL(${mode}) transcript=${JSON.stringify(_r.transcript)} confidence=${_r.confidence} recMs=${voiceTrace.lastRecordingDurationMs()} chars=${(_r.transcript ?? '').length} elapsedMs=${Date.now() - _t0}`);
       return _r;
     } catch (e) {
       // 이미 분류된 에러(QuotaExceeded/VoiceServiceError)는 그대로. 그 외(파일 부재 등)는

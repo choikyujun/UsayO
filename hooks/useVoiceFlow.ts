@@ -7,6 +7,7 @@ import { noiseDetector } from '../services/voice/NoiseDetectorService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
 import { intentService } from '../services/voice/IntentClassifierService';
 import { ttsService } from '../services/voice/TTSService';
+import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측] 재시도 간격 로그
 import { formatTimeKo } from '../utils/timeHelpers';
 import { ClassifiedIntent } from '../types';
 
@@ -31,6 +32,11 @@ const AUTO_SAVE_CREATE = false;
 // 워치독 타임아웃. 딥링크 콜드 경로는 소음 측정 선점 대기(~1.4초)를 거쳐 녹음이 시작되므로
 // 3초로는 부족해 오탐했다. phase='listening'은 소음 측정 이후에 세팅되지만 여유를 둬 6초.
 const WATCHDOG_MS = 6000;
+
+// 자동 재시도 시 사용자에게 알리는 문구. 실패 안내("잘 못 들었어요…")와 목적이 다르다 —
+// 이건 "지금부터 다시 듣는다"는 신호이며, 이게 없으면 사용자는 말하는 중에 마이크가 다시
+// 열린 줄 모른 채 계속 말해 발화가 쪼개진다.
+const RETRY_PROMPT = '다시 한번 말씀해 주세요.';
 
 export function useVoiceFlow() {
   const store = useVoiceStore();
@@ -195,8 +201,17 @@ export function useVoiceFlow() {
         if (!isRetryRef.current && !isCancelledRef.current) {
           isRetryRef.current    = true;
           isProcessingRef.current = false;
-          store.setPhase('listening');
-          console.log('[VoiceFlow] 인식 실패 → 조용히 자동 재시도(안내 억제)');
+          // 재시도 안내(실패 안내와 구분). 실패 안내("잘 못 들었어요")는 여전히 억제한다 —
+          // 자동 재시도가 성공할 수 있는데 실패부터 말하는 혼란을 막기 위해서다. 다만 **실제로
+          // 다시 들을 때는 반드시 알린다**: 사용자 모르게 마이크를 다시 열면, 사용자는 한 문장을
+          // 계속 말하는 중인데 그 중간부터 녹음돼 발화가 쪼개지고 앞부분이 통째로 유실된다.
+          console.log(`[VoiceFlow] 인식 실패(${errType}) → 재시도 안내 후 재녹음`);
+          // 안내가 끝난 뒤에 마이크를 연다(안내가 녹음에 섞이는 것 방지).
+          await ttsService.speak(RETRY_PROMPT, undefined, undefined, true).catch(() => {});
+          if (isCancelledRef.current) return; // 안내 중 취소 → 재녹음하지 않음
+          // 직전 녹음 종료 ~ 재녹음 시작 간격 = 마이크가 닫혀 있어 발화가 유실되는 구간.
+          console.log(`[VoiceFlow] 재시도 시작 — 직전 stop 이후 ${voiceTrace.sinceRecordingEnd()}ms (이 구간 발화는 녹음되지 않음)`);
+          store.setPhase('listening'); // 마이크를 실제로 여는 시점에 전이(워치독 오탐 방지)
           const ok = await recorder.startRecording();
           if (!ok) {
             store.setPhase('fail');

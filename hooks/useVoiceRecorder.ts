@@ -20,10 +20,14 @@ const LEVEL_INTERVAL  = 100;     // 측정 인터벌 (ms)
 const SILENCE_MARGIN_DB = 8;
 // 배경 레벨(floor) 추정 — running-min은 말 중간의 순간 무음·무효 샘플에 끌려 하한으로 붕괴하므로
 // '최근 구간의 하위 백분위수'로 지속적 배경만 잡는다.
-const NOISE_WINDOW_SAMPLES = 30;   // 최근 3초(100ms×30) 창
-const NOISE_PERCENTILE      = 0.25; // 하위 25백분위 = 배경 클러스터(순간 dip·발화 피크에 강건)
+const NOISE_WINDOW_SAMPLES = 30;   // 최근 30개 '무음 후보' 샘플 창
+const NOISE_PERCENTILE      = 0.25; // 하위 25백분위 = 배경 클러스터(순간 dip에 강건)
 const NOISE_VALID_MIN_DB    = -90;  // 이하(-90 이하)는 무신호/글리치 → floor 추정에서 제외
-const NOISE_MIN_SAMPLES     = 5;    // 이만큼 모이기 전엔 적응 안 함(임계 = SILENCE_DB 유지)
+const NOISE_MIN_SAMPLES     = 5;    // 이만큼 모이기 전엔 마지막 안정 floor 유지
+// 배경 자체가 올라간 경우(에어컨·TV 등 지속 소음)를 위한 느린 재학습 구간. 임계를 넘는 샘플이
+// 이만큼 '연속으로' 이어지면 배경 상승으로 보고 창에 다시 받아들인다. 사람의 발화는 어절 사이마다
+// 임계 아래로 내려가 연속이 끊기므로 여기에 도달하지 않는다(=발화는 floor를 올리지 못한다).
+const NOISE_RELEARN_SAMPLES = 100;  // 10초 연속(100ms×100)
 
 export interface VoiceRecorderState {
   status: MicStatus;
@@ -69,7 +73,16 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
   const maxTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTimeRef     = useRef<number>(0);
   const silenceStartRef  = useRef<number | null>(null); // 무음 시작 타임스탬프
-  const noiseSamplesRef  = useRef<number[]>([]);          // 최근 유효 db 창(배경 레벨 백분위 추정용)
+  const noiseSamplesRef  = useRef<number[]>([]);          // 최근 '무음 후보' db 창(배경 백분위 추정용)
+  const lastFloorRef     = useRef(SILENCE_DB);            // 마지막으로 산출된 안정 floor(표본 부족 시 유지)
+  const lastThrRef       = useRef(SILENCE_DB);            // 직전 틱의 무음 임계(현재 샘플의 발화 여부 판정 기준)
+  const excludedStreakRef = useRef(0);                    // 임계 초과 샘플의 연속 개수(재학습 트리거)
+  const relearnLeftRef    = useRef(0);                    // 재학습 구간에 남은 샘플 수(>0이면 전부 수용)
+  const excludedCountRef  = useRef(0);                    // 이번 녹음에서 배제한 샘플 총 개수(로그용)
+  const peakDbRef        = useRef(-160);                  // 이번 녹음 최대 dB(로그용)
+  const sumDbRef         = useRef(0);                     // 유효 샘플 dB 합(평균 산출용)
+  const dbSampleCountRef = useRef(0);
+  const stopReasonRef    = useRef<'manual' | 'silence-auto-stop' | 'max-duration'>('manual');
   const autoStopRef      = useRef<(() => Promise<string | null>) | null>(null);
   const onAutoStopRef    = useRef(options?.onAutoStop);
   onAutoStopRef.current  = options?.onAutoStop;
@@ -107,9 +120,11 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       const uri = rec.getURI() ?? null;
       console.log('[Recorder] stopRecording URI:', uri);
       lastUriRef.current = uri;
-      // [VOICE][1-REC] 임시 계측: 파일크기 + 녹음길이, TOTAL 앵커 설정
-      voiceTrace.markRecordingEnd();
+      // [VOICE][1-REC] 임시 계측: 파일크기 + 녹음길이 + 종료 사유 + 레벨 통계, TOTAL 앵커 설정.
+      // 종료 사유·peak/avg dB·종료 시점 floor/thr을 함께 남겨야 "왜 여기서 끊겼는가"를
+      // transcript와 대조할 수 있다(문장 중간 잘림 진단).
       const recMs = startTimeRef.current ? Date.now() - startTimeRef.current : -1;
+      voiceTrace.markRecordingEnd(recMs);
       let recBytes = -1;
       if (uri) {
         try {
@@ -117,7 +132,12 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
           recBytes = f.exists ? f.size : -1;
         } catch { /* 크기 조회 실패 무시 */ }
       }
-      console.log(`[VOICE][1-REC] bytes=${recBytes} durationMs=${recMs}`);
+      const avgDb = dbSampleCountRef.current ? sumDbRef.current / dbSampleCountRef.current : NaN;
+      console.log(
+        `[VOICE][1-REC] bytes=${recBytes} durationMs=${recMs} reason=${stopReasonRef.current}` +
+        ` peakDb=${peakDbRef.current.toFixed(0)} avgDb=${Number.isNaN(avgDb) ? 'n/a' : avgDb.toFixed(0)}` +
+        ` floor=${lastFloorRef.current.toFixed(0)} thr=${lastThrRef.current.toFixed(0)} excluded=${excludedCountRef.current}`,
+      );
       return uri;
     } catch (e) {
       setError(e instanceof Error ? e.message : '녹음 중지 실패');
@@ -221,6 +241,15 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
       startTimeRef.current = Date.now();
       silenceStartRef.current = null;
       noiseSamplesRef.current = []; // 새 녹음마다 배경 추정 창 초기화
+      lastFloorRef.current      = SILENCE_DB;
+      lastThrRef.current        = SILENCE_DB;
+      excludedStreakRef.current = 0;
+      relearnLeftRef.current    = 0;
+      excludedCountRef.current  = 0;
+      peakDbRef.current         = -160;
+      sumDbRef.current          = 0;
+      dbSampleCountRef.current  = 0;
+      stopReasonRef.current     = 'manual'; // 무음/상한 경로가 덮어씀. 남아 있으면 수동 종료.
       speechMsRef.current = 0; // 새 녹음 시작 시 누적 발화 리셋
       setStatus('recording');
 
@@ -240,26 +269,67 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
         const normalized = Math.max(0, Math.min(1, (db + 160) / 160));
         setAudioLevel(normalized);
 
-        // 배경 소음 추정: 유효 db(-90 초과)만 최근 창에 모아, 하위 백분위수(p25)를 배경으로 본다.
-        // running-min과 달리 순간 무음·무효 샘플에 끌려 내려가지 않고 '지속적 배경'을 잡는다.
-        const buf = noiseSamplesRef.current;
-        if (db > NOISE_VALID_MIN_DB) {
+        // 배경 소음 추정: 유효 db(-90 초과) 중 **'무음 후보'만** 창에 모아 하위 백분위수(p25)를
+        // 배경으로 본다. 발화로 판정된 샘플(직전 틱 임계 이상)은 창에서 배제한다.
+        //
+        // 배제가 없으면 긴 발화에서 창이 발화 레벨로 채워져 floor가 '내 목소리의 하위 25%'가 되고,
+        // 임계(floor+8)가 사용자 목소리보다 높아져 **말하는 중에 무음 판정**이 났다(문장 끝 잘림).
+        // 발화 샘플을 빼면 창에는 어절 사이·발화 전 배경만 남아 floor가 발화로 밀려 올라가지 않는다.
+        // running-min 붕괴 방지 장치(무효 -90 필터, p25 백분위, 하한 SILENCE_DB)는 그대로 유지한다.
+        const buf   = noiseSamplesRef.current;
+        const valid = db > NOISE_VALID_MIN_DB;
+        let admitted = false;
+        if (valid) {
+          if (relearnLeftRef.current > 0) {
+            // 재학습 구간: 새 배경 수준을 다시 배우기 위해 잠시 모든 유효 샘플을 받는다.
+            admitted = true;
+            relearnLeftRef.current -= 1;
+            excludedStreakRef.current = 0;
+          } else if (db < lastThrRef.current) {
+            admitted = true;                    // 무음 후보 → 배경 추정에 사용
+            excludedStreakRef.current = 0;
+          } else {
+            excludedStreakRef.current += 1;     // 발화(또는 상승한 배경) → 배제
+            excludedCountRef.current  += 1;
+            // 임계 초과가 10초 '연속'이면 발화가 아니라 배경이 오른 것으로 본다(사람 발화는
+            // 어절 사이마다 임계 아래로 내려가 연속이 끊긴다). 창을 비우고 3초간 재학습.
+            if (excludedStreakRef.current >= NOISE_RELEARN_SAMPLES) {
+              console.log(`[Recorder] 배경 상승 감지(임계 초과 ${NOISE_RELEARN_SAMPLES}샘플 연속) → floor 재학습`);
+              buf.length = 0;
+              relearnLeftRef.current    = NOISE_WINDOW_SAMPLES;
+              excludedStreakRef.current = 0;
+              admitted = true;
+              relearnLeftRef.current -= 1;
+            }
+          }
+          if (db > peakDbRef.current) peakDbRef.current = db;
+          sumDbRef.current += db;
+          dbSampleCountRef.current += 1;
+        }
+        if (admitted) {
           buf.push(db);
           if (buf.length > NOISE_WINDOW_SAMPLES) buf.shift();
         }
-        let floor = SILENCE_DB; // 표본 부족 시 적응 안 함(임계 -40 유지)
+        // 표본 부족(긴 발화로 무음 후보가 마름) → 마지막으로 산출된 안정 floor를 유지한다.
+        let floor = lastFloorRef.current;
+        let held  = true;
         if (buf.length >= NOISE_MIN_SAMPLES) {
           const sorted = [...buf].sort((a, b) => a - b);
           floor = sorted[Math.floor(NOISE_PERCENTILE * (sorted.length - 1))];
+          lastFloorRef.current = floor;
+          held = false;
         }
         // 소음 적응형 무음 임계: 조용한 환경(배경 낮음)에선 기존 SILENCE_DB(-40) 유지,
         // 소음 환경(배경 높음)에선 배경+마진으로 상향 → "배경 대비 조용해졌는가"로 판정.
         const silenceThresholdDb = Math.max(SILENCE_DB, floor + SILENCE_MARGIN_DB);
+        lastThrRef.current = silenceThresholdDb; // 다음 틱의 발화/무음 후보 판정 기준
 
         // 검증용: 약 1초마다 배경 레벨·적용 임계 로그(소음 환경에서 무음이 안 잡혀도 값 확인 가능).
         // floor는 최근 창(n) 유효 표본의 p25(백분위)임을 함께 남긴다.
+        // 검증 포인트: 3초 이상 계속 말해도 thr이 상승하지 않아야 한다(발화 샘플 배제가 동작하는 증거).
+        // excluded=배제 누적, held=표본 부족으로 직전 floor 유지 중.
         if (elapsed % 1000 < LEVEL_INTERVAL) {
-          console.log(`[Recorder] level db=${db.toFixed(0)} floor=${floor.toFixed(0)}(p25 n=${buf.length}) thr=${silenceThresholdDb.toFixed(0)} elapsed=${elapsed}ms`);
+          console.log(`[Recorder] level db=${db.toFixed(0)} floor=${floor.toFixed(0)}(p25 n=${buf.length} excluded=${excludedCountRef.current}${held ? ' held' : ''}) thr=${silenceThresholdDb.toFixed(0)} elapsed=${elapsed}ms`);
         }
 
         // 워밍업 기간 또는 소리가 있는 경우 → 무음 타이머 리셋
@@ -288,11 +358,12 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
         const progress = Math.min(1, silenceElapsed / silenceMsRef.current);
         setSilenceProgress(progress);
 
-        console.log(`[Recorder] silence ${silenceElapsed}ms / ${silenceMsRef.current}ms (${Math.round(progress * 100)}%) db=${db.toFixed(0)} floor=${floor.toFixed(0)}(p25 n=${buf.length}) thr=${silenceThresholdDb.toFixed(0)}`);
+        console.log(`[Recorder] silence ${silenceElapsed}ms / ${silenceMsRef.current}ms (${Math.round(progress * 100)}%) db=${db.toFixed(0)} floor=${floor.toFixed(0)}(p25 n=${buf.length} excluded=${excludedCountRef.current}${held ? ' held' : ''}) thr=${silenceThresholdDb.toFixed(0)}`);
 
         if (silenceElapsed >= silenceMsRef.current) {
           silenceStartRef.current = null;
           setSilenceProgress(0);
+          stopReasonRef.current = 'silence-auto-stop';
           console.log('[Voice] stopRecording triggered: silence auto-stop');
           const uri = await autoStopRef.current?.() ?? null;
           onAutoStopRef.current?.(uri);
@@ -301,6 +372,7 @@ export function useVoiceRecorder(options?: VoiceRecorderOptions): UseVoiceRecord
 
       // 5. 최대 녹음 시간(MAX_DURATION_MS=15초) — 소음 등으로 무음 판정 불가여도 반드시 종료.
       maxTimerRef.current = setTimeout(async () => {
+        stopReasonRef.current = 'max-duration';
         console.log('[Voice] stopRecording triggered: max duration');
         const uri = await autoStopRef.current?.() ?? null;
         onAutoStopRef.current?.(uri);
