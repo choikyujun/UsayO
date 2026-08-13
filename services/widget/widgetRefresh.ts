@@ -1,6 +1,7 @@
 import { eventsDateRange, fetchExpandedEvents } from '../../utils/fetchExpandedEvents';
 import { localDateStr } from '../../utils/timeHelpers';
 import { useAuthStore } from '../../stores/useAuthStore';
+import { useDataSyncStore } from '../../stores/useDataSyncStore';
 import { supabase } from '../../lib/supabase';
 import { getPendingCompletions, removePendingCompletion, PendingCompletion } from '../../modules/YuSayWidgetBridge';
 import { widgetService } from './WidgetService';
@@ -47,6 +48,7 @@ export async function drainPendingCompletions(now: number): Promise<void> {
   }
   if (queue.length === 0) return;
   console.log(`[Widget] drainPendingCompletions count=${queue.length}`);
+  let applied = 0; // 실제로 서버에 반영된 항목 수(폐기·실패 제외)
   for (const item of queue) {
     if (!item?.id) continue;
     if (now - (item.ts ?? 0) > PENDING_MAX_AGE_MS) {
@@ -63,11 +65,20 @@ export async function drainPendingCompletions(now: number): Promise<void> {
       if (!error) {
         // 성공(data 있음) 또는 0 rows(data 빈 배열 = 이벤트 삭제됨) 모두 큐에서 제거.
         await removePendingCompletion(item.id);
+        if ((data?.length ?? 0) > 0) applied += 1;
         console.log(`[Widget] pending 반영 id=${item.id} rows=${data?.length ?? 0}`);
       }
     } catch {
       // 네트워크/인증 실패 → 큐 유지, 다음 실행 때 재시도.
     }
+  }
+  // 위젯에서 완료한 내용이 서버에 반영됐다 = 화면이 들고 있는 데이터가 낡았다.
+  // 화면 리로드(useFocusEffect)는 드레인보다 먼저 끝나므로, 여기서 신호를 보내지 않으면
+  // 그 실행에서는 완료가 안 보이고 앱을 한 번 더 열어야 보인다.
+  // 반영된 게 없으면 bump하지 않는다 → 불필요한 리로드 없음.
+  if (applied > 0) {
+    console.log(`[Widget] pending ${applied}건 반영 → 화면 리로드 신호`);
+    useDataSyncStore.getState().bump();
   }
 }
 

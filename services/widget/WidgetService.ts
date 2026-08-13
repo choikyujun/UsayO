@@ -18,13 +18,16 @@ function ampmTime(d: Date): string {
   return `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`;
 }
 
-// 과거 3일 · 오늘 · 앞으로 7일을 날짜별로 그룹핑한 플랫 row 배열을 만든다.
-// 오늘 그룹에는 현재 시각 선을 과거/예정 사이에 끼운다. 일정 없는 날도 헤더 + "일정 없음".
-// todayIndex = 오늘 day 헤더 row의 인덱스(위젯 최초 스크롤 위치).
-function buildRows(events: PushEvent[], now: Date): { rows: WidgetRow[]; todayIndex: number } {
+// 오늘 · 앞으로 7일 · (구분 행) · 과거 3일(어제부터 역순)을 날짜별로 그룹핑한 플랫 row 배열.
+// 오늘 그룹에는 현재 시각 선을 과거/예정 사이에 끼운다.
+//
+// 왜 시간 역행 순서인가: 위젯 리스트를 '오늘 위치로 스크롤'하는 것이 불가능하기 때문이다.
+// RemoteViews.setScrollPosition은 AbsListView.smoothScrollToPosition이고 계약이 "해당 항목이
+// 보이게 한다"이지 최상단 정렬이 아니다 → 오늘이 이미 화면 안이면 no-op다. 스크롤로 맞추는 대신
+// **오늘을 항상 0번 row에 두어** 스크롤 없이 오늘이 먼저 보이게 한다(자세한 경위는
+// docs/voice-known-issues.md 5-7).
+function buildRows(events: PushEvent[], now: Date): { rows: WidgetRow[] } {
   const rows: WidgetRow[] = [];
-  let todayIndex = 0;
-  const todayStr = localDateStr(now);
   const nowMs = now.getTime();
   const nowLabel = hhmm(now);
 
@@ -34,20 +37,37 @@ function buildRows(events: PushEvent[], now: Date): { rows: WidgetRow[]; todayIn
     (byDate.get(key) ?? byDate.set(key, []).get(key)!).push(e);
   }
 
-  for (let offset = -3; offset <= 7; offset++) {
+  // 오늘(0) → 앞으로 7일 → 과거는 어제(-1)부터 역순(-2, -3).
+  // 과거를 역순으로 두면 방금 놓친 일정이 구분 행 바로 아래에 온다.
+  const offsets = [...Array.from({ length: 8 }, (_, i) => i), -1, -2, -3];
+
+  let pastDividerAdded = false;
+
+  for (const offset of offsets) {
     const d = new Date(now);
     d.setDate(d.getDate() + offset);
     const dateStr = localDateStr(d);
     const isToday = offset === 0;
+    const isPast = offset < 0;
     const label = isToday
       ? `오늘 · ${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAYS[d.getDay()]}`
       : `${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAYS[d.getDay()]}`;
-    if (isToday) todayIndex = rows.length; // 오늘 day 헤더의 인덱스(최초 스크롤 목표)
-    rows.push({ type: 'day', label, isToday });
 
     const dayEvents = (byDate.get(dateStr) ?? []).slice().sort(
       (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
     );
+
+    // 빈 날은 표시하지 않는다(오늘 제외). 과거 구분 행보다 먼저 판정해야 '일정 없는 과거'
+    // 때문에 구분 행만 덩그러니 남는 일이 없다.
+    if (!isToday && dayEvents.length === 0) continue;
+
+    // 과거 구간의 첫 '표시되는' 날 앞에만 "지난 일정" 구분 행을 한 번 넣는다(시간 역행 명시).
+    if (isPast && !pastDividerAdded) {
+      rows.push({ type: 'past' });
+      pastDividerAdded = true;
+    }
+
+    rows.push({ type: 'day', label, isToday });
 
     const toRow = (e: PushEvent): WidgetRow => {
       const start = new Date(e.start_at);
@@ -79,15 +99,12 @@ function buildRows(events: PushEvent[], now: Date): { rows: WidgetRow[]; todayIn
       }
       if (!nowInserted) rows.push({ type: 'now', time: nowLabel }); // 남은 예정 없으면 맨 끝
       if (dayEvents.length === 0) rows.push({ type: 'empty' });
-    } else if (dayEvents.length > 0) {
-      // 5-A: 일정 있는 날만 표시. 빈 날은 day 헤더도 넣지 않는다(아래에서 되돌림).
-      dayEvents.forEach(e => rows.push(toRow(e)));
     } else {
-      // 빈 날(과거·미래) → 방금 push한 day 헤더를 제거해 아무것도 표시하지 않는다.
-      rows.pop();
+      // 일정 있는 날만 여기 도달(위에서 빈 날은 continue).
+      dayEvents.forEach(e => rows.push(toRow(e)));
     }
   }
-  return { rows, todayIndex };
+  return { rows };
 }
 
 export class WidgetService {
@@ -116,7 +133,6 @@ export class WidgetService {
       todayRemainingCount: upcoming.length,
       // Android 컬렉션 위젯
       rows: built.rows,
-      todayIndex: built.todayIndex,
       nowLabel: hhmm(now),
       updatedAt: now.toISOString(),
     };

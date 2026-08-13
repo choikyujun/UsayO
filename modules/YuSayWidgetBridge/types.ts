@@ -11,6 +11,7 @@ export type WidgetRow =
   | { type: 'day'; label: string; isToday: boolean }
   | { type: 'event'; id: string; time: string; title: string; location: string; category: string; completed: boolean; past: boolean; recurring: boolean }
   | { type: 'now'; time: string }
+  | { type: 'past' }   // "지난 일정" 구분 행 — 이 아래부터 시간 역행(어제→그제→그끄제)
   | { type: 'empty' };
 
 export interface WidgetData {
@@ -18,9 +19,9 @@ export interface WidgetData {
   nextEvent: WidgetEvent | null;
   todayEvents: WidgetEvent[]; // max 3
   todayRemainingCount: number;
-  // ── Android 컬렉션 위젯(과거 3일·오늘·앞으로 7일 그룹) ──
+  // ── Android 컬렉션 위젯(오늘·앞으로 7일·"지난 일정"·과거 3일 역순) ──
+  // 오늘이 항상 첫 row라 위젯 스크롤 제어가 필요 없다(todayIndex 제거 — 5-7 참조).
   rows: WidgetRow[];
-  todayIndex: number; // 오늘 day 헤더 row 인덱스(위젯 최초 스크롤 위치)
   nowLabel: string; // 현재 HH:mm
   updatedAt: string;
 }

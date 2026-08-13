@@ -41,6 +41,7 @@ import { useConversationalMessage } from '../hooks/useConversationalMessage';
 import { useRecurringEvents } from '../hooks/useRecurringEvents';
 import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useDataSyncStore } from '../stores/useDataSyncStore';
 import HybridInputModal from '../components/HybridInputModal';
 import UpgradeModal from '../components/UpgradeModal';
 import UsageWarningBanner from '../components/UsageWarningBanner';
@@ -164,6 +165,20 @@ export default function HomeScreen() {
     reloadForDate();
     reloadSchedules();
   }, [reloadForDate, reloadSchedules]));
+
+  // 위젯에서 탭한 완료가 서버에 반영되면(=드레인 성공) 다시 조회한다.
+  // 드레인은 네트워크 왕복이라 위 useFocusEffect보다 늦게 끝난다 → 이 신호가 없으면 그 실행에선
+  // 완료가 안 보이고 앱을 한 번 더 열어야 보였다. 홈은 이중 소스라 **양쪽 다** 갱신해야 한다
+  // (useEventsForDate=상단 요약·TimeSpine, useSchedules=다가올 일정).
+  // 로딩 표시는 하지 않는다 — 이미 그려진 화면을 스켈레톤으로 덮는 편이 더 거슬린다.
+  const dataSyncVersion = useDataSyncStore(s => s.version);
+  useEffect(() => {
+    if (dataSyncVersion === 0) return; // 최초 마운트에서는 useFocusEffect가 이미 조회함
+    if (authStatusRef.current !== 'authed') return;
+    console.log('[Home] 위젯 완료 반영 신호 → 재조회');
+    reloadForDate().catch(() => {});
+    reloadSchedules().catch(() => {});
+  }, [dataSyncVersion, reloadForDate, reloadSchedules]);
 
   // First upcoming event for conversational header (오늘이 빈 날 케이스)
   const firstUpcoming = useMemo(() => {
