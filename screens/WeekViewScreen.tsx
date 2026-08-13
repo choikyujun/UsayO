@@ -19,9 +19,8 @@ import ReAnimated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader from '../components/AppHeader';
-import InlineConfirmCard from '../components/InlineConfirmCard';
+import VoiceConfirmLayer from '../components/VoiceConfirmLayer';
 import { refreshWidget } from '../services/widget/widgetRefresh';
-import MultiConfirmCard from '../components/MultiConfirmCard';
 import EditTimeModal from '../components/EditTimeModal';
 import EditTitleModal from '../components/EditTitleModal';
 import EditNotificationModal from '../components/EditNotificationModal';
@@ -345,30 +344,13 @@ export default function WeekViewScreen() {
         onComplete={() => voice.stopAndProcessStored()}
       />
 
-      {/* ── Inline / Multi confirm card ──────────────────────────── */}
-      {voice.phase === 'confirming' && voice.classifiedIntent && (
-        voice.classifiedIntent.events?.length ? (
-          <MultiConfirmCard
-            events={voice.classifiedIntent.events}
-            transcript={voice.transcript}
-            onConfirm={async () => {
-              await voice.confirmMultiAction(async intents => {
-                for (const i of intents) await applyClassifiedIntent(i);
-              });
-            }}
-            onCancel={() => voice.cancelVoiceInput()}
-          />
-        ) : (
-          <InlineConfirmCard
-            intent={voice.classifiedIntent}
-            transcript={voice.transcript}
-            onConfirm={async () => {
-              await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
-            }}
-            onCancel={() => voice.cancelVoiceInput()}
-          />
-        )
-      )}
+      {/* 확인 단계 3분기(복수/단일음성/텍스트)는 공용 VoiceConfirmLayer로 통일 — 홈/`/voice`와 동일 */}
+      <VoiceConfirmLayer
+        voice={voice}
+        onSave={async (i) => { await applyClassifiedIntent(i); }}
+        onCancel={() => voice.cancelVoiceInput()}
+        onRetry={() => { voice.retryVoice(); voice.startVoice('retry'); }}
+      />
     </View>
   );
 }

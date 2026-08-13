@@ -28,8 +28,7 @@ import EditNotificationModal from '../components/EditNotificationModal';
 import EditTitleModal from '../components/EditTitleModal';
 import EventActionSheet, { RecurringDeleteScope } from '../components/EventActionSheet';
 import HourGrid from '../components/HourGrid';
-import InlineConfirmCard from '../components/InlineConfirmCard';
-import MultiConfirmCard from '../components/MultiConfirmCard';
+import VoiceConfirmLayer from '../components/VoiceConfirmLayer';
 import LunchHint from '../components/LunchHint';
 import VoiceInputOverlay from '../components/VoiceInputOverlay';
 import { useColors } from '../constants/colors';
@@ -199,20 +198,18 @@ export default function DayViewScreen() {
     );
   }
 
-  const handleVoiceConfirm = useCallback(async () => {
-    ttsService.stop();
-    if (voice.classifiedIntent?.events?.length) {
-      await voice.confirmMultiAction(async intents => {
-        for (const i of intents) await applyClassifiedIntent(i);
-      });
-    } else {
-      await voice.confirmAction(async intent => { await applyClassifiedIntent(intent); });
-    }
-  }, [voice, applyClassifiedIntent]);
-
+  // 저장 확정(단일/복수 분기·confirmAction 호출)은 VoiceConfirmLayer가 담당한다.
+  // 여기서는 적용 함수만 넘긴다. confirmAction/confirmMultiAction이 내부에서 ttsService.stop()을 호출.
   const handleVoiceCancel = useCallback(() => {
     ttsService.stop();
     voice.cancelVoiceInput();
+  }, [voice]);
+
+  // 하이브리드(텍스트) 확인 카드의 "다시 말하기" — 홈과 동일 동작.
+  const handleVoiceRetry = useCallback(() => {
+    ttsService.stop();
+    voice.retryVoice();
+    voice.startVoice('retry');
   }, [voice]);
 
   // ── Date navigation ─────────────────────────────────────────────────
@@ -352,23 +349,13 @@ export default function DayViewScreen() {
         </View>
       )}
 
-      {voice.phase === 'confirming' && voice.classifiedIntent && (
-        voice.classifiedIntent.events?.length ? (
-          <MultiConfirmCard
-            events={voice.classifiedIntent.events}
-            transcript={voice.transcript}
-            onConfirm={handleVoiceConfirm}
-            onCancel={handleVoiceCancel}
-          />
-        ) : (
-          <InlineConfirmCard
-            intent={voice.classifiedIntent}
-            transcript={voice.transcript}
-            onConfirm={handleVoiceConfirm}
-            onCancel={handleVoiceCancel}
-          />
-        )
-      )}
+      {/* 확인 단계 3분기(복수/단일음성/텍스트)는 공용 VoiceConfirmLayer로 통일 — 홈/`/voice`와 동일 */}
+      <VoiceConfirmLayer
+        voice={voice}
+        onSave={async (i) => { await applyClassifiedIntent(i); }}
+        onCancel={handleVoiceCancel}
+        onRetry={handleVoiceRetry}
+      />
 
       {/* ── Event action sheet ───────────────────────────────────── */}
       <EventActionSheet
