@@ -21,6 +21,16 @@ class YuSayMediumWidget : AppWidgetProvider() {
     try { manager.notifyAppWidgetViewDataChanged(ids, R.id.widget_list) } catch (_: Throwable) {}
   }
 
+  // 위젯이 제거되면 '오늘로 스크롤함' 플래그도 지운다. appWidgetId는 재사용되므로, 남겨두면
+  // 같은 id로 새로 배치했을 때 '이미 스크롤함'으로 판정돼 오늘로 가지 않는다.
+  override fun onDeleted(context: Context, ids: IntArray) {
+    val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
+    val editor = prefs.edit()
+    ids.forEach { editor.remove("scrolled_$it") }
+    editor.apply()
+    Log.i("Widget", "[Widget] onDeleted ids=${ids.joinToString()} → scrolled 플래그 정리")
+  }
+
   companion object {
     private const val IMMUTABLE = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     private const val MUTABLE = PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -51,11 +61,26 @@ class YuSayMediumWidget : AppWidgetProvider() {
 
         // 최초 렌더 1회만 오늘 위치로 스크롤. 이후 갱신(앱/자체 30분/완료 등)에서는 적용하지 않아
         // 사용자가 스크롤한 위치가 튀지 않게 한다. (오늘 인덱스는 JS가 계산해 실어 보냄)
+        //
+        // 중요: **데이터가 없으면 아무것도 하지 않는다.** 예전에는 데이터 유무와 무관하게
+        // setScrollPosition(0)을 쏘고 'scrolled_$id' 플래그를 세워버렸다. 위젯을 처음 배치하는
+        // 시점에는 앱이 아직 데이터를 push하기 전이라 load()가 null → 인덱스 0으로 스크롤한 뒤
+        // 플래그만 소모됐고, 나중에 데이터가 들어와도 '이미 스크롤함'으로 판정돼 영영 오늘로
+        // 가지 않았다(=과거 일정이 맨 위에 남는 증상).
+        // 플래그는 **데이터가 실제로 채워진 뒤** WidgetListService(팩토리)가 세운다.
+        // 지역 변수명에 `data`를 쓰면 아래 Intent.apply{} 블록의 `data =`(Intent.setData)를
+        // 가려 컴파일이 깨진다. 반드시 다른 이름을 쓸 것.
+        val widgetData = WidgetDataManager.load(context)
+        val rowCount = widgetData?.rows?.size ?: 0
+        val todayIndex = widgetData?.todayIndex ?: 0
         val scrollPrefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
-        if (!scrollPrefs.getBoolean("scrolled_$id", false)) {
-          val todayIndex = WidgetDataManager.load(context)?.todayIndex ?: 0
-          views.setScrollPosition(R.id.widget_list, todayIndex)
-          scrollPrefs.edit().putBoolean("scrolled_$id", true).apply()
+        val alreadyScrolled = scrollPrefs.getBoolean("scrolled_$id", false)
+        if (!alreadyScrolled && rowCount > 0) {
+          val position = todayIndex.coerceIn(0, rowCount - 1)
+          views.setScrollPosition(R.id.widget_list, position)
+          Log.i("Widget", "[Widget] scroll → position=$position (rows=$rowCount, todayIndex=$todayIndex) stage=provider")
+        } else {
+          Log.i("Widget", "[Widget] scroll 생략 (rows=$rowCount, todayIndex=$todayIndex, alreadyScrolled=$alreadyScrolled)")
         }
 
         // 리스트 아이템 클릭 템플릿 — WidgetActionReceiver로 가는 '브로드캐스트'. fill-in extra의

@@ -293,6 +293,49 @@ STT+분류에 걸리는 2~5초 동안은 마이크가 닫혀 있어 그 구간�
 - `services/voice/VoiceFlowOrchestrator.ts` — `CONFIDENCE_THRESHOLD = 0.6`.
 - `services/voice/voiceTrace.ts` — 직전 녹음 길이·종료 시각 보관(로그 상관용).
 
+## 5-5. 위젯 최초 스크롤이 오늘로 안 가던 문제 (2026-08-13, tag: `v-pre-widget-scroll` 직후)
+
+> 증상: 위젯을 새로 배치하면 과거 일정이 맨 위에 보인다. `af767ee`(최초 렌더 시 오늘 위치로
+> 스크롤) 당시엔 동작했고 `caa6556`(tag `v-widget-voice-verified`)에서도 검증 통과했다.
+
+### 원인 A — 데이터가 없는데 '스크롤함' 플래그를 소모 (결정적)
+`update()`가 데이터 유무와 무관하게 `setScrollPosition(list, load()?.todayIndex ?: 0)`을 쏘고
+곧바로 `scrolled_$id = true`를 저장했다. **위젯을 처음 배치하는 시점에는 앱이 아직 데이터를
+push하기 전이라 `load()`가 null** → 인덱스 0으로 스크롤(=맨 위, 과거)한 뒤 플래그만 소모됐다.
+나중에 데이터가 들어와도 '이미 스크롤함'으로 판정돼 영영 오늘로 가지 않는다.
+
+이전에 동작한 이유: 그때는 앱이 이미 데이터를 push한 적이 있어 prefs에 값이 남아 있었고,
+위젯 배치 시 `load()`가 정상 데이터를 돌려줬다. **패키지명 변경(`com.yusay.app` →
+`com.usayo.app`, `0198e51`)으로 prefs 이름(`com.usayo.app.widget`)이 새로 시작되면서**
+"데이터 없는 상태로 첫 배치" 경로가 처음 밟혔고, 그때 결함이 드러났다.
+
+### 원인 B — 데이터가 채워지기 전에 스크롤 (구조적)
+`setScrollPosition`이 `setRemoteAdapter`와 같은 RemoteViews에 담겨 나가, 리스트에 데이터가
+채워지기 전에 적용된다. `onUpdate`도 `update()`를 전부 돌린 **뒤에**
+`notifyAppWidgetViewDataChanged`를 호출하므로 순서상 항상 데이터보다 앞선다.
+
+### 확인했으나 원인이 아니었던 것 — `todayIndex` 계산
+빈 날 숨기기(`bb85a50`)가 인덱스를 어긋나게 했는지 확인했으나 **정상**이다.
+`if (isToday) todayIndex = rows.length`가 헤더 push **직전**에 실행되고, 빈 날은 같은 반복
+안에서 `rows.pop()`으로 헤더를 즉시 제거하므로 오늘 차례가 올 때 `rows.length`는 정확하다.
+
+### 수정
+- **플래그는 데이터가 실제로 채워진 뒤에만 세운다.** provider는 `rows > 0`일 때만 스크롤을
+  시도하고 플래그는 건드리지 않는다. 플래그 소유자는 `WidgetListFactory`.
+- **팩토리가 데이터 로드 직후 한 번 더 확실히 적용한다**: `onDataSetChanged`에서
+  400ms 뒤 `partiallyUpdateAppWidget`으로 스크롤 액션만 보낸다(다른 뷰 건드리지 않음).
+  실패하면 플래그를 세우지 않아 다음 갱신에서 재시도한다.
+- **`onDeleted`에서 `scrolled_$id`를 지운다.** appWidgetId는 재사용되므로, 남겨두면 같은 id로
+  새로 배치했을 때 '이미 스크롤함'으로 판정돼 오늘로 가지 않는다.
+- 로그: `[Widget] scroll → position=N (rows=M, todayIndex=K) stage=provider|factory`.
+
+### 함정 (다음에 이 코드를 만질 때)
+- `update()` 안에서 지역 변수명 `data`를 쓰면 아래 `Intent.apply {}` 블록의 `data =`
+  (=`Intent.setData`)를 가려 컴파일이 깨진다. 실제로 밟았다 — `widgetData`로 명명.
+- `widget-extension/android/*.kt`가 소스이고 `android/`는 gitignore + prebuild 산출물이다.
+  고친 뒤 prebuild(또는 동일 파일 복사)로 동기화하지 않으면 **빌드에 반영되지 않는다.**
+  (known-issue 4번의 플러그인 `.ts↔.js` 동기화 함정과 같은 계열.)
+
 ## 6. 계정 삭제 기능 도입 (2026-08-12) + 후속 과제
 
 > 구글 플레이 필수 요건(계정 생성 앱의 앱 내 계정 삭제 경로) 대응. Edge Function

@@ -1,10 +1,13 @@
 package com.usayo.app.widget
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Paint
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
@@ -13,17 +16,58 @@ import com.usayo.app.R
 // 컬렉션 위젯 어댑터. WidgetDataManager.load()의 플랫 rows를 그대로 렌더한다.
 class WidgetListService : RemoteViewsService() {
   override fun onGetViewFactory(intent: Intent): RemoteViewsFactory =
-    WidgetListFactory(applicationContext)
+    WidgetListFactory(
+      applicationContext,
+      intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID),
+    )
 }
 
-private class WidgetListFactory(private val context: Context) : RemoteViewsService.RemoteViewsFactory {
+// 최초 스크롤을 리스트에 데이터가 실제로 채워진 뒤에 적용하기 위한 지연.
+// onDataSetChanged 시점엔 아직 getCount/getViewAt 이전이라 여기서 바로 쏘면 빈 리스트에
+// 스크롤하는 셈이 돼 무시된다.
+private const val SCROLL_DELAY_MS = 400L
+
+private class WidgetListFactory(
+  private val context: Context,
+  private val appWidgetId: Int,
+) : RemoteViewsService.RemoteViewsFactory {
   private var rows: List<WidgetRow> = emptyList()
 
-  override fun onCreate() { Log.i("WidgetList", "[WidgetList] onCreate") }
+  override fun onCreate() { Log.i("WidgetList", "[WidgetList] onCreate id=$appWidgetId") }
   override fun onDestroy() {}
   override fun onDataSetChanged() {
-    rows = WidgetDataManager.load(context)?.rows ?: emptyList()
-    Log.i("WidgetList", "[WidgetList] onDataSetChanged getCount=${rows.size}")
+    val data = WidgetDataManager.load(context)
+    rows = data?.rows ?: emptyList()
+    Log.i("WidgetList", "[WidgetList] onDataSetChanged getCount=${rows.size} id=$appWidgetId")
+    if (data != null) scrollToTodayOnce(data)
+  }
+
+  // 최초 1회만 오늘 위치로 스크롤한다.
+  // provider(update)에서도 setScrollPosition을 쏘지만, 그건 setRemoteAdapter와 같은 RemoteViews에
+  // 담겨 **리스트에 데이터가 채워지기 전에** 적용되므로 무시될 수 있다. 데이터 로드가 끝나는
+  // 지점(=여기)에서 한 번 더 확실히 적용하고, 성공한 뒤에야 플래그를 세운다.
+  // 플래그를 여기서만 세우므로 "데이터 없이 플래그만 소모"되는 일이 없다.
+  private fun scrollToTodayOnce(data: WidgetData) {
+    if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
+    if (data.rows.isEmpty()) return
+    val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
+    if (prefs.getBoolean("scrolled_$appWidgetId", false)) return
+
+    val position = data.todayIndex.coerceIn(0, data.rows.size - 1)
+    Handler(Looper.getMainLooper()).postDelayed({
+      try {
+        // 스크롤 액션만 담은 RemoteViews → partiallyUpdateAppWidget은 이 액션만 적용하므로
+        // 다른 뷰(헤더·배경·클릭 템플릿)를 건드리지 않는다.
+        val views = RemoteViews(context.packageName, R.layout.widget_medium)
+        views.setScrollPosition(R.id.widget_list, position)
+        AppWidgetManager.getInstance(context).partiallyUpdateAppWidget(appWidgetId, views)
+        prefs.edit().putBoolean("scrolled_$appWidgetId", true).apply()
+        Log.i("Widget", "[Widget] scroll → position=$position (rows=${data.rows.size}, todayIndex=${data.todayIndex}) stage=factory id=$appWidgetId")
+      } catch (e: Throwable) {
+        // 실패 시 플래그를 세우지 않는다 → 다음 갱신에서 다시 시도.
+        Log.e("Widget", "[Widget] scroll 실패 id=$appWidgetId: ${e.message}", e)
+      }
+    }, SCROLL_DELAY_MS)
   }
 
   override fun getCount(): Int = rows.size
