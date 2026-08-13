@@ -25,7 +25,10 @@
       android:maxLines="1" android:ellipsize="end" android:visibility="gone" />
   </LinearLayout>
 
-  <FrameLayout android:id="@+id/event_check" android:layout_width="34dp" android:layout_height="34dp">
+  <!-- 완료 원 탭 영역. 폭 34dp는 오탭 시 왼쪽 event_body(=앱 열기)로 빠지기 쉬워 44dp로 넓힌다.
+       (행 높이는 34dp 유지 — 높이를 키우면 목록에 보이는 항목 수가 줄어든다.)
+       event_body가 weight=1이라 넓힌 만큼 제목 영역만 줄어든다. -->
+  <FrameLayout android:id="@+id/event_check" android:layout_width="44dp" android:layout_height="34dp">
     <ImageView android:id="@+id/event_check_icon" android:layout_width="18dp" android:layout_height="18dp"
       android:layout_gravity="center" android:src="@drawable/ic_check_empty" />
   </FrameLayout>

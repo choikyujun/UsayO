@@ -336,6 +336,42 @@ push하기 전이라 `load()`가 null** → 인덱스 0으로 스크롤(=맨 위
   고친 뒤 prebuild(또는 동일 파일 복사)로 동기화하지 않으면 **빌드에 반영되지 않는다.**
   (known-issue 4번의 플러그인 `.ts↔.js` 동기화 함정과 같은 계열.)
 
+## 5-6. 위젯 완료 탭이 앱을 여는 문제 — 계측 우선 (2026-08-13)
+
+> 증상: ① 완료 원 탭 → 앱이 열림(옵션 B는 앱을 안 여는 게 목적) ② 열린 앱에는 완료 미반영
+> ③ 위젯으로 돌아가면 위젯에는 완료 표시 ④ 앱을 다시 열면 완료 반영됨.
+
+### 코드로 확인한 것 — 의심 지점은 전부 정상이었다
+패키지명 변경이 어긋뜨렸는지 전수 확인했으나 **모두 정상**이다. (스크롤 문제와 달리 여기서는
+패키지 변경이 원인이 아니다.)
+- 템플릿은 `getBroadcast`(+`FLAG_MUTABLE`)로 `WidgetActionReceiver`를 명시 지정. `getActivity` 아님.
+- 매니페스트에 `.widget.WidgetActionReceiver`(exported=false) 등록됨. PendingIntent는 생성자
+  (=앱) 권한으로 발송되므로 exported=false여도 정상 수신된다.
+- fill-in은 `event_body`=`action=open`, `event_check`=`action=complete`로 분리돼 있고,
+  레이아웃상 둘은 **형제**라 겹치지 않는다(`event_check`가 `event_body` 안에 있지 않음).
+- `widget-extension/android/*` ↔ prebuild 산출물 `android/*` 전 파일 동일(스테일 사본 아님).
+- 헤더의 add/mic 버튼은 리스트와 겹치지 않는다(레이아웃상 오버레이 없음).
+- 리시버의 `complete` 분기에는 `startActivity`가 없다.
+
+즉 **완료 원을 정확히 눌렀다면 앱이 열릴 경로가 코드에 없다.** 가장 유력한 설명은 탭이
+`event_check`(34dp)가 아니라 그 왼쪽 `event_body`에 떨어진 것(=`action=open`)이다.
+
+### 조치
+1. **분기 계측**(원인 확정용): `[WidgetAction] received action=… eventId=… done=…` +
+   분기별 로그(`→ open 분기(앱 실행)` / `→ complete 분기(앱 안 엶)` / `→ 분기 없음`).
+   - `action=open`이 찍히면 → 오탭(행 본문). 아래 2번으로 완화.
+   - `action=complete`가 찍혔는데도 앱이 열리면 → **원인은 이 리시버 바깥**. 다시 조사할 것.
+   - `action=null`이면 → fill-in extra 미전달(템플릿/필인 불일치) 쪽을 판다.
+2. **오탭 완화**: `event_check` 폭 34dp → 44dp(높이 34dp 유지 — 높이를 키우면 보이는 항목 수가
+   준다). `event_body`가 weight=1이라 제목 영역만 그만큼 줄어든다.
+
+### ②④에 대한 메모 (별도 수정 안 함)
+`drainPendingCompletions`는 이미 앱 시작(`auth-ready`)과 **포그라운드 복귀**(`AppState active`)에서
+돈다. 다만 드레인은 Supabase 왕복(수백 ms)이고 화면 리로드는 즉시 일어나므로, **드레인이 끝나기
+전에 화면이 이미 로드**되면 그 실행에서는 완료가 안 보이고 다음 실행에서 보인다(=②④).
+①이 해결되면 앱이 열리지 않으므로 ②는 사라진다. 드레인 완료 후 화면 리로드를 트리거하는 것은
+별건 개선 과제로 남긴다(지시 없이 착수 금지).
+
 ## 6. 계정 삭제 기능 도입 (2026-08-12) + 후속 과제
 
 > 구글 플레이 필수 요건(계정 생성 앱의 앱 내 계정 삭제 경로) 대응. Edge Function
