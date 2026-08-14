@@ -8,7 +8,7 @@ import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
-import { AppState, LogBox, Platform, Text, TextInput, useColorScheme } from 'react-native';
+import { AppState, LogBox, Text, TextInput, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // 개발 빌드에서 노란 배너 완전 억제 (console.error는 여전히 터미널에 출력됨)
@@ -20,7 +20,7 @@ SplashScreen.preventAutoHideAsync();
 (Text as any).defaultProps.style = [{ fontFamily: 'Pretendard-Regular' }];
 (TextInput as any).defaultProps = (TextInput as any).defaultProps ?? {};
 (TextInput as any).defaultProps.style = [{ fontFamily: 'Pretendard-Regular' }];
-import Purchases, { LOG_LEVEL } from 'react-native-purchases';
+import { connectIAP, disconnectIAP } from '../lib/iap';
 import { useColors } from '../constants/colors';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { UndoToastProvider } from '../contexts/UndoToastContext';
@@ -31,7 +31,6 @@ import { signInWithDevice } from '../services/auth/deviceAuth';
 import { isAccountDeletionInProgress } from '../services/auth/accountDeletion';
 import { useAuthStore } from '../stores/useAuthStore';
 import { syncAndRefreshWidget } from '../services/widget/widgetRefresh';
-import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
 import { ttsService } from '../services/voice/TTSService';
 import { audioSessionService } from '../services/voice/AudioSessionService';
@@ -261,19 +260,13 @@ function AppRoot() {
         return;
       }
 
-      // Initialize RevenueCat
-      const rcKey = Platform.OS === 'ios'
-        ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY!
-        : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY!;
+      // IAP(스토어 직접 연동) 초기화 — 구매 리스너 등록 + 상품 미리 조회.
+      // 결제 성공은 여기 등록한 리스너가 받아 verify-purchase로 서버 검증한다(페이월이 닫혀 있어도
+      // 처리되도록 앱 수준에서 등록). 모달은 열려 있는 동안만 자기 콜백을 덧붙인다.
+      // 스토어 연결 실패(에뮬레이터 등)는 내부에서 조용히 처리 — 부팅을 막지 않는다.
+      connectIAP().catch(() => {});
 
-      if (rcKey && !rcKey.includes('sandbox_xxx')) {
-        await Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-        const userId = (await supabase.auth.getUser()).data.user?.id;
-        Purchases.configure({ apiKey: rcKey, appUserID: userId });
-        subscriptionService.syncFromRevenueCat().catch(() => {});
-      }
-
-      // 서버 권위 플랜/사용량 로드 (RevenueCat 유무와 무관하게 항상) — 잔여 표시·사전 검사용.
+      // 서버 권위 플랜/사용량 로드 (스토어 연결 여부와 무관하게 항상) — 잔여 표시·사전 검사용.
       quotaTracker.refreshFromServer().catch(() => {});
 
       // 저장된 TTS 속도를 앱 전역에 반영(설정 화면 진입 전에도).
@@ -287,6 +280,10 @@ function AppRoot() {
         useAuthStore.getState().markFailed();
       }
     });
+
+    // 앱 종료(루트 언마운트) 시 스토어 연결·구매 리스너 해제. 해제하지 않으면 리스너가 남아
+    // 다음 연결에서 이중 등록되고, 같은 구매가 두 번 검증된다.
+    return () => { disconnectIAP().catch(() => {}); };
   }, []);
 
   return (

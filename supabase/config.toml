@@ -378,13 +378,8 @@ verify_jwt = true
 [functions.delete-account]
 verify_jwt = true
 
-# RevenueCat 웹훅은 Supabase JWT를 보낼 수 없다 → 게이트웨이 검증을 끄고
-# 함수 내부 X-RevenueCat-Secret 헤더(상수 시간 비교)로 인증한다.
-[functions.revenuecat-webhook]
-verify_jwt = false
-
-[functions.sync-subscription]
-verify_jwt = true
+# RevenueCat 경로(revenuecat-webhook / sync-subscription)는 스토어 직접 연동으로 대체돼 삭제됐다.
+# 대체: verify-purchase(구매 즉시 검증) + play-rtdn(갱신·해지·환불 실시간 반영).
 
 # 구매 검증(react-native-iap 직접 연동). 클라이언트가 사용자 JWT를 보내므로 게이트웨이에서
 # 1차 검증하고, 함수 내부에서 getUser로 uid를 다시 확정한다(이중 확인).

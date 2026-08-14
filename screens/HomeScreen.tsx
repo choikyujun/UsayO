@@ -42,6 +42,7 @@ import { useRecurringEvents } from '../hooks/useRecurringEvents';
 import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useDataSyncStore } from '../stores/useDataSyncStore';
+import { useSubscriptionStore } from '../stores/useSubscriptionStore';
 import HybridInputModal from '../components/HybridInputModal';
 import UpgradeModal from '../components/UpgradeModal';
 import UsageWarningBanner from '../components/UsageWarningBanner';
@@ -347,10 +348,19 @@ export default function HomeScreen() {
       const ttsMsg = friendlyErrorMessage(voice.error ?? null);
       ttsService.speak(ttsMsg).catch(() => {});
       // 쿼터 초과: 조용히 실패하지 않도록 업그레이드 모달까지 표시 (TTS는 위에서 안내됨).
-      // + self-heal: 서버가 유료를 무료로 판정한 경우(웹훅 지연 등)를 서버 검증으로 복구.
-      //   조용히 실패하며, 성공 시 store.plan이 갱신됨. (import 시점 부수효과 없음)
+      // + self-heal: 서버가 유료를 무료로 판정한 경우를 2단계로 복구(둘 다 조용히 실패).
+      //   (1) 서버 재조회 — DB는 이미 유료인데 클라 store만 낡은 경우.
+      //   (2) 그래도 free면 스토어 재검증(restorePurchases) — 구매는 됐는데 verify-purchase가
+      //       실패해 subscriptions에 기록이 없는 경우(RevenueCat 웹훅 지연을 대체하는 경로).
       if (voice.error?.type === 'quotaExceeded') {
-        subscriptionService.syncSubscriptionToServer().catch(() => {});
+        void (async () => {
+          try {
+            await subscriptionService.refreshFromServer();
+            if (useSubscriptionStore.getState().plan === 'free') {
+              await subscriptionService.restorePurchases();
+            }
+          } catch { /* 조용히 — 게이트는 서버가 최종 판정 */ }
+        })();
         setUpgradeVisible(true);
       }
       const t = setTimeout(() => voice.retryVoice(), 2500);

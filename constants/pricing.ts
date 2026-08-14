@@ -1,20 +1,13 @@
+// 스토어 상품 ID.
+// ⚠️ 패키지명은 com.usayo.app이지만 상품 ID는 **com.yusay 접두사를 유지**한다.
+//    플레이 콘솔에 이미 등록된 값이라 변경이 불가능하다(오타 아님).
+// ⚠️ 서버 supabase/functions/_shared/google-play.ts의 PRO_PRODUCT_IDS/TEAM_PRODUCT_IDS와
+//    반드시 일치해야 한다. 어긋나면 "결제는 됐는데 플랜이 안 올라가는" 증상이 난다.
+// teamMonthly는 인앱 구매 대상이 아니다(영업 문의 전환) — 서버 판정용으로만 존재.
 export const PRODUCT_IDS = {
   proMonthly: 'com.yusay.pro.monthly',
   proAnnual: 'com.yusay.pro.annual',
   teamMonthly: 'com.yusay.team.monthly',
-} as const;
-
-// ⚠️ 이 값은 RevenueCat 대시보드 Entitlement identifier 및
-//    supabase/functions/revenuecat-webhook/index.ts 의 ENTITLEMENT_PRO/TEAM 와 반드시 일치해야 한다.
-//    (세 곳이 어긋나면 서버가 유료 사용자를 무료로 판정한다.)
-export const ENTITLEMENTS = {
-  pro: 'pro_access',
-  team: 'team_access',
-} as const;
-
-export const OFFERINGS = {
-  default: 'default',
-  team: 'team',
 } as const;
 
 // Reference prices per region (displayed as fallback when store price unavailable)

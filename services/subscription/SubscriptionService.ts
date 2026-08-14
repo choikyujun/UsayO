@@ -1,5 +1,3 @@
-import Purchases, { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
-import { supabase } from '../../lib/supabase';
 import { useSubscriptionStore } from '../../stores/useSubscriptionStore';
 import {
   FeatureKey,
@@ -9,70 +7,56 @@ import {
   getUpgradeTarget,
   isFeatureAllowed,
 } from '../../constants/featureGates';
-import { ENTITLEMENTS, OFFERINGS } from '../../constants/pricing';
+import {
+  loadProducts,
+  openManageSubscriptions,
+  purchasePro,
+  restorePurchases,
+  type ProPeriod,
+} from '../../lib/iap';
+import { quotaTracker } from './QuotaTracker';
 
+// 구독 서비스 — RevenueCat을 걷어내고 react-native-iap + 서버 검증(verify-purchase)으로 교체.
+//
+// 플랜 판정의 권위는 **서버**다:
+//   · 구매/복원 → lib/iap가 verify-purchase Edge 호출 → Edge가 구글 API로 검증 후 subscriptions write
+//   · 클라는 subscriptions를 읽기만 한다(quotaTracker.refreshFromServer → store.plan)
+//   클라가 플랜을 스스로 정하는 경로는 없다(스푸핑 차단). 게이트 판정 함수는 그대로 유지.
 export class SubscriptionService {
-  async getCustomerInfo(): Promise<CustomerInfo> {
-    return Purchases.getCustomerInfo();
-  }
-
+  /** 캐시된 플랜 즉시 반환 + 백그라운드로 서버 재조회. */
   async getCurrentPlan(): Promise<PlanType> {
     const cached = useSubscriptionStore.getState().plan;
-    // Refresh in background
-    this.syncFromRevenueCat().catch(() => {});
+    this.refreshFromServer().catch(() => {});
     return cached;
   }
 
-  async syncFromRevenueCat(): Promise<void> {
-    const info = await Purchases.getCustomerInfo();
-    const plan = this._planFromCustomerInfo(info);
-    useSubscriptionStore.getState().setPlan(plan);
-    useSubscriptionStore.getState().setTrialEligible(
-      info.entitlements.active[ENTITLEMENTS.pro]?.periodType === 'TRIAL'
-    );
-    await this._syncPlanToSupabase(plan, info);
+  /** 서버(subscriptions)에서 권위 플랜·사용량을 로드해 store에 반영. */
+  async refreshFromServer(): Promise<void> {
+    await quotaTracker.refreshFromServer();
   }
 
-  async purchaseSubscription(pkg: PurchasesPackage): Promise<PlanType> {
-    const { customerInfo } = await Purchases.purchasePackage(pkg);
-    const plan = this._planFromCustomerInfo(customerInfo);
-    useSubscriptionStore.getState().setPlan(plan);
-    // 구매 직후 서버 즉시 반영(웹훅 지연 공백 제거). 조용히 실패 → 웹훅이 최종 반영.
-    this.syncSubscriptionToServer().catch(() => {});
-    return plan;
+  /** 스토어 상품 조회(가격 표시용). 페이월이 열릴 때 호출. */
+  async loadProducts() {
+    return loadProducts();
   }
 
-  async restorePurchases(): Promise<PlanType> {
-    const info = await Purchases.restorePurchases();
-    const plan = this._planFromCustomerInfo(info);
-    useSubscriptionStore.getState().setPlan(plan);
-    this.syncSubscriptionToServer().catch(() => {});
-    return plan;
+  /**
+   * Pro 구독 구매 요청. 결제창을 띄우기만 하고, 실제 성공 처리는
+   * purchaseUpdatedListener(lib/iap의 connectIAP에서 등록)에서 서버 검증 후 이뤄진다.
+   * 호출부는 onPurchased 콜백으로 완료를 받는다.
+   */
+  async purchasePro(period: ProPeriod): Promise<void> {
+    await purchasePro(period);
   }
 
-  // 서버 측 RevenueCat 검증으로 subscriptions/profiles를 즉시 반영(스푸핑 안전).
-  // 구매/복원 직후, 그리고 쿼터 초과 self-heal에서 호출. 실패는 조용히 무시(웹훅이 권위).
-  async syncSubscriptionToServer(): Promise<void> {
-    try {
-      const { data } = await supabase.functions.invoke('sync-subscription');
-      const plan = (data as { plan?: PlanType } | null)?.plan;
-      if (plan) useSubscriptionStore.getState().setPlan(plan);
-    } catch { /* 조용히 실패 — 웹훅이 최종 반영 */ }
+  /** 구매 복원(구글 플레이 필수 요건). true=복원됨 / false=복원할 구매 없음. */
+  async restorePurchases(): Promise<boolean> {
+    return restorePurchases();
   }
 
-  async isEligibleForTrial(): Promise<boolean> {
-    const info = await Purchases.getCustomerInfo();
-    const proEntitlement = info.entitlements.all[ENTITLEMENTS.pro];
-    // If they've never had the entitlement, they're trial-eligible
-    return !proEntitlement;
-  }
-
-  async getOfferings() {
-    return Purchases.getOfferings();
-  }
-
+  /** 스토어 구독 관리 화면(해지·결제수단 변경). */
   openManageSubscription(): void {
-    Purchases.showManageSubscriptions().catch(() => {});
+    openManageSubscriptions();
   }
 
   isFeatureAllowed(feature: FeatureKey, plan?: PlanType): boolean {
@@ -87,34 +71,6 @@ export class SubscriptionService {
   getUpgradeTarget(feature: FeatureKey): 'pro' | 'team' {
     return getUpgradeTarget(feature);
   }
-
-  private _planFromCustomerInfo(info: CustomerInfo): PlanType {
-    if (info.entitlements.active[ENTITLEMENTS.team]) return 'team';
-    if (info.entitlements.active[ENTITLEMENTS.pro]) return 'pro';
-    return 'free';
-  }
-
-  // profiles.plan은 클라이언트가 쓰지 않는다 (스푸핑 벡터 제거).
-  // 권한 판정용 플랜은 RevenueCat 웹훅(서비스 롤)이 profiles/subscriptions에 기록하고,
-  // 서버(stt-proxy)는 subscriptions만 신뢰한다. DB 트리거(protect_profile_plan)로도 클라 변경은 무력화됨.
-  // (구매 직후 즉시 반영이 필요하면 웹훅 수신까지 store.plan을 로컬로만 갱신 — DB 기록 안 함.)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private async _syncPlanToSupabase(_plan: PlanType, _info: CustomerInfo): Promise<void> {
-    /* no-op: 서버 권위. 클라 profiles.plan 쓰기 제거됨. */
-  }
-}
-
-// Package identifier helpers used by OFFERINGS
-export function proMonthlyOffering(offerings: Awaited<ReturnType<typeof Purchases.getOfferings>>) {
-  return offerings.all[OFFERINGS.default]?.availablePackages.find(
-    p => p.offeringIdentifier === OFFERINGS.default && p.packageType === 'MONTHLY'
-  ) ?? null;
-}
-
-export function proAnnualOffering(offerings: Awaited<ReturnType<typeof Purchases.getOfferings>>) {
-  return offerings.all[OFFERINGS.default]?.availablePackages.find(
-    p => p.offeringIdentifier === OFFERINGS.default && p.packageType === 'ANNUAL'
-  ) ?? null;
 }
 
 export const subscriptionService = new SubscriptionService();

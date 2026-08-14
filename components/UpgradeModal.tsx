@@ -10,11 +10,12 @@ import {
   View,
 } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
-import Purchases, { PurchasesPackage } from 'react-native-purchases';
+import type { ProductSubscription } from 'react-native-iap';
 import { Colors } from '../constants/colors';
 import { GateType, FREE_COMMAND_LIMIT } from '../constants/featureGates';
 import { DEFAULT_PRICE } from '../constants/pricing';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
+import { getProProducts, priceNumberOf, priceStringOf, setIAPCallbacks } from '../lib/iap';
 import { Spacing } from '../constants/spacing';
 
 type Period = 'annual' | 'monthly';
@@ -134,7 +135,7 @@ export default function UpgradeModal({
   const opacity = useRef(new Animated.Value(0)).current;
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<Period>('annual'); // 기본 선택 = 연간(LTV 유리)
-  const [pkgs, setPkgs] = useState<{ monthly?: PurchasesPackage; annual?: PurchasesPackage }>({});
+  const [pkgs, setPkgs] = useState<{ monthly?: ProductSubscription; annual?: ProductSubscription }>({});
 
   useEffect(() => {
     if (visible) {
@@ -150,71 +151,74 @@ export default function UpgradeModal({
     }
   }, [visible]);
 
-  // 오퍼링에서 월/연 패키지 로드(가격 표시·구매용). 실패 시 참조가로 폴백.
+  // 스토어에서 월/연 상품 로드(가격 표시·구매용). 실패 시 참조가로 폴백.
   useEffect(() => {
     if (!visible || upgradeTarget !== 'pro') return;
     setPeriod('annual'); // 열 때마다 연간 기본으로
     let cancelled = false;
     (async () => {
-      try {
-        const offerings = await Purchases.getOfferings();
-        const avail = offerings.current?.availablePackages ?? [];
-        const monthly = avail.find(p => p.packageType === 'MONTHLY');
-        const annual = avail.find(p => p.packageType === 'ANNUAL');
-        if (!cancelled) setPkgs({ monthly, annual });
-      } catch { /* 오퍼링 조회 실패 → 참조가 폴백, 구매 시 재조회 */ }
+      await subscriptionService.loadProducts().catch(() => {});
+      if (!cancelled) setPkgs(getProProducts());
     })();
     return () => { cancelled = true; };
   }, [visible, upgradeTarget]);
 
+  // 구매 결과는 결제창이 아니라 purchaseUpdatedListener(비동기 서버 검증)로 돌아온다.
+  // 모달이 열려 있는 동안만 자기 핸들러를 붙이고, 닫히면 원상복구(연결 자체는 유지).
+  useEffect(() => {
+    if (!visible) return;
+    setIAPCallbacks({
+      onPurchased: () => {
+        setLoading(false);
+        onSuccess?.();
+        onDismiss();
+      },
+      onError: (userCancelled) => {
+        setLoading(false);
+        if (!userCancelled) {
+          Alert.alert('결제 오류', '결제 확인 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.');
+        }
+      },
+    });
+    return () => setIAPCallbacks({});
+  }, [visible, onSuccess, onDismiss]);
+
   // 표시 가격: 스토어 우선, 없으면 참조가(DEFAULT_PRICE). 절약률은 실제 숫자에서 계산.
-  const monthlyStr = pkgs.monthly?.product.priceString ?? DEFAULT_PRICE.monthly;
-  const annualStr = pkgs.annual?.product.priceString ?? DEFAULT_PRICE.annual;
-  const monthlyNum = pkgs.monthly?.product.price ?? priceToNumber(DEFAULT_PRICE.monthly);
-  const annualNum = pkgs.annual?.product.price ?? priceToNumber(DEFAULT_PRICE.annual);
+  const monthlyStr = priceStringOf(pkgs.monthly) ?? DEFAULT_PRICE.monthly;
+  const annualStr = priceStringOf(pkgs.annual) ?? DEFAULT_PRICE.annual;
+  const monthlyNum = priceNumberOf(pkgs.monthly) ?? priceToNumber(DEFAULT_PRICE.monthly);
+  const annualNum = priceNumberOf(pkgs.annual) ?? priceToNumber(DEFAULT_PRICE.annual);
   const savingsPct = computeSavingsPct(monthlyNum, annualNum);
 
   async function handleUpgrade() {
     if (upgradeTarget === 'team') {
-      // Team plan requires contacting sales — no direct in-app purchase
+      // Team은 인앱 구매 대상이 아니다 — 영업 문의로만 전환(스토어 상품 노출 없음).
       onDismiss();
       return;
     }
 
-    const wantType = period === 'annual' ? 'ANNUAL' : 'MONTHLY';
     try {
       setLoading(true);
-      // 선택 주기 패키지 — 상태에 없으면 오퍼링 재조회.
-      let pkg = period === 'annual' ? pkgs.annual : pkgs.monthly;
-      if (!pkg) {
-        const offerings = await Purchases.getOfferings();
-        pkg = offerings.current?.availablePackages.find(p => p.packageType === wantType);
-      }
-
-      if (!pkg) {
-        Alert.alert('오류', '상품을 찾을 수 없어요. 잠시 후 다시 시도해주세요.');
-        return;
-      }
-
-      await subscriptionService.purchaseSubscription(pkg);
-      onSuccess?.();
-      onDismiss();
+      // 결제창만 띄운다. 성공/실패는 위 리스너가 받는다(setLoading도 거기서 해제).
+      await subscriptionService.purchasePro(period === 'annual' ? 'annual' : 'monthly');
     } catch (e: unknown) {
-      const err = e as { userCancelled?: boolean };
-      if (!err.userCancelled) {
-        Alert.alert('결제 오류', '결제 중 오류가 발생했어요. 다시 시도해주세요.');
-      }
-    } finally {
+      // requestPurchase가 즉시 던지는 경우(상품 없음·스토어 미연결 등). 취소는 리스너로 온다.
       setLoading(false);
+      console.log('[UpgradeModal] purchase 실패:', (e as Error)?.message);
+      Alert.alert('결제 오류', '결제를 시작할 수 없어요. 잠시 후 다시 시도해주세요.');
     }
   }
 
   async function handleRestore() {
     try {
       setLoading(true);
-      await subscriptionService.restorePurchases();
-      onSuccess?.();
-      onDismiss();
+      const restored = await subscriptionService.restorePurchases();
+      if (restored) {
+        onSuccess?.();
+        onDismiss();
+      } else {
+        Alert.alert('복원할 구매 없음', '이 계정에서 복원할 구독을 찾지 못했어요.');
+      }
     } catch {
       Alert.alert('복원 오류', '구매 복원에 실패했어요.');
     } finally {

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Purchases from 'react-native-purchases';
+import { disconnectIAP } from '../../lib/iap';
 import { supabase } from '../../lib/supabase';
 
 // 계정 삭제 오케스트레이션.
@@ -43,8 +43,10 @@ export async function deleteAccount(): Promise<void> {
   //    온보딩 플래그 제거 → 다음 진입이 첫 실행처럼 동작.
   await AsyncStorage.multiRemove(['onboarding_complete', 'onboarding_step']).catch(() => {});
 
-  // 3. RevenueCat 로컬 연결 해제 (미구성/익명이면 무시).
-  try { await Purchases.logOut(); } catch { /* not configured or anonymous — 무시 */ }
+  // 3. 스토어 연결 해제 — 구매 리스너·스토어 연결을 끊는다.
+  //    (RevenueCat 시절의 Purchases.logOut 대체. react-native-iap에는 '로그아웃' 개념이 없고
+  //     구독은 스토어 계정에 귀속되므로, 앱 쪽 연결만 정리하면 된다. 실패해도 무시.)
+  try { await disconnectIAP(); } catch { /* 미연결 — 무시 */ }
 
   // 4. 로컬 세션 종료. SIGNED_OUT → _layout 재인증 가드가 스킵.
   await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
