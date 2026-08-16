@@ -69,17 +69,38 @@ async function verifyWithServer(purchase: Purchase): Promise<PlanType | null> {
     return null;
   }
   const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+  console.log(`[iap] purchaseUpdated → verify 호출 sku=${purchase.productId} platform=${platform} token=${purchaseToken.slice(0, 8)}…(len=${purchaseToken.length})`);
+
   // functions.invoke가 Authorization에 사용자 JWT를 자동 첨부. packageName은 서버 고정.
   const { data, error } = await supabase.functions.invoke('verify-purchase', {
     body: { platform, productId: purchase.productId, purchaseToken },
   });
+
   if (error) {
-    console.warn('[iap] verify-purchase invoke 실패:', error.message);
+    // FunctionsHttpError는 원본 Response를 context에 담고 있다 — 상태 코드와 본문을 꺼내야
+    // 원인이 갈린다. 이게 없으면 "결제 확인 중 문제가 발생했어요"만 남고 서버 로그도 비어 있다
+    // (게이트웨이에서 막히면 함수가 아예 실행되지 않아 Edge 로그에 아무것도 안 찍힌다).
+    const ctx = (error as { context?: { status?: number; text?: () => Promise<string> } }).context;
+    const status = ctx?.status;
+    let body = '';
+    try { body = ctx?.text ? (await ctx.text()).slice(0, 500) : ''; } catch { /* 본문 이미 소비됨 */ }
+    console.warn(
+      `[iap] verify 응답 status=${status ?? 'n/a'} name=${error.name} message=${error.message} body=${body || '(none)'}`,
+    );
+    // 상태 코드별 1차 판정 — 어디를 봐야 하는지 바로 알 수 있게.
+    if (status === 401)      console.warn('[iap] verify 401 → 사용자 JWT 문제(세션 만료/미인증). 로그인 상태 확인.');
+    else if (status === 403) console.warn('[iap] verify 403 → 서비스 계정 권한 문제. Play Console API 액세스 권한(재무 데이터 보기/주문 관리) 확인.');
+    else if (status === 404) console.warn('[iap] verify 404 → 함수 미배포 또는 경로 불일치. supabase functions deploy verify-purchase 확인.');
+    else if (status === 500) console.warn('[iap] verify 500 → 서버 내부 오류. Edge 로그의 stage 값 확인.');
+    else if (status === 502) console.warn('[iap] verify 502 → 구글 API 호출 실패(oauth/google_get). GOOGLE_SERVICE_ACCOUNT_JSON 확인.');
     return null;
   }
-  const res = data as { verified?: boolean; plan?: PlanType } | null;
+
+  const res = data as { verified?: boolean; plan?: PlanType; stage?: string; error?: string } | null;
+  console.log(`[iap] verify 응답 status=200 body=${JSON.stringify(res)?.slice(0, 500)}`);
   if (res?.verified !== true) {
-    console.warn('[iap] 미검증 구매 — 플랜 부여 안 함:', JSON.stringify(res));
+    // 200이지만 미검증 — 서버가 stage/error로 이유를 알려준다(unknown_product, account_mismatch 등).
+    console.warn(`[iap] 미검증 구매 — 플랜 부여 안 함 stage=${res?.stage ?? 'n/a'} error=${res?.error ?? 'n/a'}`);
     return null;
   }
   console.log(`[iap] 검증 성공 plan=${res.plan}`);
@@ -133,7 +154,14 @@ export async function connectIAP(callbacks: Callbacks = {}): Promise<void> {
   });
 
   errorSub = purchaseErrorListener((e: PurchaseError) => {
-    cbs.onError?.(e.code === ErrorCode.UserCancelled);
+    // 취소도 여기로 온다 — 사용자 취소인지 실제 오류인지 코드로 구분해 남긴다.
+    const cancelled = e.code === ErrorCode.UserCancelled;
+    console.log(
+      `[iap] purchaseError code=${e.code} message=${e.message ?? '(none)'}` +
+      ` productId=${(e as PurchaseError & { productId?: string }).productId ?? 'n/a'}` +
+      ` cancelled=${cancelled}`,
+    );
+    cbs.onError?.(cancelled);
   });
 
   await loadProducts();
@@ -157,11 +185,38 @@ export function setIAPCallbacks(callbacks: Callbacks): void {
 
 // ── 상품 조회 ────────────────────────────────────────────────
 export async function loadProducts(): Promise<ProductSubscription[]> {
+  const requested = [PRO_SKUS.monthly, PRO_SKUS.annual];
   try {
-    const res = await fetchProducts({ skus: [PRO_SKUS.monthly, PRO_SKUS.annual], type: 'subs' });
+    const res = await fetchProducts({ skus: requested, type: 'subs' });
     products = (res ?? []).filter(Boolean) as ProductSubscription[];
-    console.log(`[iap] fetchProducts: ${products.length}개`);
+
+    // 진단: 조회 실패한 SKU는 **예외도 경고도 없이 배열에서 빠진다**(라이브러리 문서:
+    // "Unknown SKUs are simply omitted from the result, not thrown"). 개수만으로는 어느 쪽이
+    // 빠졌는지 알 수 없어 요청↔수신을 대조하고 상품별 상태를 함께 남긴다.
+    //  · status=not-found          → 그 SKU가 Play에 없음(오타/미등록/전파 전)
+    //  · status=no-offers-available→ SKU는 있으나 이 사용자가 받을 수 있는 오퍼가 없음
+    //  · offers=0                  → 기본 요금제가 비활성/가격 미설정 → 구매 자체가 불가
+    const received = products.map((p) => {
+      const st = (p as ProductSubscription & { productStatusAndroid?: string }).productStatusAndroid;
+      const offers =
+        (p as ProductSubscription & { subscriptionOfferDetailsAndroid?: unknown[] })
+          .subscriptionOfferDetailsAndroid?.length ?? 0;
+      return `${p.id}(status=${st ?? 'n/a'} offers=${offers})`;
+    });
+    const missing = requested.filter((sku) => !products.some((p) => p.id === sku));
+    console.log(
+      `[iap] fetchProducts: ${products.length}/${requested.length}개` +
+      ` 요청=[${requested.join(', ')}]` +
+      ` 수신=[${received.join(' | ')}]` +
+      ` 누락=[${missing.join(', ') || '없음'}]`,
+    );
+    if (missing.length > 0) {
+      console.warn(
+        `[iap] 상품 누락 — Play Console에서 확인: 상품 존재 여부 / 기본 요금제 활성 / 해당 국가 가격 설정 / 변경 후 전파 지연. 누락=${missing.join(', ')}`,
+      );
+    }
   } catch (e) {
+    // skus가 비었거나 스토어 미연결·네트워크 오류일 때만 throw된다(개별 SKU 실패는 여기 안 옴).
     console.log('[iap] fetchProducts 실패:', (e as Error)?.message);
     products = [];
   }
@@ -209,6 +264,16 @@ export async function purchasePro(period: ProPeriod): Promise<void> {
   // 익명 사용자도 uid가 있으므로 그대로 심는다(Supabase uid는 UUID라 iOS appAccountToken과 호환).
   const { data: auth } = await supabase.auth.getUser();
   const uid = auth.user?.id;
+
+  // 진단: 어떤 SKU로 요청했고 offerToken이 실렸는지. Android는 offerToken이 없으면 구매창이
+  // 뜨지 않거나 즉시 실패한다(= 상품은 조회됐지만 기본 요금제가 없는 경우).
+  console.log(
+    `[iap] requestPurchase sku=${sku} offerToken=${offerToken ? '있음' : '없음'}` +
+    ` 상품캐시=${products.length}개 uid=${uid ? uid.slice(0, 8) + '…' : '(없음)'}`,
+  );
+  if (Platform.OS === 'android' && !offerToken) {
+    console.warn(`[iap] offerToken 없음 — ${sku}의 기본 요금제가 조회되지 않았다(비활성/가격 미설정/전파 전). 구매가 실패할 수 있다.`);
+  }
 
   await requestPurchase({
     type: 'subs',

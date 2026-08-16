@@ -204,7 +204,12 @@ export default function UpgradeModal({
     } catch (e: unknown) {
       // requestPurchase가 즉시 던지는 경우(상품 없음·스토어 미연결 등). 취소는 리스너로 온다.
       setLoading(false);
-      console.log('[UpgradeModal] purchase 실패:', (e as Error)?.message);
+      const err = e as Error & { code?: string; responseCode?: number; debugMessage?: string };
+      console.log(
+        `[UpgradeModal] purchase 실패 period=${period} code=${err.code ?? 'n/a'}` +
+        ` responseCode=${err.responseCode ?? 'n/a'} message=${err.message ?? '(none)'}` +
+        ` debug=${err.debugMessage ?? '(none)'}`,
+      );
       Alert.alert('결제 오류', '결제를 시작할 수 없어요. 잠시 후 다시 시도해주세요.');
     }
   }
