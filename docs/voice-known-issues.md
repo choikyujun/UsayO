@@ -492,6 +492,63 @@ provider의 `setScrollPosition`, factory의 `postDelayed` 재적용, `scrolled_$
 - `hooks/useSchedules.ts` — `createEventManual`(insert → 알림 예약 → refreshWidget).
 - `screens/HomeScreen.tsx` — 연필 버튼(44dp 아웃라인) + `handleManualSave`.
 
+## 5-11. ▶ 다음 작업 시작점 (2026-08-16 기준) — 결제 상품 조회 진단
+
+> **여기부터 이어서 하면 된다.** 결제(IAP) 전환은 코드가 다 들어갔으나 실기 검증이 막혀 있다.
+
+### 현재 막힌 지점
+`[iap] fetchProducts: 1개` — Pro 월/연 2개를 요청하는데 **1개만 조회된다.**
+코드 쪽 결함은 배제됐다(조사 결과는 아래 "확인된 것" 참조). 남은 것은 Play Console 상태다.
+
+### 빌드 상태 — ⚠️ versionCode 3은 진단에 쓸 수 없다
+| 빌드 | 시각 | 포함 여부 |
+|---|---|---|
+| versionCode 3 (`1b487ad1`) | 8/16 21:02 | 완료. 그러나 **아래 두 커밋 이전**이라 진단 불가 |
+| `ba8cc7e` IAP 로그 보강 | 8/16 21:31 | 미포함 |
+| `034c366` 키보드 수정 | 8/16 21:39 | 미포함 |
+
+**versionCode 3으로는 어느 SKU가 누락됐는지 알 수 없다**(개수만 찍는 옛 로그). 새로 빌드해야 한다.
+
+### 다음 작업 순서
+1. **versionCode 4로 EAS 빌드** — `eas build --platform android --profile production`
+2. **내부 테스트 트랙에 업로드**
+3. **스토어 경로로 설치** — 로컬 APK 사이드로드가 아니라 Play에서 받아야 구독 상품이 조회된다.
+4. **`[iap] fetchProducts` 로그로 누락 SKU 확정**
+   ```
+   [iap] fetchProducts: N/2개 요청=[...] 수신=[id(status=… offers=…)] 누락=[...]
+   ```
+   - `status=not-found` → SKU 없음/전파 전
+   - `status=no-offers-available` → SKU는 있으나 받을 수 있는 오퍼 없음
+   - `offers=0` → 기본 요금제 비활성·가격 미설정 → 조회돼도 **구매 불가**
+5. 구매까지 시도하면 `[iap] requestPurchase` / `purchaseError code=…` /
+   `[iap] verify 응답 status=… body=…`로 서버 구간까지 추적된다(401=JWT, 403=서비스계정 권한,
+   404=미배포, 502=구글 API).
+
+### Play Console 쪽 진행 상황 (2026-08-16 변경)
+- `com.yusay.pro.annual`에 **잘못된 월간 요금제(`annual-base`)가 걸려 있어 비활성화**했고,
+  **`annual-base-v2`(연간)를 활성화**했다.
+- **8/16 변경이라 전파 대기 중**이다. 조회 누락의 유력한 원인이 이것이며, 전파가 끝나면
+  2개가 정상 조회될 가능성이 높다. → **빌드 전에 먼저 재확인해 볼 것.**
+  (전파만으로 해결되면 4번 로그는 "정상 2개"를 확인하는 용도가 된다.)
+
+### 확인된 것 (다시 조사하지 말 것)
+- API는 정상: `fetchProducts({ skus, type: 'subs' })`가 v15의 정식 구독 조회 API다
+  (`getSubscriptions` 아님). 인앱 상품용 API를 쓰고 있지 않다.
+- 상품 ID 3곳(`constants/pricing.ts` / 클라 `lib/iap.ts` / 서버 `_shared/google-play.ts`)
+  모두 일치. 오타 없음.
+- `ProductSubscriptionAndroid`의 식별자 필드는 `id`이며 `getProProducts()`가 이를 쓴다(정상).
+- **조회 실패한 SKU는 예외도 경고도 없이 배열에서 빠진다**
+  (라이브러리 문서: "Unknown SKUs are simply omitted from the result, not thrown").
+  "오류가 없는데 1개만 온다"는 것은 정상 동작이며, 그래서 계측을 넣은 것이다.
+
+### 서버 쪽 남은 준비 (결제 실동작 전제)
+아직 안 됐다면 이것부터. 안 돼 있으면 결제창은 떠도 검증에서 막혀 플랜이 안 올라간다.
+1. 마이그레이션 실행(`purchase_token`/`product_id`/`platform` + 인덱스) — 5-12 아래 SQL은
+   `supabase/migrations/20260814000001_subscriptions_iap_columns.sql` 참조.
+2. `supabase secrets set GOOGLE_SERVICE_ACCOUNT_JSON=… ANDROID_PACKAGE_NAME=com.usayo.app`
+3. `supabase functions deploy verify-purchase` / `play-rtdn --no-verify-jwt`
+4. Play Console API 액세스에 서비스 계정 연결 + 권한(재무 데이터 보기·주문 관리)
+
 ## 6. 계정 삭제 기능 도입 (2026-08-12) + 후속 과제
 
 > 구글 플레이 필수 요건(계정 생성 앱의 앱 내 계정 삭제 경로) 대응. Edge Function
