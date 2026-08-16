@@ -2,10 +2,11 @@ import { X } from 'lucide-react-native';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { refreshWidget } from '../services/widget/widgetRefresh';
 import {
-  Animated, KeyboardAvoidingView, Modal, Platform,
+  Animated, Modal,
   Pressable, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
@@ -30,6 +31,7 @@ function EditTitleModal({ visible, event, onClose, onSaved }: Props) {
   console.log('[EditTitleModal] render, visible:', visible, 'event:', event?.id ?? null);
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const kb = useKeyboardHeight();
 
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -121,10 +123,10 @@ function EditTitleModal({ visible, event, onClose, onSaved }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={styles.kav}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      {/* 키보드 높이만큼 하단 여백 — 가운데 정렬이라 kb/2 만큼 올라가 '보이는 영역의 중앙'에 놓인다.
+          (Expo SDK 54 edge-to-edge에서 adjustResize가 무효라 KeyboardAvoidingView는 동작하지 않음.
+           경위는 hooks/useKeyboardHeight.ts 주석 참조.) */}
+      <View style={[styles.kav, { paddingBottom: kb }]}>
         {/* ── Dim backdrop ── */}
         <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} pointerEvents="none" />
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
@@ -209,7 +211,7 @@ function EditTitleModal({ visible, event, onClose, onSaved }: Props) {
             )}
           </Animated.View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

@@ -1,8 +1,6 @@
 import {
   Animated,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,7 +9,9 @@ import {
 } from 'react-native';
 import { HelpCircle, Pencil, VolumeX } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { HybridInputState } from '../types';
 import { Spacing } from '../constants/spacing';
 
@@ -43,6 +43,8 @@ const REASON_HEADER: Record<HybridInputState['fallbackReason'], { Icon: typeof V
 
 export default function HybridInputModal({ visible, hybridState, onConfirm, onRetryVoice, onDismiss }: Props) {
   const [text, setText] = useState(hybridState.prefillText);
+  const insets = useSafeAreaInsets();
+  const kb = useKeyboardHeight();
   const slideY = useRef(new Animated.Value(300)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -74,9 +76,11 @@ export default function HybridInputModal({ visible, hybridState, onConfirm, onRe
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
       </Animated.View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.kvWrapper}
+      {/* 키보드 높이만큼 하단 여백 — 바텀시트(flex-end)라 시트가 그대로 kb만큼 올라간다.
+          (Expo SDK 54 edge-to-edge에서 adjustResize가 무효 → KeyboardAvoidingView 미동작.
+           경위는 hooks/useKeyboardHeight.ts 주석 참조.) */}
+      <View
+        style={[styles.kvWrapper, { paddingBottom: kb > 0 ? kb : insets.bottom }]}
         pointerEvents="box-none"
       >
         <Animated.View style={[styles.sheet, { transform: [{ translateY: slideY }] }]}>
@@ -126,7 +130,7 @@ export default function HybridInputModal({ visible, hybridState, onConfirm, onRe
             </Pressable>
           </View>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

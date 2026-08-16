@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -13,8 +13,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppTheme, useColors } from '../constants/colors';
 import { Spacing } from '../constants/spacing';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { formatClockKo } from '../utils/timeHelpers';
 
 // 텍스트로 일정 추가 — 음성을 쓸 수 없는 상황(회의 중 등)의 보조 입력.
@@ -29,6 +31,9 @@ import { formatClockKo } from '../utils/timeHelpers';
 // 큰 스피너로 두면 키보드에 가리므로, 여기서는 **한 줄짜리 스테퍼**로 압축했다(약 120dp 절약).
 
 const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+// 닫힘 슬라이드 거리. 시트 높이(~370dp)보다 넉넉해야 키보드로 떠 있는 상태에서 닫아도
+// 화면 안에 일부가 남지 않는다.
+const SHEET_HIDDEN_Y = 700;
 const TIME_STEP_MIN = 30;   // 화살표 1탭 = 30분
 const MIN_LEAD_MIN = 10;    // 기본 시각이 이보다 가까우면 다음 정시로 미룬다(아래 참조)
 
@@ -65,8 +70,14 @@ interface Props {
 export default function AddEventModal({ visible, defaultDate, onDismiss, onSave }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const kb = useKeyboardHeight();
 
-  const slideY = useRef(new Animated.Value(400)).current;
+  // 닫을 때는 키보드를 먼저 내린다 — 시트가 kb만큼 올라간 상태에서 슬라이드아웃하면
+  // 이동 거리가 부족해 화면 안에 일부가 남는다(닫힘 애니메이션과 lift의 충돌).
+  const dismiss = () => { Keyboard.dismiss(); onDismiss(); };
+
+  const slideY = useRef(new Animated.Value(SHEET_HIDDEN_Y)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   const [start, setStart] = useState<Date>(() => nextHourDefault());
@@ -99,7 +110,7 @@ export default function AddEventModal({ visible, defaultDate, onDismiss, onSave 
       Animated.timing(opacity, { toValue: visible ? 1 : 0, duration: 180, useNativeDriver: true }),
       visible
         ? Animated.spring(slideY, { toValue: 0, useNativeDriver: true, tension: 55, friction: 9 })
-        : Animated.timing(slideY, { toValue: 400, duration: 220, useNativeDriver: true }),
+        : Animated.timing(slideY, { toValue: SHEET_HIDDEN_Y, duration: 220, useNativeDriver: true }),
     ]).start();
   }, [visible]);
 
@@ -143,7 +154,7 @@ export default function AddEventModal({ visible, defaultDate, onDismiss, onSave 
     setError(null);
     try {
       await onSave({ startAt: start, title: title.trim(), location: location.trim() });
-      onDismiss(); // 성공 시에만 닫는다
+      dismiss(); // 성공 시에만 닫는다
     } catch (e) {
       // 실패 시 모달을 닫지 않는다 — 입력값을 그대로 두고 재시도할 수 있게.
       console.log('[AddEvent] 저장 실패:', (e as Error)?.message);
@@ -153,14 +164,16 @@ export default function AddEventModal({ visible, defaultDate, onDismiss, onSave 
   }
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onDismiss}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
       <Animated.View style={[styles.backdrop, { opacity }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={saving ? undefined : onDismiss} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={saving ? undefined : dismiss} />
       </Animated.View>
 
-      <KeyboardAvoidingView
-        style={styles.kav}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      {/* 키보드 높이만큼 컨테이너를 띄운다(flex-end라 시트가 그대로 kb만큼 올라간다).
+          하단 인셋은 키보드가 없을 때만 더한다 — 키보드가 올라오면 제스처 내비바를 IME가
+          덮으므로 중복 여백이 된다. edge-to-edge라 인셋을 안 주면 버튼이 내비바에 닿는다. */}
+      <View
+        style={[styles.kav, { paddingBottom: kb > 0 ? kb : insets.bottom }]}
         pointerEvents="box-none"
       >
         <Animated.View style={[styles.sheet, { transform: [{ translateY: slideY }] }]}>
@@ -256,7 +269,7 @@ export default function AddEventModal({ visible, defaultDate, onDismiss, onSave 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
           <View style={styles.btnRow}>
-            <Pressable style={styles.cancelBtn} onPress={onDismiss} disabled={saving}>
+            <Pressable style={styles.cancelBtn} onPress={dismiss} disabled={saving}>
               <Text style={styles.cancelText}>취소</Text>
             </Pressable>
             <Pressable
@@ -307,7 +320,7 @@ export default function AddEventModal({ visible, defaultDate, onDismiss, onSave 
             </>
           )}
         </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
