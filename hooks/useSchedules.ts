@@ -595,6 +595,65 @@ export function useSchedules(date: string, daysAhead = 0) {
     return result;
   }
 
+  // 텍스트 입력으로 일정 생성 — AI 분석 없이 사용자가 입력한 값을 그대로 저장.
+  //
+  // 음성 CREATE 분기와 같은 순서(insert → 낙관 반영 → 알림 예약)를 따르되 두 가지가 다르다:
+  //  · created_via: 'manual' — 음성 입력 비율은 이 제품의 핵심 지표라 'voice'로 기록하면 안 된다.
+  //    (스키마 CHECK에 이미 정의된 값이라 마이그레이션 불필요.)
+  //  · voice_transcript: null — 받아쓰기가 없다.
+  // notification_offset_minutes를 null로 두면 설정의 기본 오프셋(60·10분 전)을 따른다 =
+  // 음성 경로와 알림 동작이 동일하다.
+  //
+  // 실패 시 throw한다 — 호출부(AddEventModal)가 모달을 열어 둔 채 입력값을 유지하고 재시도한다.
+  // 쿼터: 이 경로는 quotaTracker를 호출하지 않는다(STT/인텐트 미사용 → 서버 쿼터와도 무관).
+  async function createEventManual(args: {
+    startAt: Date;
+    title: string;
+    location?: string;
+  }): Promise<string> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('로그인이 필요합니다');
+
+    const endAt = new Date(args.startAt.getTime() + 60 * 60 * 1000); // 음성 경로와 동일: +1시간
+    const payload = {
+      user_id: user.id,
+      title: args.title,
+      start_at: args.startAt.toISOString(),
+      end_at: endAt.toISOString(),
+      location: args.location?.trim() ? args.location.trim() : null,
+      description: null,
+      attendees: null,
+      category: 'work' as const,
+      is_recurring: false,
+      recurrence_rule: null,
+      created_via: 'manual' as const,
+      voice_transcript: null,
+      notification_offset_minutes: null,
+    };
+
+    const { data, error } = await supabase.from('events').insert(payload).select().single();
+    if (error) {
+      console.error('[AddEvent] insert 실패:', error.message);
+      throw new Error(error.message);
+    }
+
+    const saved = data as Event;
+    setEvents(prev =>
+      [...prev, saved].sort(
+        (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
+      ),
+    );
+    setLastCreatedId(saved.id);
+    console.log(`[AddEvent] 저장 완료 id=${saved.id} start=${payload.start_at}`);
+
+    // 알림 예약 (fire-and-forget — 실패해도 저장은 유지). 음성 경로와 동일.
+    scheduleEventNotification(saved).catch(e =>
+      console.log('[Notifications] 예약 실패:', e),
+    );
+    refreshWidget('manualCreate').catch(() => {});
+    return saved.id;
+  }
+
   async function toggleEventComplete(eventId: string, currentlyCompleted: boolean): Promise<void> {
     const completedAt = currentlyCompleted ? null : new Date().toISOString();
     setEvents(prev => prev.map(e =>
@@ -682,6 +741,7 @@ export function useSchedules(date: string, daysAhead = 0) {
     lastCreatedId,
     applyVoiceCommand,
     applyClassifiedIntent,
+    createEventManual,
     deleteEventById,
     toggleEventComplete,
     undoSave,

@@ -3,7 +3,7 @@ import { useUndoToast } from '../contexts/UndoToastContext';
 import { supabase } from '../lib/supabase';
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Mic, Settings2, Share2 } from 'lucide-react-native';
+import { Mic, Pencil, Settings2, Share2 } from 'lucide-react-native';
 import AppHeader from '../components/AppHeader';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -41,6 +41,7 @@ import { useConversationalMessage } from '../hooks/useConversationalMessage';
 import { useRecurringEvents } from '../hooks/useRecurringEvents';
 import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
 import { useAuthStore } from '../stores/useAuthStore';
+import AddEventModal, { AddEventValues } from '../components/AddEventModal';
 import { useDataSyncStore } from '../stores/useDataSyncStore';
 import { useSubscriptionStore } from '../stores/useSubscriptionStore';
 import HybridInputModal from '../components/HybridInputModal';
@@ -140,6 +141,7 @@ export default function HomeScreen() {
     events: allEvents,
     recurringParents,
     lastCreatedId, applyClassifiedIntent,
+    createEventManual,
     deleteEventById,
     toggleEventComplete,
     rescheduleEvent, undoRescheduleEvent,
@@ -427,6 +429,18 @@ export default function HomeScreen() {
     voice.cancelVoice();
   }, [voice]);
 
+  // ── 텍스트로 일정 추가(보조 입력) ────────────────────────────────
+  // 쿼터를 차감하지 않는다 — quotaTracker/게이트를 태우지 않는 것이 의도된 동작이다
+  // (STT·인텐트 API를 쓰지 않으므로 서버 쿼터와도 무관).
+  const [addVisible, setAddVisible] = useState(false);
+  const handleManualSave = useCallback(async (v: AddEventValues) => {
+    // 실패하면 throw가 그대로 올라가 모달이 열린 채 입력값을 유지한다(재시도 가능).
+    await createEventManual({ startAt: v.startAt, title: v.title, location: v.location });
+    // 이중 소스 양쪽 갱신(위젯은 createEventManual이 refreshWidget으로 처리).
+    reloadForDate().catch(() => {});
+    reloadSchedules().catch(() => {});
+  }, [createEventManual, reloadForDate, reloadSchedules]);
+
   // 일정 공유 — 오늘 일정이 없으면 안내만, 시트 미표시.
   const [shareVisible, setShareVisible] = useState(false);
   const handleSharePress = useCallback(() => {
@@ -692,7 +706,29 @@ export default function HomeScreen() {
         {!isVoiceActive && (
           <Text style={styles.fabLabel}>말하려면 탭하세요</Text>
         )}
+
+        {/* 텍스트로 추가 — 음성이 주 입력이고 이것은 보조. FAB(64dp 채움·그림자·펄스)보다
+            작고(44dp) 아웃라인이라 시각적 무게가 확연히 낮다. 음성 진행 중에는 숨긴다. */}
+        {!isVoiceActive && (
+          <Pressable
+            style={styles.textAddBtn}
+            onPress={() => { haptic.light(); setAddVisible(true); }}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="텍스트로 일정 추가"
+          >
+            <Pencil size={20} color={colors.textMuted} strokeWidth={1.75} />
+          </Pressable>
+        )}
       </View>
+
+      {/* ── 텍스트 일정 추가 모달 ─────────────────────────────────── */}
+      <AddEventModal
+        visible={addVisible}
+        defaultDate={selectedDate}
+        onDismiss={() => setAddVisible(false)}
+        onSave={handleManualSave}
+      />
 
       {/* ── 하이브리드 입력 (텍스트 폴백, Modal 유지) ─────────────── */}
       <HybridInputModal
@@ -951,6 +987,22 @@ function makeStyles(c: ReturnType<typeof useColors>) {
       fontSize: 12,
       color: c.accent,
       letterSpacing: 0.3,
+    },
+    // 텍스트 추가 버튼 — FAB 우측에 절대 배치(FAB의 중앙 정렬을 흐트러뜨리지 않게).
+    // top = (64 - 44) / 2 → FAB과 수직 중심을 맞춘다.
+    textAddBtn: {
+      position: 'absolute',
+      left: '50%',
+      marginLeft: FAB_SMALL / 2 + 20,
+      top: (FAB_SMALL - 44) / 2,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.card,
+      borderWidth: 1,
+      borderColor: c.border,
     },
 
     // ── Reschedule undo toast ─────────────────────────────────────
