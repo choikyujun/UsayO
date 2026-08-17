@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +17,7 @@ import FeatureGate from '../../components/FeatureGate';
 import { AppTheme, useColors } from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
 import { SETTINGS_FLAGS } from '../../constants/featureFlags';
+import { LINKS } from '../../constants/links';
 import { Spacing } from '../../constants/spacing';
 import { useSubscriptionStore } from '../../stores/useSubscriptionStore';
 
@@ -40,6 +42,27 @@ export default function PrivacySettingsScreen() {
   async function toggleAnalytics(v: boolean) {
     setAnalytics(v);
     await AsyncStorage.setItem(ANALYTICS_KEY, v ? '1' : '0');
+  }
+
+  // 법적 문서는 **외부 브라우저**로 연다(WebView 아님).
+  //  · react-native-webview는 미설치 네이티브 의존성이라 도입하면 빌드 검증이 한 번 더 필요하다.
+  //  · 주소창에 실제 도메인이 보이는 편이 법적 문서의 신뢰성에 낫고, 번역·글자크기·공유 같은
+  //    브라우저 기능을 그대로 쓸 수 있다.
+  //  · Ksori도 같은 방식(Linking.openURL + 상수)이라 앱 간 동작이 일관된다.
+  //
+  // 실패 시 조용히 넘어가지 않는다 — 스토어 심사에서 방침 링크가 열리지 않으면 반려 사유이고,
+  // 사용자도 "눌렀는데 아무 일도 안 일어남"을 앱 고장으로 인식한다. 주소를 함께 안내해
+  // 최소한 수동으로 접근할 수 있게 한다.
+  async function openLink(url: string, label: string) {
+    try {
+      await Linking.openURL(url);
+    } catch (e) {
+      console.log(`[Settings] 링크 열기 실패 ${label}:`, (e as Error)?.message);
+      Alert.alert(
+        '링크를 열 수 없어요',
+        `${label} 페이지를 열지 못했습니다. 아래 주소를 브라우저에 직접 입력해 주세요.\n\n${url}`,
+      );
+    }
   }
 
   function handleDeleteData() {
@@ -127,16 +150,26 @@ export default function PrivacySettingsScreen() {
         </View>
       </View>
 
-      {/* 약관 및 정책 — 문서 URL 미준비 + onPress 없는 dead link. URL 확보 후 policyLinks=true + Linking 연결 */}
+      {/* 약관 및 정책 — 외부 브라우저로 연다(WebView 아님, 아래 openLink 주석 참조). */}
       {SETTINGS_FLAGS.policyLinks && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>약관 및 정책</Text>
           <View style={styles.card}>
-            <Pressable style={styles.linkRow}>
+            <Pressable
+              style={styles.linkRow}
+              onPress={() => openLink(LINKS.privacyPolicy, '개인정보 처리방침')}
+              accessibilityRole="link"
+              accessibilityLabel="개인정보 처리방침 열기"
+            >
               <Text style={styles.linkLabel}>개인정보 처리방침</Text>
               <ChevronRight size={20} color={colors.textMuted} />
             </Pressable>
-            <Pressable style={[styles.linkRow, styles.border]}>
+            <Pressable
+              style={[styles.linkRow, styles.border]}
+              onPress={() => openLink(LINKS.termsOfService, '서비스 이용약관')}
+              accessibilityRole="link"
+              accessibilityLabel="서비스 이용약관 열기"
+            >
               <Text style={styles.linkLabel}>서비스 이용약관</Text>
               <ChevronRight size={20} color={colors.textMuted} />
             </Pressable>

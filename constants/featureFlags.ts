@@ -13,6 +13,7 @@ export const SETTINGS_FLAGS = {
   notifExtras: false,
   // 분석 데이터 수집 — 분석 SDK 없음. 수집 파이프라인 추가 후 true.
   analyticsConsent: false,
-  // 개인정보처리방침/이용약관 링크 — 문서 URL 미준비. URL 확보 후 true(+ onPress 연결).
-  policyLinks: false,
+  // 개인정보처리방침/이용약관 링크 — 문서 발행 완료(2026-08-17) + Linking 연결됨.
+  // URL은 constants/links.ts의 LINKS에서 관리한다.
+  policyLinks: true,
 } as const;
