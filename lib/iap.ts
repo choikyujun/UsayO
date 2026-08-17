@@ -8,7 +8,7 @@
 //   Ksori(lib/iap.ts) 이식본. UsayO 차이:
 //     · 단일 premium → Pro 월/연 2종(Team은 인앱 구매 없음 — 문의 안내만, 아래 주석 참조).
 //     · 검증 성공 후 freshenSession 대신 quotaTracker.refreshFromServer로 서버 권위 플랜을 로드.
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import {
   ErrorCode,
   endConnection,
@@ -25,6 +25,7 @@ import {
 } from 'react-native-iap';
 
 import { supabase } from './supabase';
+import { LINKS } from '../constants/links';
 import { PRODUCT_IDS } from '../constants/pricing';
 import { PlanType } from '../constants/featureGates';
 
@@ -322,11 +323,6 @@ export async function restorePurchases(): Promise<boolean> {
 /** 스토어의 구독 관리 화면. 해지·결제수단 변경은 스토어에서만 가능하다. */
 export function openManageSubscriptions(): void {
   // react-native-iap는 전용 API를 노출하지 않아 스토어 URL로 연다.
-  const url =
-    Platform.OS === 'ios'
-      ? 'https://apps.apple.com/account/subscriptions'
-      : 'https://play.google.com/store/account/subscriptions';
-  import('react-native').then(({ Linking }) => {
-    Linking.openURL(url).catch(() => {});
-  });
+  // 플랫폼 분기와 패키지 파라미터는 LINKS.manageSubscription이 이미 반영하고 있다.
+  Linking.openURL(LINKS.manageSubscription).catch(() => {});
 }

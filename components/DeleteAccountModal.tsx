@@ -12,12 +12,9 @@ import {
   View,
 } from 'react-native';
 import { AppTheme, useColors } from '../constants/colors';
+import { LINKS } from '../constants/links';
 import { Spacing } from '../constants/spacing';
 import { deleteAccount } from '../services/auth/accountDeletion';
-
-// Play 스토어 구독 관리 (구글 구독은 앱에서 해지 불가 — 안내만 가능)
-const PLAY_SUBSCRIPTIONS_URL =
-  'https://play.google.com/store/account/subscriptions?package=com.usayo.app';
 
 type Step = 'intro' | 'confirm' | 'deleting';
 
@@ -100,7 +97,7 @@ export default function DeleteAccountModal({
                     해지해야 요금이 청구되지 않습니다.
                   </Text>
                   {Platform.OS === 'android' && (
-                    <Pressable onPress={() => Linking.openURL(PLAY_SUBSCRIPTIONS_URL).catch(() => {})}>
+                    <Pressable onPress={() => Linking.openURL(LINKS.manageSubscription).catch(() => {})}>
                       <Text style={styles.link}>Play 구독 관리 열기</Text>
                     </Pressable>
                   )}
