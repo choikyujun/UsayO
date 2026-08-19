@@ -44,15 +44,14 @@
       // 이 맥에는 Xcode가 없어 Transporter/Xcode 업로드 경로를 쓸 수 없으므로
       // 사실상 이 경로가 유일하다.
       //
-      // 아래 두 값은 App Store Connect에 앱을 만든 뒤에야 확정된다. 비워 두면
-      // eas submit이 대화형으로 물어보고 이후 캐시하므로 지금 당장은 없어도 동작한다.
-      // 값을 넣어 두면 --non-interactive로도 돌릴 수 있다.
-      //   ascAppId    App Store Connect > 앱 > 앱 정보 > "Apple ID"(숫자 10자리)
-      //   appleTeamId developer.apple.com > Membership details > Team ID(영숫자 10자리)
-      // "ios": {
-      //   "ascAppId": "",
-      //   "appleTeamId": ""
-      // }
+      // 두 값이 채워져 있으므로 --non-interactive로도 돌아간다(대화형 프롬프트 없음).
+      "ios": {
+        // App Store Connect > 앱 > 앱 정보 > "Apple ID". 앱마다 다르다(Ksori와 별개).
+        "ascAppId": "6803046623",
+        // developer.apple.com > Membership details > Team ID.
+        // 계정 단위 값이라 Ksori와 동일하다 — 앱을 추가해도 바뀌지 않는다.
+        "appleTeamId": "SHMA5W4456"
+      }
     }
   }
 }
