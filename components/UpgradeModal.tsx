@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Linking,
   Modal,
   Pressable,
   StyleSheet,
@@ -13,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ProductSubscription } from 'react-native-iap';
 import { Colors } from '../constants/colors';
 import { GateType, FREE_COMMAND_LIMIT } from '../constants/featureGates';
+import { LINKS } from '../constants/links';
 import { DEFAULT_PRICE } from '../constants/pricing';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
 import { getProProducts, priceNumberOf, priceStringOf, setIAPCallbacks } from '../lib/iap';
@@ -24,6 +26,21 @@ type Period = 'annual' | 'monthly';
 function priceToNumber(s: string): number {
   const n = parseFloat(s.replace(/[^0-9.]/g, ''));
   return Number.isNaN(n) ? 0 : n;
+}
+
+// 결제 화면의 법적 문서 링크. 외부 브라우저로 열고, 실패를 삼키지 않는다 —
+// 약관·방침 링크가 열리지 않는 것은 스토어 심사 반려 사유이고, 사용자도 "눌렀는데
+// 아무 일도 안 일어남"을 앱 고장으로 인식한다. (설정 > 프라이버시와 같은 방식)
+async function openLegalLink(url: string, label: string) {
+  try {
+    await Linking.openURL(url);
+  } catch (e) {
+    console.log(`[Upgrade] 링크 열기 실패 ${label}:`, (e as Error)?.message);
+    Alert.alert(
+      '링크를 열 수 없어요',
+      `${label} 페이지를 열지 못했습니다. 아래 주소를 브라우저에 직접 입력해 주세요.\n\n${url}`,
+    );
+  }
 }
 
 // 연 결제 절약률(%) = 1 - 연가 / (월가 x 12). 실제 가격에서 계산, 양수일 때만 표시.
@@ -233,10 +250,12 @@ export default function UpgradeModal({
 
   const ctaLabel = upgradeTarget === 'team' ? '팀 플랜 문의하기' : 'Pro 시작하기';
 
+  // 구독 고지 4종을 한 줄에 담는다: 무료 체험 기간 / 이후 가격 / 결제 주기 / 자동 갱신.
+  // "자동 갱신"은 애플·구글이 공통으로 요구하는 문구인데 빠져 있었다.
   const ctaCaption = upgradeTarget === 'pro'
     ? (period === 'annual'
-        ? `7일 무료 후 ${annualStr}/년 · 언제든 취소 가능`
-        : `7일 무료 후 ${monthlyStr}/월 · 언제든 취소 가능`)
+        ? `7일 무료 체험 후 ${annualStr}/년 자동 갱신 · 스토어에서 언제든 해지`
+        : `7일 무료 체험 후 ${monthlyStr}/월 자동 갱신 · 스토어에서 언제든 해지`)
     : undefined;
 
   return (
@@ -303,6 +322,18 @@ export default function UpgradeModal({
               <Text style={styles.restoreText}>구매 복원</Text>
             </Pressable>
           )}
+        </View>
+
+        {/* 스토어 심사 요건 — 구독을 판매하는 화면에는 이용약관과 개인정보처리방침
+            링크가 보여야 한다(없으면 반려). 게이트 종류와 무관하게 항상 노출한다. */}
+        <View style={styles.legalRow}>
+          <Pressable hitSlop={8} onPress={() => openLegalLink(LINKS.termsOfService, '이용약관')}>
+            <Text style={styles.legalText}>이용약관</Text>
+          </Pressable>
+          <Text style={styles.legalDot}>·</Text>
+          <Pressable hitSlop={8} onPress={() => openLegalLink(LINKS.privacyPolicy, '개인정보처리방침')}>
+            <Text style={styles.legalText}>개인정보처리방침</Text>
+          </Pressable>
         </View>
       </Animated.View>
     </Modal>
@@ -506,5 +537,22 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 14,
     textDecorationLine: 'underline',
+  },
+  // 약관·방침 — 결제 동선을 방해하지 않게 CTA보다 낮은 위계로 둔다.
+  legalRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  legalText: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
+  legalDot: {
+    color: Colors.textMuted,
+    fontSize: 12,
   },
 });

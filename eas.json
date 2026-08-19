@@ -11,6 +11,12 @@
       "environment": "development"
     },
     "preview": {
+      // Android 전용 프로파일이다. iOS preview 프로파일은 **의도적으로 두지 않는다** —
+      // iOS에서 distribution:"internal"은 ad-hoc이라 테스터 기기 UDID를 미리 등록해야 하고,
+      // 그러고도 production 빌드를 또 태워야 한다. TestFlight 내부 테스트가 심사 없이
+      // 즉시 배포되므로 그걸 preview 대용으로 쓰고 iOS 빌드를 1회 아낀다.
+      // (그래서 `eas build -p ios --profile preview`는 실행하지 말 것. 막지는 못하지만
+      //  ad-hoc 서명으로 크레딧만 소모된다.)
       "distribution": "internal",
       "android": {
         "buildType": "apk"
@@ -19,12 +25,34 @@
       "environment": "preview"
     },
     "production": {
+      // autoIncrement + cli.appVersionSource:"remote" 조합으로 EAS가 빌드 번호를 원격 관리한다.
+      // iOS는 CFBundleVersion(buildNumber)이 업로드마다 달라야 하므로 이 설정이 필수다.
       "autoIncrement": true,
       "channel": "production",
-      "environment": "production"
+      "environment": "production",
+      "ios": {
+        // App Store / TestFlight 직행. 서명은 EAS 관리 자격증명을 쓴다
+        // (Ksori로 이미 있는 배포 인증서를 계정 단위로 재사용하고,
+        //  com.usayo.app용 프로비저닝 프로파일만 새로 만들어진다).
+        "distribution": "store"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      // `eas submit -p ios --profile production --latest`로 TestFlight에 올린다.
+      // 이 맥에는 Xcode가 없어 Transporter/Xcode 업로드 경로를 쓸 수 없으므로
+      // 사실상 이 경로가 유일하다.
+      //
+      // 아래 두 값은 App Store Connect에 앱을 만든 뒤에야 확정된다. 비워 두면
+      // eas submit이 대화형으로 물어보고 이후 캐시하므로 지금 당장은 없어도 동작한다.
+      // 값을 넣어 두면 --non-interactive로도 돌릴 수 있다.
+      //   ascAppId    App Store Connect > 앱 > 앱 정보 > "Apple ID"(숫자 10자리)
+      //   appleTeamId developer.apple.com > Membership details > Team ID(영숫자 10자리)
+      // "ios": {
+      //   "ascAppId": "",
+      //   "appleTeamId": ""
+      // }
+    }
   }
 }
