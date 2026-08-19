@@ -8,6 +8,7 @@
 //   Ksori(lib/iap.ts) 이식본. UsayO 차이:
 //     · 단일 premium → Pro 월/연 2종(Team은 인앱 구매 없음 — 문의 안내만, 아래 주석 참조).
 //     · 검증 성공 후 freshenSession 대신 quotaTracker.refreshFromServer로 서버 권위 플랜을 로드.
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking, Platform } from 'react-native';
 import {
   ErrorCode,
@@ -40,12 +41,82 @@ export const PRO_SKUS = {
 
 export type ProPeriod = 'monthly' | 'annual';
 
+/**
+ * 구매 실패의 종류. 문구가 완전히 달라지므로 호출부가 구분할 수 있어야 한다.
+ *   cancelled       사용자가 결제창을 닫음 — 조용히 처리
+ *   verify_retry    **결제는 성공**했으나 서버 검증 실패. 트랜잭션을 끝내지 않아 다음 앱
+ *                   실행에서 자동 재검증된다 → "잠시 후 다시 열어달라"고 안내
+ *   verify_gave_up  재시도 상한까지 검증 실패. 트랜잭션을 종료했으므로 자동 재시도는
+ *                   더 없다 → "구매 복원"으로 안내
+ *   error           결제 자체가 실패(스토어 오류 등)
+ */
+export type PurchaseFailureKind = 'cancelled' | 'verify_retry' | 'verify_gave_up' | 'error';
+
 type Callbacks = {
   /** 구매·복원이 서버 검증까지 성공 → 플랜 반영됨 */
   onPurchased?: (plan: PlanType) => void;
-  /** 실패(취소 포함). userCancelled면 조용히 처리할 것 */
-  onError?: (userCancelled: boolean) => void;
+  /** 실패(취소 포함). userCancelled면 조용히 처리할 것. kind로 문구를 가른다. */
+  onError?: (userCancelled: boolean, kind?: PurchaseFailureKind) => void;
 };
+
+// ── 검증 실패 재시도 상한 ──────────────────────────────────
+// 검증에 실패하면 트랜잭션을 끝내지 않는다(= 다음 실행에서 스토어가 다시 전달 → 자동 재검증).
+// 다만 영구 실패(상품 ID 불일치, 시크릿 오설정 등)면 매 실행마다 같은 오류가 반복되므로
+// 상한을 둔다. 상한에 닿으면 트랜잭션을 종료하고 '구매 복원' 경로로 넘긴다 — 구독은
+// getAvailablePurchases에 계속 잡히므로 복원으로 회복 가능하다(자격이 사라지지 않는다).
+//
+// 3회로 정한 이유: Android는 미승인 구매를 **3일 뒤 자동 환불**한다(acknowledge는 검증
+// 성공 시 서버가 한다). 즉 실패가 계속되면 어차피 사용자는 환불받는다. 그 사이 앱 실행
+// 기회를 몇 번 주되 오류 안내가 무한 반복되지 않는 지점이 3회다.
+const MAX_VERIFY_ATTEMPTS = 3;
+const VERIFY_ATTEMPT_KEY = 'iap_verify_attempts';
+// 기록이 무한히 쌓이지 않도록 오래된 항목은 버린다(구독 갱신마다 새 트랜잭션이 생긴다).
+const VERIFY_ATTEMPT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+type AttemptRecord = { n: number; firstAt: number };
+
+// 재시도 카운터의 키 — iOS는 transactionId, Android는 purchaseToken이 안정적이다.
+function purchaseKey(p: Purchase): string {
+  const txId = (p as { transactionId?: string | null }).transactionId;
+  return String(txId ?? p.purchaseToken ?? p.productId ?? 'unknown');
+}
+
+async function readAttempts(): Promise<Record<string, AttemptRecord>> {
+  try {
+    const raw = await AsyncStorage.getItem(VERIFY_ATTEMPT_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+async function writeAttempts(map: Record<string, AttemptRecord>): Promise<void> {
+  const now = Date.now();
+  const pruned: Record<string, AttemptRecord> = {};
+  for (const [k, v] of Object.entries(map)) {
+    if (v && now - (v.firstAt ?? 0) <= VERIFY_ATTEMPT_MAX_AGE_MS) pruned[k] = v;
+  }
+  await AsyncStorage.setItem(VERIFY_ATTEMPT_KEY, JSON.stringify(pruned)).catch(() => {});
+}
+
+/** 실패 1회 기록 → 누적 횟수 반환. 저장소 오류 시에도 최소 1을 돌려 흐름을 막지 않는다. */
+async function bumpVerifyFailure(key: string): Promise<number> {
+  const map = await readAttempts();
+  const rec = map[key] ?? { n: 0, firstAt: Date.now() };
+  rec.n += 1;
+  map[key] = rec;
+  await writeAttempts(map);
+  return rec.n;
+}
+
+async function clearVerifyFailure(key: string): Promise<void> {
+  const map = await readAttempts();
+  if (map[key]) {
+    delete map[key];
+    await writeAttempts(map);
+  }
+}
 
 let products: ProductSubscription[] = [];
 let updateSub: { remove: () => void } | null = null;
@@ -135,22 +206,48 @@ export async function connectIAP(callbacks: Callbacks = {}): Promise<void> {
   updateSub = purchaseUpdatedListener((purchase: Purchase) => {
     void (async () => {
       // iOS: 같은 transactionId 재전달 방지(세션 단위). Android는 미적용(발화 패턴이 다름).
+      // 세션 단위라 검증 실패로 미완료된 트랜잭션은 **다음 앱 실행에서 다시 올라온다**(= 재시도).
       const iosTxId =
         Platform.OS === 'ios' && purchase.transactionId ? String(purchase.transactionId) : '';
       if (iosTxId) {
         if (processedIosTxIds.has(iosTxId)) return;
         processedIosTxIds.add(iosTxId);
       }
+
+      const key = purchaseKey(purchase);
       const plan = await verifyWithServer(purchase);
-      // 구독(비소비형) → isConsumable=false. 완료 처리해야 다음 요청에서 중복으로 안 뜬다.
-      await finishTransaction({ purchase, isConsumable: false }).catch(() => {});
+
       if (plan) {
+        // 검증 성공 → 완료 처리. 구독(비소비형)이라 isConsumable=false.
+        await finishTransaction({ purchase, isConsumable: false }).catch(() => {});
+        await clearVerifyFailure(key);
         await refreshPlanFromServer();
         cbs.onPurchased?.(plan);
-      } else {
-        // 검증 실패는 '취소 아님' — 호출부가 로딩을 풀고 안내하게 한다(무음 고정 방지).
-        cbs.onError?.(false);
+        return;
       }
+
+      // ── 검증 실패 ──
+      // **트랜잭션을 끝내지 않는다.** 끝내면 스토어가 재전달하지 않아 "결제는 됐는데 플랜이
+      // 안 오르는" 상태로 굳는다. 미완료로 두면 다음 실행에서 리스너로 다시 올라와 자동
+      // 재검증된다(사용자가 '구매 복원'을 눌러야 한다는 걸 알 필요가 없다).
+      const attempts = await bumpVerifyFailure(key);
+      if (attempts < MAX_VERIFY_ATTEMPTS) {
+        console.warn(
+          `[iap] 검증 실패 ${attempts}/${MAX_VERIFY_ATTEMPTS} — 트랜잭션 미완료 유지(다음 실행에서 자동 재검증) key=${key.slice(0, 12)}…`,
+        );
+        cbs.onError?.(false, 'verify_retry');
+        return;
+      }
+
+      // 상한 도달 — 더 끌면 앱을 열 때마다 같은 오류가 반복된다. 완료 처리하고 복원으로 넘긴다.
+      // 자격이 사라지는 것은 아니다: 구독은 getAvailablePurchases에 계속 잡히므로
+      // '구매 복원'이 그대로 동작한다.
+      console.warn(
+        `[iap] 검증 ${attempts}회 실패 — 트랜잭션 종료. 복원 경로로 안내한다. key=${key.slice(0, 12)}…`,
+      );
+      await finishTransaction({ purchase, isConsumable: false }).catch(() => {});
+      await clearVerifyFailure(key);
+      cbs.onError?.(false, 'verify_gave_up');
     })();
   });
 
@@ -162,7 +259,7 @@ export async function connectIAP(callbacks: Callbacks = {}): Promise<void> {
       ` productId=${(e as PurchaseError & { productId?: string }).productId ?? 'n/a'}` +
       ` cancelled=${cancelled}`,
     );
-    cbs.onError?.(cancelled);
+    cbs.onError?.(cancelled, cancelled ? 'cancelled' : 'error');
   });
 
   await loadProducts();
@@ -185,6 +282,52 @@ export function setIAPCallbacks(callbacks: Callbacks): void {
 }
 
 // ── 상품 조회 ────────────────────────────────────────────────
+
+// 상품 1개의 진단 문자열. 플랫폼마다 의미 있는 필드가 다르다.
+//
+// Android
+//  · status=not-found           → 그 SKU가 Play에 없음(오타/미등록/전파 전)
+//  · status=no-offers-available → SKU는 있으나 이 사용자가 받을 수 있는 오퍼가 없음
+//  · offers=0                   → 기본 요금제가 비활성/가격 미설정 → 구매 자체가 불가
+function androidDiag(p: ProductSubscription): string {
+  const st = (p as ProductSubscription & { productStatusAndroid?: string }).productStatusAndroid;
+  return `${p.id}(status=${st ?? 'n/a'} offers=${offerCount(p)})`;
+}
+
+// iOS
+//  · price/currency → 스토어가 실제로 돌려준 가격. 여기가 비면 상품이 덜 설정된 것이다.
+//  · period         → 결제 주기(1MONTH / 1YEAR 등). 월/연 상품이 뒤바뀌지 않았는지 확인용.
+//  · group          → 구독 그룹 ID. 월·연이 **같은 그룹**이어야 상호 전환이 정상 동작한다.
+//  · offers         → 도입 오퍼(무료 체험) 개수. 페이월의 "7일 무료 체험" 표시와 대조할 값.
+function iosDiag(p: ProductSubscription): string {
+  const ios = p as ProductSubscription & {
+    displayPrice?: string | null;
+    currency?: string | null;
+    subscriptionPeriodNumberIOS?: string | null;
+    subscriptionPeriodUnitIOS?: string | null;
+    subscriptionGroupIdIOS?: string | null;
+  };
+  const num = ios.subscriptionPeriodNumberIOS;
+  const unit = ios.subscriptionPeriodUnitIOS;
+  const period = num && unit ? `${num}${unit}` : 'n/a';
+  return (
+    `${p.id}(price=${ios.displayPrice ?? 'n/a'}` +
+    ` cur=${ios.currency ?? 'n/a'}` +
+    ` period=${period}` +
+    ` group=${ios.subscriptionGroupIdIOS ?? 'n/a'}` +
+    ` offers=${offerCount(p)})`
+  );
+}
+
+// 구매 가능한 오퍼 개수. iOS는 표준 필드(subscriptionOffers), Android는 전용 필드를 본다.
+function offerCount(p: ProductSubscription): number {
+  if (Platform.OS === 'ios') {
+    return (p as ProductSubscription & { subscriptionOffers?: unknown[] | null })
+      .subscriptionOffers?.length ?? 0;
+  }
+  return (p as ProductSubscription & { subscriptionOfferDetailsAndroid?: unknown[] })
+    .subscriptionOfferDetailsAndroid?.length ?? 0;
+}
 export async function loadProducts(): Promise<ProductSubscription[]> {
   const requested = [PRO_SKUS.monthly, PRO_SKUS.annual];
   try {
@@ -194,16 +337,11 @@ export async function loadProducts(): Promise<ProductSubscription[]> {
     // 진단: 조회 실패한 SKU는 **예외도 경고도 없이 배열에서 빠진다**(라이브러리 문서:
     // "Unknown SKUs are simply omitted from the result, not thrown"). 개수만으로는 어느 쪽이
     // 빠졌는지 알 수 없어 요청↔수신을 대조하고 상품별 상태를 함께 남긴다.
-    //  · status=not-found          → 그 SKU가 Play에 없음(오타/미등록/전파 전)
-    //  · status=no-offers-available→ SKU는 있으나 이 사용자가 받을 수 있는 오퍼가 없음
-    //  · offers=0                  → 기본 요금제가 비활성/가격 미설정 → 구매 자체가 불가
-    const received = products.map((p) => {
-      const st = (p as ProductSubscription & { productStatusAndroid?: string }).productStatusAndroid;
-      const offers =
-        (p as ProductSubscription & { subscriptionOfferDetailsAndroid?: unknown[] })
-          .subscriptionOfferDetailsAndroid?.length ?? 0;
-      return `${p.id}(status=${st ?? 'n/a'} offers=${offers})`;
-    });
+    //
+    // ⚠️ 플랫폼별로 읽는 필드가 다르다. Android 전용 필드(productStatusAndroid,
+    //    subscriptionOfferDetailsAndroid)는 iOS에서 항상 undefined라, 그대로 찍으면 정상
+    //    상품도 `status=n/a offers=0`으로 나와 "오퍼가 없다"고 오독하게 된다.
+    const received = products.map((p) => (Platform.OS === 'ios' ? iosDiag(p) : androidDiag(p)));
     const missing = requested.filter((sku) => !products.some((p) => p.id === sku));
     console.log(
       `[iap] fetchProducts: ${products.length}/${requested.length}개` +
@@ -213,7 +351,18 @@ export async function loadProducts(): Promise<ProductSubscription[]> {
     );
     if (missing.length > 0) {
       console.warn(
-        `[iap] 상품 누락 — Play Console에서 확인: 상품 존재 여부 / 기본 요금제 활성 / 해당 국가 가격 설정 / 변경 후 전파 지연. 누락=${missing.join(', ')}`,
+        Platform.OS === 'ios'
+          ? `[iap] 상품 누락 — App Store Connect에서 확인: 상품 존재 여부 / 구독 그룹 배정 / 상태가 "제출 준비 완료" 이상 / 유료 계약(Paid Applications) 체결 / 해당 지역 가격 설정. 누락=${missing.join(', ')}`
+          : `[iap] 상품 누락 — Play Console에서 확인: 상품 존재 여부 / 기본 요금제 활성 / 해당 국가 가격 설정 / 변경 후 전파 지연. 누락=${missing.join(', ')}`,
+      );
+    }
+    // 페이월이 "7일 무료 체험"을 표시하므로 오퍼가 0이면 표시와 실제가 어긋난다(심사 반려 사유).
+    const noOffer = products.filter((p) => offerCount(p) === 0).map((p) => p.id);
+    if (noOffer.length > 0) {
+      console.warn(
+        Platform.OS === 'ios'
+          ? `[iap] 오퍼 없음 — App Store Connect에 '무료 체험(Introductory Offer)'이 등록되지 않았다. 페이월의 "7일 무료 체험" 표시와 어긋난다. 대상=${noOffer.join(', ')}`
+          : `[iap] 오퍼 없음 — 기본 요금제가 비활성이거나 가격이 없어 구매가 불가능하다. 대상=${noOffer.join(', ')}`,
       );
     }
   } catch (e) {
@@ -312,6 +461,8 @@ export async function restorePurchases(): Promise<boolean> {
     if (plan) {
       // 복원된 구매가 미승인 상태로 남아 있을 수 있어 완료 처리(중복 호출은 무해).
       await finishTransaction({ purchase: p, isConsumable: false }).catch(() => {});
+      // 이 구매로 쌓였던 검증 실패 기록을 지운다 — 복원으로 회복됐으므로 상한을 리셋한다.
+      await clearVerifyFailure(purchaseKey(p));
       await refreshPlanFromServer();
       cbs.onPurchased?.(plan);
       return true;

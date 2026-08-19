@@ -646,3 +646,41 @@ provider의 `setScrollPosition`, factory의 `postDelayed` 재적용, `scrolled_$
   `components/MiniWaveform.tsx`(공용 파형), `components/VoiceConfirmLayer.tsx`(렌더 분기).
 - 판정/발화: `utils/voiceResponseMatcher.ts`(환각 방어 + 키워드),
   `services/voice/SpeechRecognitionService.ts`(confirm 모드 STT), `services/voice/TTSService.ts`.
+
+---
+
+## 8. RTDN 발신자 이메일 검증 미설정 (2026-08-19 기록 — 미해결·별건)
+
+iOS 출시 전 검수 중 발견. **iOS와 무관한 Android 보안 강화 항목이며, 이번 범위가 아니다.**
+
+### 현재 상태
+
+Supabase 시크릿에 `RTDN_PUSH_SA_EMAIL`이 **없다**(`supabase secrets list`로 확인).
+`supabase/functions/play-rtdn/index.ts`의 검증은 이런 모양이다:
+
+```ts
+if (RTDN_PUSH_SA_EMAIL && (email !== RTDN_PUSH_SA_EMAIL || emailVerified !== true)) {
+  return jsonResponse({ error: 'oidc_email_mismatch' }, 401)
+}
+```
+
+값이 없으면 조건 전체가 false가 되어 **발신자 이메일 검증이 조용히 생략된다.** 값이
+없을 때 경고를 남기는 `RTDN_PUSH_AUDIENCE`와 달리 로그도 남지 않는다.
+
+### 위험도
+
+낮음. `RTDN_PUSH_AUDIENCE`는 설정돼 있어 OIDC 토큰의 `aud` 검증은 살아 있고, 구글
+JWKS 서명 검증도 그대로 동작한다. 즉 아무나 호출할 수 있는 상태는 아니다. 다만
+"구글이 서명했고 aud가 맞는 토큰"이면 우리 Pub/Sub 구독이 아니어도 통과한다.
+
+### 향후 조치 (지시 없이 착수 금지)
+
+1. Pub/Sub push 구독에 쓰는 서비스 계정 이메일을 `RTDN_PUSH_SA_EMAIL`로 설정.
+2. 그 뒤 `if (RTDN_PUSH_SA_EMAIL && ...)`를 미설정 시 경고 로그를 남기도록 바꿔
+   `RTDN_PUSH_AUDIENCE`와 동작을 맞춘다(조용한 생략을 없앤다).
+3. play-rtdn 실동작 자체가 아직 미검증이다(5-12 후속 과제). 그 검증과 함께 처리하는 것이
+   효율적이다 — 시크릿만 넣고 검증하지 않으면 잘못된 값으로 모든 알림이 401이 될 수 있다.
+
+## 관련 코드 위치 (RTDN)
+- `supabase/functions/play-rtdn/index.ts` (OIDC 검증 1단계).
+- `.env.example`에 `RTDN_PUSH_AUDIENCE` / `RTDN_PUSH_SA_EMAIL` 둘 다 적혀 있다.

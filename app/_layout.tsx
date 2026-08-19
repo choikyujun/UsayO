@@ -33,9 +33,8 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { syncAndRefreshWidget } from '../services/widget/widgetRefresh';
 import { quotaTracker } from '../services/subscription/QuotaTracker';
 import { ttsService } from '../services/voice/TTSService';
-import { audioSessionService } from '../services/voice/AudioSessionService';
-import { noiseDetector } from '../services/voice/NoiseDetectorService';
-import { requestNotificationPermission, setupNotificationTapHandler } from '../services/notifications';
+import { setupNotificationTapHandler } from '../services/notifications';
+import { runPermissionGatedStartupIfOnboarded } from '../services/startupTasks';
 
 // 인증 호출 타임아웃. Edge Function 콜드스타트를 감안해도 정상 응답은 수 초 내.
 // 이 시간을 넘으면 네트워크가 hang한 것으로 보고 실패로 흘려(무한 로딩 방지) 빈 상태로 진입.
@@ -174,33 +173,11 @@ function AppRoot() {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      await audioSessionService.preinit();
-
-      // 딥링크(usayo://voice)로 실행된 경우 부트스트랩 소음 측정을 생략한다.
-      // 측정이 마이크를 점유(가변 ~1.4초+)하면 voice 선점(abort 대기)이 길어져 간헐적으로
-      // "마이크를 사용할 수 없어요"로 실패했다. 선점/abort로 처리하는 대신 애초에 경합을
-      // 만들지 않는다(측정 생략 시 기본 임계값=voice 모드, 이미 구현된 경로).
-      let isVoiceDeeplink = false;
-      try {
-        const initialUrl = await Linking.getInitialURL();
-        if (initialUrl) {
-          const p = Linking.parse(initialUrl);
-          isVoiceDeeplink = p.path === 'voice/start' || p.hostname === 'voice';
-        }
-      } catch { /* 초기 URL 조회 실패 → 일반 실행으로 간주 */ }
-
-      if (isVoiceDeeplink) {
-        console.log('[Mic] 딥링크 진입 — 소음 측정 생략');
-      } else {
-        const noise = await noiseDetector.measureBackgroundNoise();
-        audioSessionService.setCachedNoise(noise.snr, noise.recommendation);
-        await audioSessionService.cleanup();
-      }
-
-      await import('../services/voice/warmup').then(m => m.warmupVoiceServices());
-    })().catch(() => {});
-    requestNotificationPermission().catch(() => {});
+    // 마이크·알림 권한을 묻는 시작 작업은 **온보딩을 마친 뒤에만** 돈다.
+    // iOS가 마이크 권한을 생애 한 번만 묻기 때문이다 — 자세한 경위는 services/startupTasks.ts.
+    // 온보딩 중이면 아무 일도 일어나지 않고, 온보딩 직후에는 ready 화면이 직접 호출한다.
+    runPermissionGatedStartupIfOnboarded().catch(() => {});
+    // 알림 탭 핸들러는 권한과 무관하다(등록만으로는 다이얼로그가 뜨지 않는다) → 항상 등록.
     return setupNotificationTapHandler();
   }, []);
 

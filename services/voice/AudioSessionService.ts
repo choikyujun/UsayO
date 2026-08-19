@@ -25,6 +25,22 @@ class AudioSessionService {
   //  (a) 캐시 granted면 즉시 true.  (b) getPermissionsAsync로 확인 → granted면 요청 없이 true.
   //  (c) 미허용이면 requestPermissionsAsync — 이미 in-flight면 그 Promise를 공유(두 번 요청 안 함).
   //  타임아웃(5초) 초과 시 false 확정(요청 자체는 백그라운드로 계속, in-flight 유지).
+  /**
+   * **다이얼로그 없이** 현재 권한 상태만 확인한다.
+   * 부팅 워밍업처럼 '사용자가 마이크를 쓰겠다고 한 적 없는 시점'에서 쓴다 — 그런 자리에서
+   * 요청을 띄우면 iOS는 생애 단 한 번의 기회를 맥락 없이 소진해버린다.
+   */
+  async hasMicPermission(): Promise<boolean> {
+    if (this._permissionGranted) return true;
+    try {
+      const { granted } = await Audio.getPermissionsAsync();
+      if (granted) this._permissionGranted = true;
+      return granted;
+    } catch {
+      return false;
+    }
+  }
+
   async ensureMicPermission(caller: string): Promise<boolean> {
     if (this._permissionGranted) return true;
 
@@ -181,10 +197,16 @@ class AudioSessionService {
   }
 
   // Called at app startup — caches permission + warms up audio session (no recording)
-  async preinit(): Promise<void> {
+  //
+  // opts.request=false면 **권한을 묻지 않고** 현재 상태만 본다. 부팅 워밍업이 이 모드를 쓴다:
+  // 워밍업은 사용자가 요청한 적 없는 백그라운드 작업이라 권한 다이얼로그를 띄울 자리가 아니고,
+  // 실제 요청은 마이크를 누르는 순간 prepareForRecording이 맥락과 함께 한다.
+  async preinit(opts?: { request?: boolean }): Promise<void> {
     const t0 = Date.now();
     try {
-      const granted = await this.ensureMicPermission('preinit');
+      const granted = opts?.request === false
+        ? await this.hasMicPermission()
+        : await this.ensureMicPermission('preinit');
       if (granted) {
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,

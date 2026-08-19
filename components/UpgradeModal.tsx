@@ -190,11 +190,27 @@ export default function UpgradeModal({
         onSuccess?.();
         onDismiss();
       },
-      onError: (userCancelled) => {
+      onError: (userCancelled, kind) => {
         setLoading(false);
-        if (!userCancelled) {
-          Alert.alert('결제 오류', '결제 확인 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.');
+        if (userCancelled) return;
+        // 결제가 이미 성공한 경우와 결제 자체가 실패한 경우를 반드시 갈라 말해야 한다.
+        // 예전 문구는 둘 다 "잠시 후 다시 시도해주세요"였는데, 결제가 끝난 상태에서
+        // '다시 시도'는 **중복 결제를 유도하는 안내**다.
+        if (kind === 'verify_retry') {
+          Alert.alert(
+            '결제는 완료됐어요',
+            '구매 확인에 시간이 걸리고 있어요.\n잠시 후 앱을 다시 열면 자동으로 반영됩니다.',
+          );
+          return;
         }
+        if (kind === 'verify_gave_up') {
+          Alert.alert(
+            '결제는 완료됐어요',
+            '구매 확인에 실패했어요.\n아래 \'구매 복원\'을 눌러 다시 시도해주세요.',
+          );
+          return;
+        }
+        Alert.alert('결제 오류', '결제를 처리하지 못했어요. 잠시 후 다시 시도해주세요.');
       },
     });
     return () => setIAPCallbacks({});

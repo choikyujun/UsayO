@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
+import { runPermissionGatedStartup } from '../../services/startupTasks';
 
 type IconComp = React.ComponentType<{ size: number; color: string }>;
 
@@ -35,6 +36,11 @@ export default function ReadyScreen() {
 
   async function handleStart() {
     await AsyncStorage.setItem('onboarding_complete', 'true');
+    // 온보딩이 끝난 지금이 권한 필요 시작 작업(오디오 워밍업·알림 권한)을 돌릴 시점이다.
+    // 부팅 경로(app/_layout)는 onboarding_complete가 없으면 건너뛰므로, 여기서 호출하지
+    // 않으면 앱을 한 번 껐다 켜기 전까지 워밍업이 안 된다.
+    // await하지 않는다 — 홈 진입을 막지 않고 뒤에서 진행시킨다.
+    runPermissionGatedStartup('onboarding-complete').catch(() => {});
     router.replace('/(tabs)/');
   }
 
