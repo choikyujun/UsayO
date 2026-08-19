@@ -684,3 +684,40 @@ JWKS 서명 검증도 그대로 동작한다. 즉 아무나 호출할 수 있는
 ## 관련 코드 위치 (RTDN)
 - `supabase/functions/play-rtdn/index.ts` (OIDC 검증 1단계).
 - `.env.example`에 `RTDN_PUSH_AUDIENCE` / `RTDN_PUSH_SA_EMAIL` 둘 다 적혀 있다.
+
+---
+
+## 9. iOS 위젯 출시 시 약관 문구 제거 필요 (2026-08-19 기록 — 후속 과제)
+
+iOS 1차 출시는 위젯 없이 나간다. 약관이 위젯을 조건 없이 제공 기능으로 적고 있어
+사실과 어긋나므로 플랫폼을 명시해 두었다. **iOS 위젯을 출시하면 이 문구를 되돌려야
+한다** — 방치하면 제공하는 기능을 제공하지 않는다고 적어둔 상태가 된다.
+
+### 지워야 할 문장
+
+저장소: `wokytoky-legal` (GitHub Pages) / 파일: `usayo.html`
+커밋 4745352에서 추가됨. 한국어·영어 **양쪽** 모두 손대야 한다.
+
+| 위치 | 되돌릴 내용 |
+|---|---|
+| 약관 제4조 (한국어) | `<li>홈 화면 위젯 (Android)</li>` → `<li>홈 화면 위젯</li>` |
+| 약관 제4조 (한국어) | `<p>일부 기능은 운영체제나 앱 버전에 따라 ... 홈 화면 위젯은 현재 Android에서만 제공됩니다.</p>` 문단 제거 |
+| Terms 4 (영어) | `<li>A home screen widget (Android)</li>` → `<li>A home screen widget</li>` |
+| Terms 4 (영어) | `<p>Some features may not be available ... The home screen widget is currently available on Android only.</p>` 문단 제거 |
+
+앞 문장("일부 기능은 운영체제나 앱 버전에 따라 제공되지 않을 수 있습니다")만 남기고
+뒷 문장만 지우는 선택지도 있다 — 위젯 외에 플랫폼차가 생기면 그대로 쓸 수 있는 문장이다.
+
+### 함께 확인할 것
+
+- 시행일 갱신(`updatedLabel` + `footerLabel`, 한국어·영어 4곳).
+- 위젯이 App Group을 통해 일정 데이터를 읽으므로, 개인정보처리방침에 그 처리를
+  적어야 하는지 그 시점에 판단할 것. 지금은 기기 내부에 머무는 데이터라 별도 기재를
+  하지 않았다.
+- 문서는 JS 템플릿 리터럴 안에 있어 문법이 깨지면 페이지 전체가 백지가 된다.
+  수정 후 script 블록을 추출해 `node --check`로 검증하고 4개 조합(ko/en x
+  privacy/terms)이 실제로 렌더되는지 확인할 것.
+
+## 관련 코드 위치 (위젯 문구)
+- 문서: `wokytoky-legal/usayo.html` (약관 제4조 / Terms 4).
+- 앱 링크 상수: `constants/links.ts`의 `LINKS.termsOfService`(`usayo.html#terms`).
