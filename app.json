@@ -26,7 +26,8 @@
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "녹음한 음성을 글자로 바꿔 일정의 제목과 시각을 알아듣기 위해 사용합니다.",
         "NSMicrophoneUsageDescription": "말로 일정을 추가·변경·조회할 때 음성을 녹음하기 위해 마이크를 사용합니다.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "UsayO는 사진에 접근하지 않습니다. 앱에 포함된 파일 처리 구성요소가 사진 접근 기능을 갖고 있어 iOS가 이 항목을 요구합니다."
       }
     },
     "android": {
