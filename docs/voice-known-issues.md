@@ -492,9 +492,10 @@ provider의 `setScrollPosition`, factory의 `postDelayed` 재적용, `scrolled_$
 - `hooks/useSchedules.ts` — `createEventManual`(insert → 알림 예약 → refreshWidget).
 - `screens/HomeScreen.tsx` — 연필 버튼(44dp 아웃라인) + `handleManualSave`.
 
-## 5-11. ▶ 다음 작업 시작점 (2026-08-16 기준) — 결제 상품 조회 진단
+## 5-11. 결제 상품 조회 진단 (2026-08-16) — ✅ 해결됨
 
-> **여기부터 이어서 하면 된다.** 결제(IAP) 전환은 코드가 다 들어갔으나 실기 검증이 막혀 있다.
+> **해결됨. 아래 내용은 당시 진단 기록이다.** 결제 전 경로가 실기 검증을 통과했다 → **5-12 참조.**
+> (상품 조회 누락은 `annual-base-v2` 전파로 해소됐다.)
 
 ### 현재 막힌 지점
 `[iap] fetchProducts: 1개` — Pro 월/연 2개를 요청하는데 **1개만 조회된다.**
@@ -548,6 +549,51 @@ provider의 `setScrollPosition`, factory의 `postDelayed` 재적용, `scrolled_$
 2. `supabase secrets set GOOGLE_SERVICE_ACCOUNT_JSON=… ANDROID_PACKAGE_NAME=com.usayo.app`
 3. `supabase functions deploy verify-purchase` / `play-rtdn --no-verify-jwt`
 4. Play Console API 액세스에 서비스 계정 연결 + 권한(재무 데이터 보기·주문 관리)
+
+## 5-12. 결제(IAP) 전 경로 실기 검증 통과 (2026-08-19, tag: `v-payment-verified`)
+
+> RevenueCat → 스토어 직접 연동(react-native-iap + 서버 검증) 전환의 최종 검증.
+
+### 검증 통과 항목
+구매 → 구글 검증(`verify-purchase`) → `subscriptions` upsert → 앱에 Pro 플랜 반영까지
+**전 경로 정상 동작**을 실기에서 확인했다.
+
+### 막혔던 원인 2가지 (둘 다 해소)
+
+**원인 1 — 서비스 계정에 Play Console 권한이 없었다.**
+`googleStatus 401`. Google Cloud에서 서비스 계정을 만들고 `GOOGLE_SERVICE_ACCOUNT_JSON`을
+등록해도, **Play Console 쪽에서 그 계정에 권한을 부여하지 않으면** `subscriptionsv2.get`이
+401로 거부된다. Play Console > 사용자 및 권한에서 권한을 부여해 해소.
+→ 클라이언트 로그의 `[iap] verify 403/502` 안내 문구가 이 지점을 가리키도록 이미 넣어둔 것이
+   진단에 쓰였다.
+
+**원인 2 — `subscriptions.user_id` UNIQUE 제약이 없었다.**
+`upsert(..., { onConflict: 'user_id' })`는 해당 컬럼에 UNIQUE(또는 exclusion) 제약이 있어야
+동작한다. 제약이 없으면 ON CONFLICT가 실패한다.
+**마이그레이션 중 컬럼 추가(`purchase_token`/`product_id`/`platform`)만 실행되고 UNIQUE 제약이
+빠져 있었다.** 제약을 추가해 해소.
+
+> ⚠️ **재발 방지**: 이 제약은 원래 `supabase/migrations/20260812000001_subscriptions_user_unique.sql`에
+> 있다. 즉 마이그레이션 파일은 존재하는데 **원격 DB에 적용되지 않은 상태**였다. 마이그레이션을
+> 대시보드에서 손으로 실행하는 운영 방식이라 일부만 적용되는 일이 생긴다. 새 환경을 만들거나
+> DB를 손볼 때는 `supabase/migrations/`의 파일 목록과 실제 적용 상태를 대조할 것.
+
+### 후속 과제 (지시 없이 착수 금지)
+
+1. **서비스 계정 권한 축소 — 현재 관리자 권한이다.**
+   진단 과정에서 관리자로 열어둔 상태다. **재무 데이터 보기**와 **주문 및 구독 관리** 두 개로
+   축소해야 한다. 최소 권한 원칙이고, 관리자 키가 유출되면 앱 전체를 통제당한다.
+   ⚠️ **축소한 뒤 결제를 반드시 재검증할 것.** 권한을 좁히면 `subscriptionsv2.get`이 다시 401이
+   될 수 있고, 그때는 이번과 같은 증상이 재현된다.
+
+2. **`play-rtdn` 실시간 알림 실동작 미검증.**
+   갱신·해지·환불 반영 경로는 코드와 배선만 확인했고 **실제 알림을 받아본 적이 없다.**
+   실제 갱신 주기가 도래해야 확인 가능하다. 그때까지는 다음이 미확인 상태다:
+   - 갱신 시 `current_period_end` 연장
+   - 해지 시 `cancel_at_period_end` 반영, 만료 후 `plan='free'` 강등
+   - 환불(`voidedPurchaseNotification`) 시 즉시 강등
+   Pub/Sub 테스트 알림으로 배선(OIDC 검증·ack)까지는 확인할 수 있으나, 상태 전이는
+   실제 이벤트가 있어야 한다.
 
 ## 6. 계정 삭제 기능 도입 (2026-08-12) + 후속 과제
 
