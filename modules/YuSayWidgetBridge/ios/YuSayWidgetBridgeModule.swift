@@ -1,7 +1,7 @@
 import ExpoModulesCore
 import WidgetKit
 
-private let appGroup = "group.com.yusay.app"
+private let appGroup = "group.com.usayo.app"
 private let widgetDataKey = "yusay_widget_data"
 
 public class YuSayWidgetBridgeModule: Module {
@@ -20,7 +20,7 @@ public class YuSayWidgetBridgeModule: Module {
       }
     }
 
-    AsyncFunction("clearWidget") { in
+    AsyncFunction("clearWidget") { () in
       let defaults = UserDefaults(suiteName: appGroup)
       defaults?.removeObject(forKey: widgetDataKey)
       defaults?.synchronize()

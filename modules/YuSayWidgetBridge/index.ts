@@ -1,3 +1,14 @@
+// ⚠️ iOS 1차 출시(위젯 없음) — 이 브릿지는 **Android 전용으로 오토링킹**된다.
+//    expo-module.config.json의 `platforms`에서 "ios"를 뺐다. 그러지 않으면
+//    ios/YuSayWidgetBridge.podspec이 Pod으로 잡혀 YuSayWidgetBridgeModule.swift가
+//    컴파일되고, 위젯을 넣지 않아도 iOS 빌드가 이 파일에서 깨진다.
+//    iOS 쪽 소스(ios/*.swift·podspec)는 지우지 않고 그대로 뒀다 —
+//    **위젯을 붙일 때 `platforms`에 "ios"만 되돌리면 복구된다.**
+//    (같은 이유로 plugins/withYuSayWidgets의 iOS 경로도 함께 비활성화돼 있다.)
+//
+//    그래서 iOS에서는 아래 requireOptionalNativeModule이 항상 null을 돌려주고,
+//    이 파일의 모든 함수가 조용한 no-op이 된다(예외 없음). 이건 사고가 아니라 설계다.
+
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import type { IYuSayWidgetBridge, WidgetData } from './types';
 

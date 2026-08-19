@@ -22,15 +22,11 @@
     "ios": {
       "bundleIdentifier": "com.usayo.app",
       "icon": "./assets/icon.png",
-      "supportsTablet": true,
-      "entitlements": {
-        "com.apple.security.application-groups": [
-          "group.com.usayo.app"
-        ]
-      },
+      "supportsTablet": false,
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "음성으로 일정을 등록하기 위해 필요합니다.",
-        "NSMicrophoneUsageDescription": "음성으로 일정을 등록하기 위해 필요합니다."
+        "NSSpeechRecognitionUsageDescription": "녹음한 음성을 글자로 바꿔 일정의 제목과 시각을 알아듣기 위해 사용합니다.",
+        "NSMicrophoneUsageDescription": "말로 일정을 추가·변경·조회할 때 음성을 녹음하기 위해 마이크를 사용합니다.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

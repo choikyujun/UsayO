@@ -1,6 +1,6 @@
 import Foundation
 
-private let appGroup = "group.com.yusay.app"
+private let appGroup = "group.com.usayo.app"
 private let widgetDataKey = "yusay_widget_data"
 
 struct WidgetEventModel: Codable {
