@@ -11,12 +11,30 @@
       "environment": "development"
     },
     "preview": {
-      // Android 전용 프로파일이다. iOS preview 프로파일은 **의도적으로 두지 않는다** —
-      // iOS에서 distribution:"internal"은 ad-hoc이라 테스터 기기 UDID를 미리 등록해야 하고,
-      // 그러고도 production 빌드를 또 태워야 한다. TestFlight 내부 테스트가 심사 없이
-      // 즉시 배포되므로 그걸 preview 대용으로 쓰고 iOS 빌드를 1회 아낀다.
-      // (그래서 `eas build -p ios --profile preview`는 실행하지 말 것. 막지는 못하지만
-      //  ad-hoc 서명으로 크레딧만 소모된다.)
+      // Android APK + **iOS ad-hoc** 겸용이다.
+      //
+      // distribution:"internal"이 프로파일 루트에 있어 iOS에도 적용되고, iOS에서 이 값은
+      // ad-hoc 배포를 뜻한다. ad-hoc은 빌드 페이지를 기기 Safari로 열어 바로 설치되므로
+      // **TestFlight 앱을 거치지 않는다.**
+      //
+      // 왜 이 경로가 필요한가 — 실기 테스트용 아이폰이 iOS 15.8.8인데 TestFlight 최신
+      // 버전은 iOS 16+를 요구해 설치가 안 된다. 즉 이 기기에서 실기 검증을 하는 유일한
+      // 경로가 ad-hoc이다. 앱의 배포 타겟은 15.1이라 설치 자체는 문제없다.
+      // (Ksori도 preview 프로파일로, WokyToky는 별도 adhoc 프로파일로 같은 방식을 썼다.)
+      //
+      // 기기 등록은 이미 돼 있다 — Apple 팀 SHMA5W4456(UsayO의 submit.production.ios
+      // appleTeamId와 같은 팀)에 아이폰 1대가 등록된 상태다. 기기 등록은 팀 단위라
+      // 앱마다 다시 하지 않아도 된다. 확인:
+      //   npx eas device:list --apple-team-id SHMA5W4456
+      // 다만 com.usayo.app용 ad-hoc 프로비저닝 프로파일은 처음 만들어지므로, 첫 빌드에서
+      // EAS가 포함할 기기를 물어본다 → **--non-interactive 없이 대화형으로 돌릴 것.**
+      //
+      //   npx eas build -p ios --profile preview
+      //
+      // TestFlight를 쓸 수 있는 환경(iOS 16+ 기기)이 되면 그쪽이 낫다. 기기 등록·프로비저닝
+      // 갱신이 필요 없고, 내부 테스트는 심사 없이 즉시 배포되며, 실제 배포본과 같은
+      // store 서명으로 검증하게 된다. 그때는 production 빌드를 TestFlight로 올려
+      // preview 대용으로 쓰고 iOS 빌드를 1회 아끼는 편이 낫다.
       "distribution": "internal",
       "android": {
         "buildType": "apk"
