@@ -2,6 +2,7 @@ import * as Speech from 'expo-speech';
 import { ClassifiedIntent } from '../../types';
 import { formatRelativeDay } from '../../utils/dateHelpers';
 import { formatTimeKo } from '../../utils/timeHelpers';
+import { audioSessionService } from './AudioSessionService';
 
 export class TTSService {
   private _lastMsg = '';
@@ -36,6 +37,10 @@ export class TTSService {
     this._lastAt  = now;
     this._speaking = true;
     this._speakSeq++;
+    // [iOS] 발화 직전 출력 라우트를 스피커로 고정. 녹음이 남긴 PlayAndRecord 세션이
+    // 그대로 유지되면 TTS가 수화기로 나가 작게 들린다(상세 근거는 해당 메서드 주석).
+    // 동기 호출이라 _speakSeq/발화 시작 타이밍에 영향 없음. iOS 외에는 즉시 반환.
+    audioSessionService.routeTTSOutputToSpeaker();
     console.log('[TTS] speak start', Date.now(), JSON.stringify(text.slice(0, 16))); // [진단] 타임스탬프
     return new Promise((resolve, reject) => {
       const done = (via: string) => { console.log('[TTS] settled', Date.now(), 'via', via); this._settle(); resolve(); }; // [진단]

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { Audio } from 'expo-av';
 import { MAX_DURATION_MS } from '../../constants/voiceRecording';
 
@@ -12,6 +13,36 @@ interface NoiseCache {
 export type MicOwner = 'voice' | 'noise-measure';
 
 const PERM_REQUEST_TIMEOUT_MS = 5000; // Android 콜백 유실 대비 — 초과 시 false 확정(무한 대기 방지)
+
+// ── expo-speech-recognition 지연 로더 (iOS 오디오 세션 우회 전용) ──────────────
+// 이 모듈은 음성 인식용으로 쓰지 않는다(STT는 서버 Whisper 경로). setCategoryIOS 하나만
+// 빌려 쓴다 — expo-av가 손대지 못하는 상황에서 AVAudioSession을 직접 설정할 수 있는
+// 유일한 JS 경로이기 때문(routeTTSOutputToSpeaker 주석 참조).
+//
+// 정적 import를 쓰지 않는 이유: 이 모듈의 진입점은 requireNativeModule()을 최상위에서
+// 호출하므로, 네이티브가 빠진 바이너리에서는 import 시점에 그대로 throw한다(= 앱 부팅
+// 실패). 호출 시점에 require로 해석하고 try/catch로 감싸 그 위험을 없앤다.
+type SetCategoryIOSFn = (options: {
+  category: string;
+  categoryOptions: string[];
+  mode: string;
+}) => void;
+
+// undefined = 아직 시도 안 함 / null = 사용 불가 확정(재시도하지 않음)
+let _speechRecognitionModule: { setCategoryIOS?: SetCategoryIOSFn } | null | undefined;
+
+function loadSpeechRecognitionModule(): { setCategoryIOS?: SetCategoryIOSFn } | null {
+  const cached = _speechRecognitionModule;
+  if (cached !== undefined) return cached;
+  let resolved: { setCategoryIOS?: SetCategoryIOSFn } | null = null;
+  try {
+    resolved = require('expo-speech-recognition').ExpoSpeechRecognitionModule ?? null;
+  } catch {
+    resolved = null;
+  }
+  _speechRecognitionModule = resolved;
+  return resolved;
+}
 
 class AudioSessionService {
   private _permissionGranted = false;
@@ -246,6 +277,52 @@ class AudioSessionService {
       allowsRecordingIOS: false,
       playsInSilentModeIOS: false,
     }).catch(() => {});
+  }
+
+  // ── TTS 출력 라우트 강제 (iOS 전용) ─────────────────────────
+  // [문제] 녹음이 끝나 expo-av가 EXAVAudioSessionModeInactive가 되면, 그 뒤의
+  // setAudioModeAsync는 JS 플래그만 저장하고 실제 AVAudioSession은 건드리지 않는다
+  // (EXAV.m:286 — `if (_currentAudioSessionMode != Inactive)` 안에서만 setCategory).
+  // 그래서 cleanup()이 allowsRecordingIOS:false로 되돌려도 하드웨어 세션은 녹음이
+  // 남긴 PlayAndRecord(+AllowBluetooth, DefaultToSpeaker 없음) 그대로다. expo-speech
+  // (AVSpeechSynthesizer)는 세션을 전혀 관리하지 않아 그 세션으로 발화한다
+  // → 출력이 수화기(receiver)로 나가 "녹음 직후 확인 TTS만 작게 들림".
+  //
+  // [해결] expo-speech-recognition의 setCategoryIOS는 조건 없이
+  // AVAudioSession.setCategory를 직접 호출하므로 위 no-op 구간을 우회한다.
+  // 카테고리는 PlayAndRecord 그대로 두고 DefaultToSpeaker만 얹어 **출력 라우트만**
+  // 바꾼다. Playback으로 갈아타지 않는 이유: 카테고리 교체는 살아 있는 녹음을
+  // 끊을 수 있어(EXAV.m:275-279에서 recorder pause) 더 위험하다.
+  //
+  // [안전 조건]
+  //  · iOS 전용 — Android는 호출조차 하지 않는다(동작 완전 불변).
+  //  · micOwner가 있으면 생략 — 녹음/소음측정이 마이크를 쥔 동안 세션을 재설정하면
+  //    그 녹음이 흔들린다(0바이트 파일 전례). 이 경우 기존 동작 그대로 둔다.
+  //  · mode는 반드시 'default'. 모듈 기본값은 'measurement'인데, 이 모드는 입출력
+  //    다이내믹 처리를 꺼서 재생 음량을 오히려 **더 낮춘다**(Apple 문서 명시).
+  //  · 모듈 부재/호출 실패는 삼킨다 — 음량 보정 실패가 TTS 자체를 막으면 안 된다.
+  //
+  // [녹음 영향] DefaultToSpeaker는 출력 라우트만 바꾸고 입력 선택에는 관여하지 않는다.
+  // 다음 녹음 시 expo-av가 setActive:YES 경로에서 자기 옵션(AllowBluetooth)을 다시
+  // 얹으며, 설령 남더라도 녹음 중에는 재생이 없어 무해하다.
+  routeTTSOutputToSpeaker(): void {
+    if (Platform.OS !== 'ios') return;
+    if (this._micOwner !== null) {
+      console.log(`[AudioSession] TTS 라우트 생략 — 마이크 사용 중(owner='${this._micOwner}')`);
+      return;
+    }
+    const mod = loadSpeechRecognitionModule();
+    if (!mod?.setCategoryIOS) return; // 모듈/네이티브 부재 — 조용히 기존 동작 유지
+    try {
+      mod.setCategoryIOS({
+        category: 'playAndRecord',
+        categoryOptions: ['defaultToSpeaker', 'allowBluetooth'],
+        mode: 'default',
+      });
+      console.log('[AudioSession] TTS 출력 라우트 → speaker (playAndRecord+defaultToSpeaker)');
+    } catch (e) {
+      console.log('[AudioSession] TTS 출력 라우트 설정 실패 — 무시:', (e as Error)?.message);
+    }
   }
 
   get permissionGranted(): boolean { return this._permissionGranted; }
