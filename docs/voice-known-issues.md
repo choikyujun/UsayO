@@ -595,6 +595,100 @@ provider의 `setScrollPosition`, factory의 `postDelayed` 재적용, `scrolled_$
    Pub/Sub 테스트 알림으로 배선(OIDC 검증·ack)까지는 확인할 수 있으나, 상태 전이는
    실제 이벤트가 있어야 한다.
 
+## 5-13. iOS ad-hoc 실기 검증 통과 (2026-08-21, tag: `v-ios-verified`)
+
+> iOS 첫 실기 검증. 테스트 기기가 iOS 15.8.8이라 TestFlight 최신 버전(iOS 16+ 요구)을
+> 설치할 수 없어, `preview` 프로파일의 ad-hoc 배포가 유일한 실기 경로였다(`eas.json` 주석 참조).
+
+### 검증 통과 항목
+- ad-hoc 빌드가 **iOS 15.8.8 기기에 정상 설치·실행**.
+- 온보딩 흐름 정상.
+- 음성 일정 등록 정상.
+- 확인 카드 **3초 자동 저장** 정상.
+- **Sandbox 결제 검증 통과** — `verify-purchase`의 iOS 분기 실동작 확인.
+  (Android 경로는 5-12에서 별도 검증됨.)
+- 녹음 직후 TTS가 작게 들리던 문제 해결 — 아래 참조.
+
+### 해결: 녹음 직후 TTS가 수화기로 나가던 문제 (커밋 `1508362`)
+
+**증상.** 음성으로 일정을 말한 직후의 확인 TTS만 작게 들렸다. 버튼으로 저장했을 때의
+성공 TTS는 정상 음량이었고, 다른 앱의 소리도 정상이었다.
+
+**원인.** 녹음이 끝나면 expo-av가 `EXAVAudioSessionModeInactive`가 되는데, **그 상태에서의
+`Audio.setAudioModeAsync`는 JS 플래그만 저장하고 실제 `AVAudioSession`을 건드리지 않는다**
+(`EXAV.m:286` — `if (_currentAudioSessionMode != Inactive)` 안에서만 `setCategory` 호출).
+그래서 `AudioSessionService.cleanup()`이 `allowsRecordingIOS:false`로 되돌려도 하드웨어
+세션은 녹음이 남긴 `PlayAndRecord`(+`AllowBluetooth`, `DefaultToSpeaker` 없음) 그대로다.
+expo-speech(`AVSpeechSynthesizer`)는 오디오 세션을 **전혀 관리하지 않아** 그 세션으로
+발화하고, `DefaultToSpeaker`가 없으므로 출력이 수화기(receiver)로 나간다.
+
+**버튼 경로가 멀쩡했던 이유(= 비대칭의 정체).**
+`cancelRecording`은 `releaseMic`을 **await 없이** 발사한 뒤 곧바로 `cleanup()`을 부른다
+(`useVoiceRecorder.ts:418-422`). unload가 끝나기 전이라 expo-av가 아직 Active이고, 따라서
+`setAudioModeAsync`가 실제로 적용돼 `Playback`으로 전환된다. 반면 음성 경로의
+`stopRecording`은 unload를 await한 뒤 `cleanup()`을 부르므로(같은 파일 `118-119`) 이미
+Inactive라 no-op이 된다.
+
+**수정.** `expo-speech-recognition`의 `setCategoryIOS`로 `playAndRecord + defaultToSpeaker`를
+강제한다. 이 API는 조건 없이 `AVAudioSession.setCategory`를 직접 호출하므로 위 no-op 구간을
+우회한다. 카테고리를 `Playback`으로 갈아타지 않고 `PlayAndRecord`를 유지한 채 출력 라우트만
+바꾸는 이유는, 카테고리 교체가 살아 있는 녹음을 끊을 수 있어서다(`EXAV.m:275-279`).
+- **지연 `require`** — 이 모듈의 진입점이 최상위에서 `requireNativeModule()`을 호출해
+  네이티브 부재 시 import만으로 throw한다(= 앱 부팅 실패). 호출 시점에 해석한다.
+- **`micOwner` 가드** — 녹음/소음측정이 마이크를 쥔 동안에는 호출하지 않는다.
+- **`mode: 'default'` 명시** — 모듈 기본값은 `.measurement`인데, 이 모드는 입출력 다이내믹
+  처리를 꺼서 **재생 출력 레벨을 오히려 낮춘다**(Apple 문서 명시). 기본값을 쓰면 안 된다.
+- Android 미호출(`Platform.OS` 체크가 모듈 로드보다 앞선다). 동작 완전 불변.
+
+**배포.** JS 전용 변경이라 fingerprint가 유지돼 기존 ad-hoc 빌드가 OTA로 받았다
+(EAS update group `201cc8b6-b8d3-4b14-afbb-998caa7b20e8`, branch/channel `preview`,
+runtime `e672052708120d77e041c3c505c9a47022e15d0e`). EAS 빌드 카운트 소모 없음.
+
+### 잔여 관찰 항목 (미해결 — 지시 없이 수정 금지)
+
+1. **`cleanup()`의 실제 적용 여부가 경합에 좌우된다(비결정적).**
+   위 "비대칭" 그대로다. 버튼 경로에서 `setAudioModeAsync`가 먹히는 것은 `releaseMic`을
+   await하지 않은 **타이밍 우연**이지 설계가 아니다. 기기 성능이나 부하에 따라 뒤집힐 수 있다.
+   지금은 TTS 진입부에서 라우트를 강제하므로 증상이 가려져 있지만, 원인은 남아 있다.
+   → 손댈 거라면 `cleanup()`을 "Inactive면 no-op"이라는 전제 위에 다시 설계해야 한다.
+   **검증된 뮤텍스/소유권 로직을 건드리게 되므로 착수 전 반드시 실기 검증 계획을 세울 것.**
+
+2. **`defaultToSpeaker`가 다음 녹음까지 남을 수 있다(무해).**
+   `EXAudioSessionManager._updateSessionConfiguration`의 조기 반환이 **자기 캐시 ivar**
+   (`_activeCategory`/`_activeOptions`, `EXAudioSessionManager.m:238`)를 보기 때문에, 외부에서
+   바꾼 것을 모르고 재설정을 건너뛸 수 있다. 그래도 `defaultToSpeaker`는 **출력 라우트만**
+   바꾸고 마이크 입력 선택에는 관여하지 않으며, 녹음 중에는 재생되는 소리가 없어 무해하다.
+   실기에서 녹음·STT 정상 동작을 확인했다.
+
+3. **AirPods 등 블루투스 출력 미검증.**
+   내장 스피커/수화기 경로만 실기 확인했다. BT 연결 상태에서 `defaultToSpeaker`가 라우트에
+   어떻게 작용하는지(A2DP/HFP 전환 글리치 포함)는 확인하지 않았다.
+
+### 릴리스 빌드 로그 확보 방법 (진단 인프라 — 기록용)
+
+이번 진단에서 확인한 사실: **릴리스 빌드에서도 `console.log`는 제거되지 않는다.**
+Hermes console → `nativeLoggingHook`(`JSIExecutor.cpp:576`) → `_RCTLogJavaScriptInternal`
+(`RCTInstance.mm:423`) → `os_log_with_type(..., OS_LOG_TYPE_INFO)`(`RCTLog.mm:104-111`)로
+정상 출력된다. 임계값도 릴리스에서 올라가지 않는다(`RCTDefaultLogThreshold`는 Trace, `RCTLog.mm:32`).
+**Console.app이 INFO 레벨을 기본으로 숨길 뿐이다.**
+
+- Console.app: 동작(Action) → **정보 메시지 포함** + **디버그 메시지 포함** 체크.
+- CLI(권장, Xcode 불필요):
+  ```bash
+  log stream --device --level info --predicate 'subsystem == "com.facebook.react.log"'
+  ```
+  `--level info`가 없으면 Console.app과 똑같이 잘린다.
+
+→ **릴리스 로그를 보려고 development 빌드(EAS 카운트)를 쓸 필요가 없다.**
+
+## 관련 코드 위치 (iOS 오디오 세션)
+- `services/voice/AudioSessionService.ts` — `routeTTSOutputToSpeaker()`(수정 본체),
+  `cleanup()`/`prepareForRecording()`(no-op 게이트에 걸리는 지점), `micOwner` 게이트.
+- `services/voice/TTSService.ts` — `speak()` 진입부에서 라우트 강제 호출.
+- `hooks/useVoiceRecorder.ts:118-119` — 음성 경로(unload await 후 cleanup → no-op).
+- `hooks/useVoiceRecorder.ts:418-422` — 버튼 경로(unload 미완 상태로 cleanup → 적용됨).
+- `hooks/useVoiceFlow.ts:331` — 확인 문구 단일 발화 지점(증상이 드러나던 곳).
+
 ## 6. 계정 삭제 기능 도입 (2026-08-12) + 후속 과제
 
 > 구글 플레이 필수 요건(계정 생성 앱의 앱 내 계정 삭제 경로) 대응. Edge Function
