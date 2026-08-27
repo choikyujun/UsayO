@@ -52,13 +52,26 @@ export function normalizeConfirm(s: string): string {
     .trim();
 }
 
+// 공백·문장부호를 제거한 실질 길이. 확인 응답은 본질적으로 짧다는 전제를 재는 자.
+export function compactLength(s: string): number {
+  return (s ?? '').replace(/[\s.,!?~…"'·]/g, '').length;
+}
+
+// 취소로 인정할 최대 실질 길이. CONFIRM_NEG_RE는 **부분 문자열** 매칭이라
+// 긴 환각 문장에 '아니'가 섞이기만 해도 걸린다 → 길이로 가른다.
+const CANCEL_MAX_CHARS = 8;
+
 // 확인 대기 응답 판정. 매칭 실패는 'unknown'(재질문/버튼 대기) — 절대 새 일정으로 흐르지 않음.
 // 원본(트림)과 정규화본을 모두 검사 → 문장부호/공백 변형에 관대. 부정 우선(안전한 쪽).
 export function confirmResponseKind(transcript: string): 'confirm' | 'cancel' | 'unknown' {
   const raw = (transcript ?? '').trim().toLowerCase();
   const norm = normalizeConfirm(transcript);
   if (!raw && !norm) return 'unknown';
-  if (CONFIRM_NEG_RE.test(raw) || CONFIRM_NEG_RE.test(norm)) return 'cancel';
+  // 부정 우선은 유지하되, 길이를 넘으면 'confirm'으로 흘려보내지 않고 'unknown'으로 멈춘다.
+  // (넘겨보내면 같은 환각 문장 안의 긍정 키워드가 저장으로 뒤집을 수 있다 — 더 나쁜 실패다.)
+  if (CONFIRM_NEG_RE.test(raw) || CONFIRM_NEG_RE.test(norm)) {
+    return compactLength(raw) <= CANCEL_MAX_CHARS ? 'cancel' : 'unknown';
+  }
   if (CONFIRM_POS_RE.test(raw) || CONFIRM_POS_RE.test(norm)) return 'confirm';
   return 'unknown';
 }
@@ -116,7 +129,44 @@ export function hallucinationVerdict(stt: STTResult, opts?: HallucinationOpts): 
   return { ok: true, raw };
 }
 
-export interface ConfirmEval { action: MultiConfirmResponse; reason?: string }
+// ── 취소 전용 임계 (B3) ──────────────────────────────────────────
+// 취소는 사용자의 일정을 조용히 버리는 동작이라 confirm보다 엄격하게 받는다.
+// confirm 쪽 임계(CONFIRM_MIN_CONFIDENCE / CONFIRM_MAX_NO_SPEECH)는 건드리지 않는다.
+const CANCEL_MIN_CONFIDENCE = 0.6;   // confirm 0.5보다 높게
+const CANCEL_MAX_NO_SPEECH  = 0.4;   // confirm 0.6보다 낮게(=더 엄격)
+
+// 취소 키워드가 매칭됐을 때 추가로 통과해야 하는 문턱. 실패 사유를 돌려준다(통과면 null).
+function cancelGateReason(stt: STTResult): string | null {
+  if (stt.confidence > 0 && stt.confidence < CANCEL_MIN_CONFIDENCE) {
+    return `cancel_conf=${stt.confidence.toFixed(2)}`;
+  }
+  if ((stt.noSpeechProb ?? 0) > CANCEL_MAX_NO_SPEECH) {
+    return `cancel_no_speech=${(stt.noSpeechProb ?? 0).toFixed(2)}`;
+  }
+  return null;
+}
+
+// unknown의 성격. 호출부가 '재질문이 도움이 될지'를 판단하는 근거다.
+//   hard       — 환각/무음/저신뢰가 확실. 같은 환경에서 재질문해도 결과가 같을 것이다.
+//   soft       — 신호는 애매하지만 다시 들으면 나아질 수 있다.
+//   no-keyword — 음성은 또렷한데 확인 키워드가 없다. 재질문이 가장 잘 듣는 경우.
+export type ConfirmUnknownKind = 'hard' | 'soft' | 'no-keyword';
+
+// 재질문으로 회복 불가하다고 보는 신호. 무음 확률 초과 / 길이 초과 / 저신뢰(취소 전용 포함).
+const HARD_REJECT_RE = /^(no_speech|len|conf|cancel_no_speech|cancel_conf)=/;
+
+function unknownKindOf(reason?: string): ConfirmUnknownKind {
+  if (!reason) return 'soft';
+  if (reason === 'no-keyword') return 'no-keyword';
+  return HARD_REJECT_RE.test(reason) ? 'hard' : 'soft';
+}
+
+export interface ConfirmEval {
+  action: MultiConfirmResponse;
+  reason?: string;
+  /** action==='unknown'일 때만 의미 있다. 재질문 여부 분기에 쓴다. */
+  unknownKind?: ConfirmUnknownKind;
+}
 
 // 소프트 환경 신호(무음/길이/로그확률/압축비) 오탐. 이 신호들은 '긴 환각'을 잡으려는 것이라,
 // 짧고 신뢰도 높은 정당한 확인("저장.")까지 버리는 오탐을 낸다. 하드 게이트(empty/len 초과/저신뢰)와
@@ -131,23 +181,35 @@ export function evaluateConfirmSTT(stt: STTResult): ConfirmEval {
   const v = hallucinationVerdict(stt);
 
   if (!v.ok) {
-    // 취소는 안전한 쪽 → 환경 신호와 무관하게 항상 존중.
-    if (kind === 'cancel') return { action: 'cancel' };
-    // 소프트 신호 오탐 구제: 키워드가 confirm이고, 짧고(=긴 환각 아님) 신뢰도 충분한데
-    // 환경 신호로만 거부된 경우엔 정당한 확인으로 인정. 하드 게이트(len 초과/저신뢰/empty)는 유지.
-    const compact = raw.replace(/[\s.,!?~…"'·]/g, '');
+    // [B1] 환각 판정을 취소만 우회하던 예외를 제거했다.
+    // 종전에는 "취소는 안전한 쪽"이라며 no_speech/저신뢰/길이초과를 전부 무시하고 cancel을
+    // 확정했다. 그 전제(잘못 저장하는 것이 최악)는 소음 환경에서 뒤집혔다 — 사용자가
+    // 받아쓰게 한 일정이 조용히 사라지는 쪽이 더 큰 피해였다. 이제 취소도 unknown으로 떨어진다.
+    //
+    // 소프트 신호 오탐 구제는 confirm 전용으로 종전 그대로 둔다(이번 수정은 취소만 조인다).
     const confOk = !(stt.confidence > 0 && stt.confidence < CONFIRM_MIN_CONFIDENCE);
-    if (kind === 'confirm' && compact.length > 0 && compact.length <= CONFIRM_MAX_CHARS
+    const compact = compactLength(raw);
+    if (kind === 'confirm' && compact > 0 && compact <= CONFIRM_MAX_CHARS
         && confOk && v.reason && SOFT_REJECT_RE.test(v.reason)) {
       console.log(`[Confirm] 소프트신호 오탐 무시 — raw=${JSON.stringify(raw)} normalized=${JSON.stringify(normalized)} reason=${v.reason} → confirm`);
       return { action: 'confirm' };
     }
     console.log(`[Confirm] 판정 실패 — raw=${JSON.stringify(raw)} normalized=${JSON.stringify(normalized)} reason=${v.reason}`);
-    return { action: 'unknown', reason: v.reason };
+    return { action: 'unknown', reason: v.reason, unknownKind: unknownKindOf(v.reason) };
+  }
+
+  // [B3] 환각 방어를 통과했더라도 취소는 한 겹 더 받는다 — confirm 임계는 그대로 둔다.
+  if (kind === 'cancel') {
+    const gate = cancelGateReason(stt);
+    if (gate) {
+      console.log(`[Confirm] 취소 보류 — raw=${JSON.stringify(raw)} normalized=${JSON.stringify(normalized)} reason=${gate}`);
+      return { action: 'unknown', reason: gate, unknownKind: unknownKindOf(gate) };
+    }
   }
 
   if (kind === 'unknown') {
     console.log(`[Confirm] 판정 실패 — raw=${JSON.stringify(raw)} normalized=${JSON.stringify(normalized)} reason=no-keyword`);
+    return { action: 'unknown', reason: 'no-keyword', unknownKind: 'no-keyword' };
   }
   return { action: kind };
 }

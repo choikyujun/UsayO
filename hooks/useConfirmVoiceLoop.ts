@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVoiceRecorder } from './useVoiceRecorder';
 import { speechService } from '../services/voice/SpeechRecognitionService';
 import { ttsService } from '../services/voice/TTSService';
-import { evaluateConfirmSTT } from '../utils/voiceResponseMatcher';
+import { evaluateConfirmSTT, type ConfirmUnknownKind } from '../utils/voiceResponseMatcher';
+import { audioSessionService } from '../services/voice/AudioSessionService';
 
 // 확인 카드(단일 InlineConfirmCard / 복수 MultiConfirmCard)의 음성 확인 루프 공용 훅.
 //
@@ -39,11 +40,22 @@ const MIC_FAIL_TTS    = '마이크를 사용할 수 없어요. 화면의 저장 
 
 // 확인 응답용 레코더 파라미터(일반 발화 파라미터는 불변).
 //  · silenceMs 2000     — 2초 연속 무음이면 레코더가 스스로 종료. 이것이 유일한 자동 저장 근거.
-//  · speechWarmupMs 300 — 마이크 오픈 직후 트랜지언트/TTS 잔향을 hadSpeech 집계에서 제외.
+//  · speechWarmupMs 600 — 마이크 오픈 직후 트랜지언트/TTS 잔향을 hadSpeech 집계에서 제외.
+//    300 → 600으로 올렸다. 확인 TTS가 (수화기가 아니라) 스피커로 크게 나가면서 잔향이
+//    마이크로 유입돼 hadSpeech가 뒤집혔고, 그 결과 무음 자동 저장 대신 STT 판정으로 새는
+//    경로가 생겼다. 이 값은 hadSpeech 집계에만 관여하고 무음 타이머(warmupMs)와 무관해
+//    자동 저장 시점을 늦추지 않는다.
 //  · minSpeechMs 300    — 300ms 누적 발화가 있어야 hadSpeech=true(블립 오탐 방지).
 // warmupMs는 기본값(1000ms) 유지 — 무음 타이머는 t=1.0s부터 → 침묵 시 auto-stop ≈ t=3.0s로
 // 카운트다운(3초) 표시와 자연히 맞는다.
-const CONFIRM_RECORDER_OPTS = { silenceMs: 2000, speechWarmupMs: 300, minSpeechMs: 300 };
+const CONFIRM_RECORDER_OPTS = { silenceMs: 2000, speechWarmupMs: 600, minSpeechMs: 300 };
+
+// TTS 종료 콜백 이후 마이크를 열기까지의 유예. 콜백은 합성 종료 시점이지 잔향 소멸 시점이
+// 아니다. useVoiceInput의 프리필 경로가 같은 이유로 이미 500ms를 두고 있었는데(:63)
+// 확인 루프에만 없었다.
+// 카운트다운은 startCycle에서 시작하므로 이 유예는 3초 예산을 잠식하지 않는다 — 전체
+// 소요만 그만큼 늘어난다(auto-stop 기준 약 3.0s → 3.4s).
+const TTS_HANDOFF_MS = 400;
 
 // decide()를 부른 주체. 'silence'만 자동 저장 자격이 있다.
 type DecideTrigger = 'silence' | 'deadline';
@@ -151,6 +163,17 @@ export function useConfirmVoiceLoop({
       await ttsService.speak(BUTTON_WAIT_TTS, undefined, undefined, true).catch(() => {});
     };
 
+    // TTS → 마이크 핸드오프. TTS 완료 콜백 직후 곧바로 마이크를 열면 잔향이 첫 샘플에 실린다.
+    //   (1) 재생 세션을 먼저 놓고  (2) 잔향이 가라앉을 유예를 둔다.
+    // 유예 '앞'의 가드는 호출부가, '뒤'의 가드는 반환값으로 처리한다 — 400ms 사이에 사용자가
+    // 저장/취소 버튼을 누르거나 카드가 언마운트될 수 있어 양쪽 모두 확인해야 한다.
+    // 반환 false면 호출부는 마이크를 열지 말고 즉시 빠져나가야 한다.
+    const handoffToMic = async (): Promise<boolean> => {
+      await audioSessionService.releasePlaybackSession();
+      await new Promise<void>(resolve => setTimeout(resolve, TTS_HANDOFF_MS));
+      return isActiveRef.current && !confirmedRef.current;
+    };
+
     // 마이크 시작 실패 → 음성 루프 종료 + 안내. 저장/취소 버튼은 항상 노출되므로 갇힘 없음.
     const tryStart = async (): Promise<boolean> => {
       const ok = await recorder.startRecording();
@@ -203,13 +226,21 @@ export function useConfirmVoiceLoop({
       // 발화 감지 → STT 판정만 신뢰한다(자동 저장 없음).
       setStatus('checking');
       let action: 'confirm' | 'cancel' | 'unknown' = 'unknown';
+      // unknown의 성격 — 재질문이 도움이 될지를 가른다(hard면 같은 환경에서 반복해도 같은 결과).
+      let unknownKind: ConfirmUnknownKind | undefined;
+      let evalReason: string | undefined;
       if (uri) {
         try {
           const stt = await speechService.transcribe(uri, 'ko', { mode: 'confirm' });
           const evaluated = evaluateConfirmSTT(stt); // 환각 방어(길이/신호/무음/신뢰) 후 키워드 판정
           action = evaluated.action;
+          unknownKind = evaluated.unknownKind;
+          evalReason = evaluated.reason;
           console.log(`${logTag} STT 판정 → ${action} | raw=${JSON.stringify(stt.transcript)} reason=${evaluated.reason ?? '-'} conf=${stt.confidence}`);
-        } catch { action = 'unknown'; }
+        } catch {
+          // STT 자체 실패(네트워크/타임아웃)는 일시적일 수 있다 → 재질문 쪽으로 둔다.
+          action = 'unknown';
+        }
       } else {
         console.log(`${logTag} STT 생략 — 녹음 URI 없음`);
       }
@@ -218,12 +249,25 @@ export function useConfirmVoiceLoop({
       if (action === 'confirm') { resolve('confirm'); return; }
       if (action === 'cancel')  { resolve('cancel');  return; }
 
-      // 발화했으나 미인식 → 절대 자동확정하지 않고 재질문(초과 시 버튼 대기)
+      // 발화했으나 미인식 → 절대 자동확정하지 않고 재질문(초과 시 버튼 대기).
+      //
+      // 단, 환각 신호가 확실한 경우(무음 확률 초과 / 길이 초과 / 저신뢰)는 재질문을 건너뛴다.
+      // 소음 환경이 원인이라 같은 조건에서 다시 들어도 같은 결과가 나오고, 재질문 2회를
+      // 반복하는 동안 사용자는 8~12초를 기다린 뒤 결국 버튼을 누르게 된다. 그 구간을 없애고
+      // 바로 안전한 종착점(카드 유지 + 버튼 대기)으로 보낸다.
+      if (unknownKind === 'hard') {
+        console.log(`${logTag} 하드 환각 신호 — 재질문 생략 reason=${evalReason ?? '-'}`);
+        await buttonWait(`hallucination(${evalReason ?? 'unknown'})`);
+        return;
+      }
+
       if (reAskCountRef.current >= MAX_REASK) { await buttonWait('reask-exhausted'); return; }
       reAskCountRef.current += 1;
       console.log(`${logTag} 발화 미인식 — 재질문 ${reAskCountRef.current}`);
       await ttsService.speak(REASK_TTS, undefined, undefined, true).catch(() => {});
       if (!isActiveRef.current || confirmedRef.current) return;
+      // 재질문도 TTS→마이크 전환이다. 최초 사이클과 같은 방어를 적용한다.
+      if (!(await handoffToMic())) return;
       if (!(await tryStart())) return;
       if (!isActiveRef.current || confirmedRef.current) { recorder.cancelRecording(); return; }
       // 재질문 사이클: 카운트다운 없음(이미 한 번 말한 사용자에게 자동 저장 예고는 부적절).
@@ -299,6 +343,7 @@ export function useConfirmVoiceLoop({
       await ttsService.waitForNextSpeechToFinish(1500, 8000);
       if (!isActiveRef.current || confirmedRef.current) return;
 
+      if (!(await handoffToMic())) return;
       if (!(await tryStart())) return;
       if (!isActiveRef.current || confirmedRef.current) { recorder.cancelRecording(); return; }
       startCycle({ withCountdown: true });
