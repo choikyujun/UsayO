@@ -328,6 +328,98 @@ function offerCount(p: ProductSubscription): number {
   return (p as ProductSubscription & { subscriptionOfferDetailsAndroid?: unknown[] })
     .subscriptionOfferDetailsAndroid?.length ?? 0;
 }
+// ── 무료 체험 판정 ───────────────────────────────────────────
+// offerCount(위)는 **진단용**이고, 이 함수가 **표시 판정용**이다. 둘을 섞으면 안 된다:
+//   · iOS의 subscriptionOffers에는 유료 도입 오퍼(첫 달 50% 할인)나 프로모션 오퍼도 들어온다.
+//   · Android의 subscriptionOfferDetailsAndroid에는 **기본 요금제 자체가 오퍼로 잡힌다**.
+//     무료 체험이 하나도 없어도 개수는 1 이상이다.
+// 즉 "오퍼가 있다 ≠ 무료 체험이 있다". 개수가 아니라 **성격**으로 판정한다.
+export type TrialInfo =
+  | { state: 'unknown' }                    // 상품 로드 전 — 아직 모른다
+  | { state: 'none' }                       // 로드 완료, 무료 체험 없음
+  | { state: 'available'; label: string };  // 기간 라벨('7일' 등). 파싱 실패 시 빈 문자열
+
+// 0원 판정. priceAmountMicros는 스토어/브리지 버전에 따라 문자열('0')로도 숫자(0)로도 온다.
+// Number()로 정규화하되 빈 문자열은 배제한다 — Number('') === 0이라 그냥 두면 **가격 정보가
+// 없는 단계를 무료 체험으로 오판**한다(가장 위험한 false positive).
+function isFreeAmount(v: unknown): boolean {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'string' && v.trim() === '') return false;
+  const n = Number(v);
+  return Number.isFinite(n) && n === 0;
+}
+
+// 기간 → 한국어 라벨. 주 단위는 일로 환산해 통일한다(P7D와 P1W가 같은 '7일'이 되도록).
+// 스토어마다 같은 7일을 P7D로도 P1W로도 주기 때문에, 환산하지 않으면 같은 상품이
+// 스토어에 따라 다른 문구로 보인다.
+function periodLabel(unit: string | null | undefined, value: number): string {
+  if (!unit || !Number.isFinite(value) || value <= 0) return '';
+  switch (unit) {
+    case 'day':   return `${value}일`;
+    case 'week':  return `${value * 7}일`;
+    case 'month': return `${value}개월`;
+    case 'year':  return `${value}년`;
+    default:      return ''; // 'unknown'/'empty' 등 — 기간 없이 '무료 체험'으로만 표기
+  }
+}
+
+// ISO8601 기간(P7D · P1W · P1M · P1Y). Android billingPeriod 형식.
+// 복합 표기(P1M15D)는 첫 단위만 취한다 — 무료 체험 기간에 쓰이는 형태가 아니다.
+function labelFromIso8601(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const m = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$/.exec(iso.trim());
+  if (!m) return '';
+  const [, y, mo, w, d] = m;
+  if (y)  return periodLabel('year', Number(y));
+  if (mo) return periodLabel('month', Number(mo));
+  if (w)  return periodLabel('week', Number(w));
+  if (d)  return periodLabel('day', Number(d));
+  return '';
+}
+
+type IOSOffer = {
+  type?: string | null;
+  paymentMode?: string | null;
+  period?: { unit?: string | null; value?: number | null } | null;
+  periodCount?: number | null;
+};
+
+/**
+ * 이 상품에 **무료 체험**이 걸려 있는지 판정한다.
+ *
+ * @param p       조회된 상품. loaded=true인데 undefined면 조회 실패 → 'none'
+ *                (확인할 수 없는 체험을 광고하지 않는다).
+ * @param loaded  loadProducts가 끝났는지. false/미지정이면 'unknown'을 돌려주어
+ *                호출부가 '체험 없음'과 구분할 수 있게 한다.
+ */
+export function trialInfoOf(p?: ProductSubscription, loaded?: boolean): TrialInfo {
+  if (!loaded) return { state: 'unknown' };
+  if (!p) return { state: 'none' };
+
+  if (Platform.OS === 'ios') {
+    const offers = (p as ProductSubscription & { subscriptionOffers?: IOSOffer[] | null })
+      .subscriptionOffers ?? [];
+    // 도입 오퍼(introductory) 중 결제 방식이 free-trial인 것만. 유료 도입 오퍼는 체험이 아니다.
+    const trial = offers.find((o) => o?.type === 'introductory' && o?.paymentMode === 'free-trial');
+    if (!trial) return { state: 'none' };
+    // 총 기간 = period(1주기) x periodCount(주기 수). periodCount가 없으면 1주기로 본다.
+    const unit = trial.period?.unit ?? null;
+    const value = (trial.period?.value ?? 0) * (trial.periodCount ?? 1);
+    return { state: 'available', label: periodLabel(unit, value) };
+  }
+
+  const details = (p as ProductSubscription & {
+    subscriptionOfferDetailsAndroid?: Array<{ pricingPhases?: { pricingPhaseList?: Array<{ billingPeriod?: string; priceAmountMicros?: unknown }> } }> | null;
+  }).subscriptionOfferDetailsAndroid ?? [];
+
+  // 0원 단계를 가진 오퍼를 찾는다. 기본 요금제만 있는 상품은 유료 단계뿐이라 여기서 걸러진다.
+  for (const offer of details) {
+    const free = offer?.pricingPhases?.pricingPhaseList?.find((ph) => isFreeAmount(ph?.priceAmountMicros));
+    if (free) return { state: 'available', label: labelFromIso8601(free.billingPeriod) };
+  }
+  return { state: 'none' };
+}
+
 export async function loadProducts(): Promise<ProductSubscription[]> {
   const requested = [PRO_SKUS.monthly, PRO_SKUS.annual];
   try {
@@ -356,13 +448,32 @@ export async function loadProducts(): Promise<ProductSubscription[]> {
           : `[iap] 상품 누락 — Play Console에서 확인: 상품 존재 여부 / 기본 요금제 활성 / 해당 국가 가격 설정 / 변경 후 전파 지연. 누락=${missing.join(', ')}`,
       );
     }
-    // 페이월이 "7일 무료 체험"을 표시하므로 오퍼가 0이면 표시와 실제가 어긋난다(심사 반려 사유).
+    // 구매 가능성 경고 — offers=0의 의미는 스토어마다 다르다.
+    //   Android: 기본 요금제가 없다는 뜻 → **구매 자체가 불가능**하다(체험과 무관).
+    //   iOS:     오퍼가 하나도 없다는 뜻 → 구매는 되지만 체험/할인이 없다.
     const noOffer = products.filter((p) => offerCount(p) === 0).map((p) => p.id);
     if (noOffer.length > 0) {
       console.warn(
         Platform.OS === 'ios'
-          ? `[iap] 오퍼 없음 — App Store Connect에 '무료 체험(Introductory Offer)'이 등록되지 않았다. 페이월의 "7일 무료 체험" 표시와 어긋난다. 대상=${noOffer.join(', ')}`
+          ? `[iap] 오퍼 없음 — App Store Connect에 도입/프로모션 오퍼가 하나도 없다. 구매는 가능하다. 대상=${noOffer.join(', ')}`
           : `[iap] 오퍼 없음 — 기본 요금제가 비활성이거나 가격이 없어 구매가 불가능하다. 대상=${noOffer.join(', ')}`,
+      );
+    }
+
+    // 무료 체험 판정 — 페이월 표시가 이 값을 그대로 따른다(trialInfoOf).
+    // 표시는 자동으로 꺼지므로 "표시-실제 불일치"는 더 이상 반려 위험이 아니다.
+    // 그래도 **의도와 다른 상태**(등록했는데 안 잡힘)를 잡으려면 이 줄을 봐야 한다.
+    const trials = products.map((p) => {
+      const t = trialInfoOf(p, true);
+      return `${p.id}=${t.state}${t.state === 'available' ? `(${t.label || '기간불명'})` : ''}`;
+    });
+    console.log(`[iap] 무료 체험 판정: ${trials.join(' | ')}`);
+    const noTrial = products.filter((p) => trialInfoOf(p, true).state === 'none').map((p) => p.id);
+    if (noTrial.length > 0) {
+      console.warn(
+        Platform.OS === 'ios'
+          ? `[iap] 무료 체험 없음 — App Store Connect에 '무료 체험(Introductory Offer)'이 없다. 페이월이 체험 문구를 표시하지 않는다. 대상=${noTrial.join(', ')}`
+          : `[iap] 무료 체험 없음 — Play Console 기본 요금제에 무료 체험 오퍼가 없다(기본 요금제만 있는 상태). 페이월이 체험 문구를 표시하지 않는다. 대상=${noTrial.join(', ')}`,
       );
     }
   } catch (e) {
@@ -381,7 +492,8 @@ export function getProProducts(): { monthly?: ProductSubscription; annual?: Prod
   };
 }
 
-// 표시용 가격 문자열 — 스토어 제공값. 없으면 호출부가 참조가(DEFAULT_PRICE)로 폴백.
+// 표시용 가격 문자열 — 스토어 제공값. 없으면 undefined(호출부가 스켈레톤/오류를 낸다).
+// 참조가(DEFAULT_PRICE) 폴백은 쓰지 않는다 — 스토어와 무관한 금액을 광고하게 된다.
 export function priceStringOf(p?: ProductSubscription): string | undefined {
   if (!p) return undefined;
   const withDisplay = p as ProductSubscription & { displayPrice?: string };

@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react-native';
+import { Check, RotateCw } from 'lucide-react-native';
 import {
   ActivityIndicator,
   Alert,
@@ -10,23 +10,42 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ProductSubscription } from 'react-native-iap';
 import { Colors } from '../constants/colors';
 import { GateType, FREE_COMMAND_LIMIT } from '../constants/featureGates';
 import { LINKS } from '../constants/links';
-import { DEFAULT_PRICE } from '../constants/pricing';
 import { subscriptionService } from '../services/subscription/SubscriptionService';
-import { getProProducts, priceNumberOf, priceStringOf, setIAPCallbacks } from '../lib/iap';
+import { getProProducts, priceNumberOf, priceStringOf, setIAPCallbacks, trialInfoOf, type TrialInfo } from '../lib/iap';
 import { Spacing } from '../constants/spacing';
 
 type Period = 'annual' | 'monthly';
 
-// 가격 문자열("₩39,000", "$39.99")에서 비교용 숫자만 추출(절약률 폴백 계산용).
-function priceToNumber(s: string): number {
-  const n = parseFloat(s.replace(/[^0-9.]/g, ''));
-  return Number.isNaN(n) ? 0 : n;
-}
+// 상품 조회 상태. '로드 전(loading)'과 '체험 없음/가격 없음'을 반드시 구분해야 한다 —
+// 초기 상태를 '없음'으로 취급하면 배지가 떴다가 사라지는(사용자가 속았다고 느끼는) 전이가 생긴다.
+type LoadState = 'loading' | 'ready' | 'failed';
+
+// ── 문구 ─────────────────────────────────────────────────────
+// 주의: 이 프로젝트에는 i18n 인프라가 없다 — i18next/react-i18next/expo-localization 미설치,
+//    locales 디렉터리 없음, useTranslation 사용처 0건(docs/voice-known-issues.md 섹션 2).
+//    그래서 문구를 화면 곳곳에 흩지 않고 여기 한 곳에 모으고, 기간·가격 같은 가변값은
+//    **인자로 받는다**('7일'을 문자열에 박지 않는다). i18n을 도입할 때 이 객체가 그대로
+//    키 테이블이 되므로 호출부는 손대지 않아도 된다.
+const PAYWALL_TEXT = {
+  // label이 비면(기간 파싱 실패) 기간 없이 표기한다 — 틀린 기간을 말하는 것보다 낫다.
+  trialBadge: (label: string) => (label ? `${label} 무료 체험 가능` : '무료 체험 가능'),
+  captionWithTrial: (label: string, price: string, unit: string) =>
+    `${label ? `${label} ` : ''}무료 체험 후 ${price}/${unit} 자동 갱신 · 스토어에서 언제든 해지`,
+  // 체험이 없어도 가격·주기·자동 갱신·해지 경로 4종은 반드시 남는다(애플·구글 공통 요건).
+  captionNoTrial: (price: string, unit: string) =>
+    `${price}/${unit} 자동 갱신 · 스토어에서 언제든 해지`,
+  ctaStartTrial: '무료로 시작하기',
+  ctaStartPro: 'Pro 시작하기',
+  ctaTeam: '팀 플랜 문의하기',
+  ctaLoadingPrice: '가격 확인 중',
+  priceLoadFailed: '가격을 불러오지 못했어요',
+  priceRetry: '다시 시도',
+} as const;
 
 // 결제 화면의 법적 문서 링크. 외부 브라우저로 열고, 실패를 삼키지 않는다 —
 // 약관·방침 링크가 열리지 않는 것은 스토어 심사 반려 사유이고, 사용자도 "눌렀는데
@@ -76,15 +95,20 @@ const TEAM_FEATURES = [
   '관리자 대시보드',
 ];
 
-function TrialBadge() {
+// 무료 체험 배지 — **스토어가 실제로 오퍼를 돌려준 경우에만** 렌더한다.
+//   available → 표시   none → 숨김   unknown(로드 전) → 숨김
+// unknown에서 숨기는 이유: 없던 배지가 나중에 나타나는 것은 괜찮지만, 있던 배지가
+// 사라지면 사용자는 속았다고 느낀다. 확신이 설 때만 켠다.
+function TrialBadge({ trial }: { trial: TrialInfo }) {
+  if (trial.state !== 'available') return null;
   return (
     <View style={styles.trialBadge}>
-      <Text style={styles.trialBadgeText}>7일 무료 체험 가능</Text>
+      <Text style={styles.trialBadgeText}>{PAYWALL_TEXT.trialBadge(trial.label)}</Text>
     </View>
   );
 }
 
-function HardGate({ upgradeTarget }: { upgradeTarget: 'pro' | 'team' }) {
+function HardGate({ upgradeTarget, trial }: { upgradeTarget: 'pro' | 'team'; trial: TrialInfo }) {
   const label = upgradeTarget === 'team' ? 'Team' : 'Pro';
   return (
     <>
@@ -100,12 +124,12 @@ function HardGate({ upgradeTarget }: { upgradeTarget: 'pro' | 'team' }) {
           </View>
         ))}
       </View>
-      {upgradeTarget === 'pro' && <TrialBadge />}
+      {upgradeTarget === 'pro' && <TrialBadge trial={trial} />}
     </>
   );
 }
 
-function UsageGate({ usageInfo }: { usageInfo?: Props['usageInfo'] }) {
+function UsageGate({ usageInfo, trial }: { usageInfo?: Props['usageInfo']; trial: TrialInfo }) {
   if (!usageInfo) return null;
   const { used, limit, percentage } = usageInfo;
   const remaining = Math.max(0, limit - used);
@@ -121,7 +145,7 @@ function UsageGate({ usageInfo }: { usageInfo?: Props['usageInfo'] }) {
       <Text style={styles.modalSubtitle}>
         Pro로 업그레이드하면 무제한으로 사용할 수 있어요.
       </Text>
-      <TrialBadge />
+      <TrialBadge trial={trial} />
     </>
   );
 }
@@ -153,6 +177,8 @@ export default function UpgradeModal({
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<Period>('annual'); // 기본 선택 = 연간(LTV 유리)
   const [pkgs, setPkgs] = useState<{ monthly?: ProductSubscription; annual?: ProductSubscription }>({});
+  // 상품 조회 상태 — 가격 표시·구매 가능 여부·체험 판정이 모두 이 값에 걸린다.
+  const [loadState, setLoadState] = useState<LoadState>('loading');
 
   useEffect(() => {
     if (visible) {
@@ -168,17 +194,42 @@ export default function UpgradeModal({
     }
   }, [visible]);
 
-  // 스토어에서 월/연 상품 로드(가격 표시·구매용). 실패 시 참조가로 폴백.
+  // 스토어에서 월/연 상품 로드(가격 표시·구매용).
+  //
+  // 주의: **참조가(DEFAULT_PRICE) 폴백을 쓰지 않는다.** 조회가 실패했는데 하드코딩 가격을
+  //    보여주면 스토어와 무관한 금액을 광고하게 된다(심사 반려 + 사용자 신뢰 문제).
+  //    실패는 실패로 드러내고 구매를 막는다.
+  const cancelledRef = useRef(false);
+  const loadPkgs = useCallback(async () => {
+    setLoadState('loading');
+    try {
+      await subscriptionService.loadProducts();
+      if (cancelledRef.current) return;
+      const next = getProProducts();
+      setPkgs(next);
+      // 월·연 **둘 다** 가격이 있어야 토글과 절약률이 성립한다. 하나라도 없으면 실패로 본다.
+      const ok = !!priceStringOf(next.monthly) && !!priceStringOf(next.annual);
+      setLoadState(ok ? 'ready' : 'failed');
+      if (!ok) {
+        console.warn(
+          `[Upgrade] 상품 가격 없음 — 가격 표시·구매 비활성 monthly=${priceStringOf(next.monthly) ?? 'n/a'} annual=${priceStringOf(next.annual) ?? 'n/a'} (원인은 [iap] fetchProducts 로그 참조)`,
+        );
+      }
+    } catch (e) {
+      if (cancelledRef.current) return;
+      console.warn('[Upgrade] 상품 조회 실패 — 가격 표시·구매 비활성:', (e as Error)?.message);
+      setPkgs({});
+      setLoadState('failed');
+    }
+  }, []);
+
   useEffect(() => {
     if (!visible || upgradeTarget !== 'pro') return;
     setPeriod('annual'); // 열 때마다 연간 기본으로
-    let cancelled = false;
-    (async () => {
-      await subscriptionService.loadProducts().catch(() => {});
-      if (!cancelled) setPkgs(getProProducts());
-    })();
-    return () => { cancelled = true; };
-  }, [visible, upgradeTarget]);
+    cancelledRef.current = false;
+    loadPkgs();
+    return () => { cancelledRef.current = true; };
+  }, [visible, upgradeTarget, loadPkgs]);
 
   // 구매 결과는 결제창이 아니라 purchaseUpdatedListener(비동기 서버 검증)로 돌아온다.
   // 모달이 열려 있는 동안만 자기 핸들러를 붙이고, 닫히면 원상복구(연결 자체는 유지).
@@ -216,12 +267,32 @@ export default function UpgradeModal({
     return () => setIAPCallbacks({});
   }, [visible, onSuccess, onDismiss]);
 
-  // 표시 가격: 스토어 우선, 없으면 참조가(DEFAULT_PRICE). 절약률은 실제 숫자에서 계산.
-  const monthlyStr = priceStringOf(pkgs.monthly) ?? DEFAULT_PRICE.monthly;
-  const annualStr = priceStringOf(pkgs.annual) ?? DEFAULT_PRICE.annual;
-  const monthlyNum = priceNumberOf(pkgs.monthly) ?? priceToNumber(DEFAULT_PRICE.monthly);
-  const annualNum = priceNumberOf(pkgs.annual) ?? priceToNumber(DEFAULT_PRICE.annual);
-  const savingsPct = computeSavingsPct(monthlyNum, annualNum);
+  // 표시 가격은 **스토어 값만** 쓴다. 없으면 undefined로 두고 아래에서 스켈레톤/오류를 낸다.
+  const monthlyStr = priceStringOf(pkgs.monthly);
+  const annualStr = priceStringOf(pkgs.annual);
+  const monthlyNum = priceNumberOf(pkgs.monthly);
+  const annualNum = priceNumberOf(pkgs.annual);
+  const savingsPct = monthlyNum != null && annualNum != null
+    ? computeSavingsPct(monthlyNum, annualNum)
+    : null;
+
+  // 무료 체험 판정 — **선택된 기간의 상품** 기준. 캡션과 배지가 같은 상품을 가리켜야
+  // "배지는 체험이라는데 캡션은 아니다" 같은 어긋남이 안 생긴다.
+  // loaded는 'loading이 끝났는가'다. 실패(failed)면 pkgs가 비어 trialInfoOf가 'none'을
+  // 돌려주고 → 확인되지 않은 체험을 광고하지 않는다.
+  const trial = trialInfoOf(
+    period === 'annual' ? pkgs.annual : pkgs.monthly,
+    loadState !== 'loading',
+  );
+
+  // 구매 가능 여부. Team은 인앱 구매 대상이 아니라 상품을 조회하지 않으므로 항상 활성.
+  const canPurchase = upgradeTarget !== 'pro' || loadState === 'ready';
+  // 상품 조회가 진행 중인가(구매 진행 중인 loading과 다른 상태다).
+  // 둘 다 CTA를 막지만 보이는 모습이 달라야 한다 — 구매 중은 '기다리는 중',
+  // 조회 중은 '아직 누를 수 없는 이유가 가격이다'를 알려야 한다.
+  const productsLoading = upgradeTarget === 'pro' && loadState === 'loading';
+  const priceStr = period === 'annual' ? annualStr : monthlyStr;
+  const priceUnit = period === 'annual' ? '년' : '월';
 
   async function handleUpgrade() {
     if (upgradeTarget === 'team') {
@@ -264,14 +335,18 @@ export default function UpgradeModal({
     }
   }
 
-  const ctaLabel = upgradeTarget === 'team' ? '팀 플랜 문의하기' : 'Pro 시작하기';
+  // '무료로 시작하기'는 실제로 무료 체험이 있을 때만 쓴다 — 없는데 쓰면 표시-실제 불일치다.
+  const ctaLabel = upgradeTarget === 'team'
+    ? PAYWALL_TEXT.ctaTeam
+    : (trial.state === 'available' ? PAYWALL_TEXT.ctaStartTrial : PAYWALL_TEXT.ctaStartPro);
 
-  // 구독 고지 4종을 한 줄에 담는다: 무료 체험 기간 / 이후 가격 / 결제 주기 / 자동 갱신.
-  // "자동 갱신"은 애플·구글이 공통으로 요구하는 문구인데 빠져 있었다.
-  const ctaCaption = upgradeTarget === 'pro'
-    ? (period === 'annual'
-        ? `7일 무료 체험 후 ${annualStr}/년 자동 갱신 · 스토어에서 언제든 해지`
-        : `7일 무료 체험 후 ${monthlyStr}/월 자동 갱신 · 스토어에서 언제든 해지`)
+  // 구독 고지 — 체험이 있으면 '기간 + 가격 + 주기 + 자동 갱신 + 해지 경로',
+  // 없으면 체험 문구만 빼고 나머지 4종은 그대로 남긴다(애플·구글 공통 요건).
+  // 가격을 아직/끝내 모르면 캡션 자체를 내지 않는다 — 빈 금액을 고지할 수는 없다.
+  const ctaCaption = upgradeTarget === 'pro' && priceStr
+    ? (trial.state === 'available'
+        ? PAYWALL_TEXT.captionWithTrial(trial.label, priceStr, priceUnit)
+        : PAYWALL_TEXT.captionNoTrial(priceStr, priceUnit))
     : undefined;
 
   return (
@@ -283,11 +358,21 @@ export default function UpgradeModal({
       <Animated.View style={[styles.sheet, { transform: [{ translateY: slideY }] }]}>
         <View style={styles.handle} />
 
-        {gateType === 'hard'  && <HardGate upgradeTarget={upgradeTarget} />}
-        {gateType === 'usage' && <UsageGate usageInfo={usageInfo} />}
+        {gateType === 'hard'  && <HardGate upgradeTarget={upgradeTarget} trial={trial} />}
+        {gateType === 'usage' && <UsageGate usageInfo={usageInfo} trial={trial} />}
         {gateType === 'team'  && <TeamGate />}
 
-        {upgradeTarget === 'pro' && (
+        {upgradeTarget === 'pro' && loadState === 'failed' && (
+          <View style={styles.priceError}>
+            <Text style={styles.priceErrorText}>{PAYWALL_TEXT.priceLoadFailed}</Text>
+            <Pressable style={styles.retryBtn} onPress={loadPkgs} hitSlop={8}>
+              <RotateCw size={14} color={Colors.primary} />
+              <Text style={styles.retryText}>{PAYWALL_TEXT.priceRetry}</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {upgradeTarget === 'pro' && loadState !== 'failed' && (
           <View style={styles.periodToggle}>
             <Pressable
               style={[styles.periodOption, period === 'annual' && styles.periodOptionActive]}
@@ -301,9 +386,13 @@ export default function UpgradeModal({
                   </View>
                 )}
               </View>
-              <Text style={[styles.periodPrice, period === 'annual' && styles.periodPriceActive]}>
-                {annualStr}<Text style={styles.periodUnit}> / 년</Text>
-              </Text>
+              {annualStr
+                ? (
+                  <Text style={[styles.periodPrice, period === 'annual' && styles.periodPriceActive]}>
+                    {annualStr}<Text style={styles.periodUnit}> / 년</Text>
+                  </Text>
+                )
+                : <View style={styles.priceSkeleton} />}
             </Pressable>
 
             <Pressable
@@ -313,18 +402,33 @@ export default function UpgradeModal({
               <View style={styles.periodTop}>
                 <Text style={[styles.periodLabel, period === 'monthly' && styles.periodLabelActive]}>월간</Text>
               </View>
-              <Text style={[styles.periodPrice, period === 'monthly' && styles.periodPriceActive]}>
-                {monthlyStr}<Text style={styles.periodUnit}> / 월</Text>
-              </Text>
+              {monthlyStr
+                ? (
+                  <Text style={[styles.periodPrice, period === 'monthly' && styles.periodPriceActive]}>
+                    {monthlyStr}<Text style={styles.periodUnit}> / 월</Text>
+                  </Text>
+                )
+                : <View style={styles.priceSkeleton} />}
             </Pressable>
           </View>
         )}
 
-        <Pressable style={[styles.ctaBtn, loading && styles.ctaBtnDisabled]} onPress={handleUpgrade} disabled={loading}>
-          {loading
-            ? <ActivityIndicator color={Colors.textPrimary} />
-            : <Text style={styles.ctaText}>{ctaLabel}</Text>
-          }
+        <Pressable
+          style={[styles.ctaBtn, (loading || !canPurchase) && styles.ctaBtnDisabled]}
+          onPress={handleUpgrade}
+          disabled={loading || !canPurchase}
+        >
+          {loading ? (
+            <ActivityIndicator color={Colors.textPrimary} />
+          ) : productsLoading ? (
+            // 조회 중 — 버튼은 disabled이고(위 canPurchase), 스피너와 사유를 함께 보인다.
+            <View style={styles.ctaLoadingRow}>
+              <ActivityIndicator size="small" color={Colors.textPrimary} />
+              <Text style={styles.ctaText}>{PAYWALL_TEXT.ctaLoadingPrice}</Text>
+            </View>
+          ) : (
+            <Text style={styles.ctaText}>{ctaLabel}</Text>
+          )}
         </Pressable>
 
         {ctaCaption && <Text style={styles.ctaCaption}>{ctaCaption}</Text>}
@@ -491,6 +595,41 @@ const styles = StyleSheet.create({
   periodPriceActive: {
     color: Colors.textPrimary,
   },
+  // 가격 자리 스켈레톤 — 조회 중에는 금액 대신 이 자리를 잡아둔다(레이아웃 점프 방지).
+  priceSkeleton: {
+    height: 20,
+    width: '70%',
+    borderRadius: 6,
+    backgroundColor: Colors.darkBorder,
+  },
+  // 조회 실패 — 참조가를 대신 보여주지 않고 실패를 드러내고 재시도를 준다.
+  priceError: {
+    borderWidth: 1,
+    borderColor: Colors.darkBorder,
+    borderRadius: 12,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.xs,
+    alignItems: 'center',
+  },
+  priceErrorText: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    fontFamily: 'Pretendard-Regular',
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: Spacing.xs,
+  },
+  retryText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontFamily: 'Pretendard-SemiBold',
+    fontWeight: '600',
+  },
   periodUnit: {
     fontSize: 12,
     fontFamily: 'Pretendard-Medium',
@@ -520,6 +659,12 @@ const styles = StyleSheet.create({
   },
   ctaBtnDisabled: {
     opacity: 0.6,
+  },
+  // 스피너 + 사유 문구를 한 줄로. 버튼 높이가 텍스트만 있을 때와 같아야 레이아웃이 안 튄다.
+  ctaLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   ctaText: {
     color: Colors.textPrimary,
