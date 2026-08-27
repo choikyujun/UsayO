@@ -10,6 +10,16 @@ import { useAuthStore } from '../stores/useAuthStore';
 
 type Schedule = Database['public']['Tables']['schedules']['Row'];
 
+// ── 저장 실패 안내 문구 ───────────────────────────────────────────
+// 사용자에게 나가는 문구는 여기 한 곳에 모은다(원인 추측 금지 — 사실만 말한다).
+// 진단에 필요한 세부(intent 종류·필드 유무)는 문구가 아니라 로그로 남긴다.
+//
+// 이 파일의 기존 throw들은 아직 문자열을 인라인으로 갖고 있다('해당 일정을 찾을 수 없어요.'가
+// 4곳, '일정이 여러 개 있어요…'가 4곳). 그것들을 여기로 접는 것은 별건이라 이번엔 두었다.
+const SAVE_ERROR_TEXT = {
+  noApplicableAction: '일정을 저장하지 못했어요. 다시 말씀해 주세요.',
+} as const;
+
 // ── QUERY 결과 → 자연스러운 한국어 안내 문자열 ─────────────────────
 // 기기 로컬 타임존(KST 사용자 기준)으로 포맷 — 앱 전반 규칙과 동일.
 function fmtKoreanTime(iso: string): string {
@@ -584,7 +594,25 @@ export function useSchedules(date: string, daysAhead = 0) {
       return buildQuerySummary(rows, range);
     }
 
-    return undefined;
+    // ── 어느 분기에도 걸리지 않음 = 저장/조회를 아무것도 하지 않았다 ──────────────
+    // 여기서 undefined를 조용히 돌려주면 호출부(useVoiceFlow.confirmAction)는 성공으로 보고
+    // **성공 TTS를 낸다** — 저장하지 않았는데 저장했다고 말하는 경로가 된다.
+    // 그래서 throw로 실패를 확정한다. 이 함수의 다른 실패(대상 없음/모호/DB 오류)가 모두
+    // throw이고, 모든 호출부가 try/catch로 setPhase('fail')로 보내므로 구조가 일치한다.
+    //
+    // 도달 조건(관측된 것):
+    //   · CREATE인데 startDateTime이 없다 — 시각을 못 뽑은 발화.
+    //   · CREATE 분기에 들어갔으나 insert 응답 data가 비었다.
+    //   · 이 함수가 분기를 갖지 않는 intent(NAVIGATION / RESCHEDULE_UNDO / UNKNOWN).
+    //     HomeScreen은 NAVIGATION을 확인 카드 전에 가로채지만 다른 화면은 그렇지 않다.
+    console.error(
+      `[Save] 저장 분기 미진입 — intent=${intent.intent}` +
+      ` hasStartDateTime=${!!intent.startDateTime}` +
+      ` hasEvents=${(intent.events?.length ?? 0) > 0}` +
+      ` hasTargetIds=${(intent.targetEventIds?.length ?? 0) > 0}` +
+      ` confidence=${intent.confidence}`,
+    );
+    throw new Error(SAVE_ERROR_TEXT.noApplicableAction);
   }
 
   // 뮤테이션 성공 후 위젯을 오늘 기준으로 갱신(QUERY는 읽기 전용이라 제외). 모든 진입점
