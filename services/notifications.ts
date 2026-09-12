@@ -4,6 +4,8 @@ import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { calcNotifDate, buildNotifBody, NOTIF_OFF } from '../utils/notificationHelpers';
+import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { localDateStr } from '../utils/timeHelpers';
 
 // Expo Go SDK 53+에서는 expo-notifications 모듈 로드 시 console.error를 방출.
 // require 전에 실행 환경을 확인해 Expo Go에서는 아예 로드하지 않음.
@@ -100,6 +102,16 @@ async function _doSchedule(event: Event): Promise<string | null> {
 
   await cancelEventNotification(event.id);
 
+  // 완료된 일정은 예약하지 않는다. 완료 처리 자체가 취소를 호출하지만(setEventCompletion),
+  // 완료된 뒤에도 알림 오프셋 편집·드래그 이동·음성 NOTIFICATION_UPDATE 같은 다른 경로가
+  // 이 함수를 다시 부를 수 있다. 그때 알림이 되살아나던 것을 여기서 막는다(안전망).
+  // 위 cancel은 이미 실행됐으므로 기존 예약도 함께 정리된 상태로 반환한다.
+  // completed_at이 null로 돌아가면(완료 취소) 이 가드는 자연스럽게 풀려 재예약된다.
+  if (event.completed_at) {
+    console.log('[Notif] 완료된 일정 — 예약 생략:', event.id);
+    return null;
+  }
+
   // 설정에서 활성화된 offset 목록 가져오기
   const settingsOffsets = await getEnabledOffsets();
 
@@ -170,29 +182,102 @@ async function _doSchedule(event: Event): Promise<string | null> {
 
 // ── 알림 취소 ─────────────────────────────────────────────────
 
-export async function cancelEventNotification(eventId: string): Promise<void> {
-  if (!N) return;
+// 취소 결과. 호출부는 여전히 fire-and-forget으로 쓰지만(예외를 밖으로 던지지 않는다),
+// 로그와 이 반환값으로 성공/실패를 구분할 수 있어야 한다.
+//   ok       — 모든 취소 시도가 성공했고 시스템 큐 스캔도 성공했다(= 남은 게 없다고 말할 수 있다)
+//   targets  — 취소 대상으로 식별한 알림 수(인메모리 맵 ∪ 큐 스캔)
+//   cancelled/failed — 실제 취소 호출의 성공/실패 수
+//   scanned  — 시스템 큐 스캔 성공 여부. false면 맵에 없는 예약이 남아 있을 수 있다.
+export interface CancelResult {
+  ok: boolean;
+  targets: number;
+  cancelled: number;
+  failed: number;
+  scanned: boolean;
+}
 
-  // 1) 인메모리 맵에서 취소 (현재 세션에서 예약한 경우)
-  const ids = notifIdMap.get(eventId) ?? [];
-  for (const id of ids) {
-    try { await N.cancelScheduledNotificationAsync(id); } catch {}
+function errText(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+export async function cancelEventNotification(eventId: string): Promise<CancelResult> {
+  // Expo Go에서는 예약 자체가 일어나지 않는다 → 취소할 것이 없는 것이 정상.
+  if (!N) return { ok: true, targets: 0, cancelled: 0, failed: 0, scanned: false };
+
+  // 1) 인메모리 맵(현재 세션에서 예약한 것) + 2) 시스템 큐 스캔(앱 재시작 후 맵이 빈 경우)을
+  //    합집합으로 모은다. 같은 id를 두 번 취소하지 않도록 Set을 쓴다.
+  const targets = new Set<string>(notifIdMap.get(eventId) ?? []);
+  let scanned = false;
+  try {
+    const all = await N.getAllScheduledNotificationsAsync();
+    for (const n of all) {
+      if ((n.content.data as Record<string, unknown>)?.eventId === eventId) targets.add(n.identifier);
+    }
+    scanned = true;
+  } catch (e) {
+    // 스캔 실패 = "남은 게 없다"고 말할 수 없다. 맵에 있는 것만 취소하고 ok=false로 보고한다.
+    console.log(`[Notifications] 예약 목록 조회 실패: ${eventId}:`, errText(e));
+  }
+
+  let cancelled = 0;
+  let failed = 0;
+  for (const id of targets) {
+    try {
+      await N.cancelScheduledNotificationAsync(id);
+      cancelled += 1;
+    } catch (e) {
+      failed += 1;
+      console.log(`[Notifications] 개별 취소 실패: ${eventId} id=${id}:`, errText(e));
+    }
   }
   notifIdMap.delete(eventId);
 
-  // 2) 앱 재시작 후 맵이 비워진 경우: 시스템 큐를 스캔해서 eventId 매칭 알림 전부 취소
-  try {
-    const all = await N.getAllScheduledNotificationsAsync();
-    const stale = all.filter(n => (n.content.data as Record<string, unknown>)?.eventId === eventId);
-    await Promise.all(stale.map(n => N!.cancelScheduledNotificationAsync(n.identifier).catch(() => {})));
-    if (stale.length > 0) {
-      console.log('[Notifications] 앱 재시작 후 스캔 취소:', eventId, '개수:', stale.length);
-    }
-  } catch (e) {
-    console.log('[Notifications] 스캔 취소 실패:', e);
+  const ok = failed === 0 && scanned;
+  console.log(
+    `[Notifications] 취소 ${ok ? '완료' : '불완전'}: ${eventId}` +
+    ` targets=${targets.size} cancelled=${cancelled} failed=${failed} scan=${scanned ? 'ok' : 'fail'}`,
+  );
+  return { ok, targets: targets.size, cancelled, failed, scanned };
+}
+
+// ── 반복 일정 부분 삭제('이번만' / '이후 전체') 후 알림 정리 ──────────
+// 현재 구조에서 반복 일정의 알림은 **부모 행의 start_at 하나**만 예약된다
+// (scheduleEventNotification은 DB 행만 받고 가상 인스턴스를 받지 않는다).
+// 따라서 삭제된 범위가 그 부모 start_at의 발생분을 포함할 때만 취소해야 한다.
+// 무조건 취소하면 남아 있는 다른 회차의 알림까지 사라진다.
+export async function reconcileRecurringDeletion(
+  eventId: string,
+  scope: 'this' | 'future',
+): Promise<void> {
+  const parsed = isVirtualInstance(eventId) ? parseInstanceId(eventId) : null;
+  const parentId = parsed?.parentId ?? eventId;
+
+  // 가상 인스턴스가 아니다 = 부모 행 자체를 지웠다 → 예약된 그 발생분이 사라진 것이 확실.
+  if (!parsed) {
+    await cancelEventNotification(parentId);
+    return;
   }
 
-  console.log('[Notifications] 취소 완료:', eventId);
+  const { data, error } = await supabase
+    .from('events').select('start_at').eq('id', parentId).maybeSingle();
+  if (error || !data) {
+    console.log(`[Notifications] 반복 정리 — 부모 조회 실패: ${parentId}:`, error?.message ?? 'not found');
+    return;
+  }
+
+  // instanceDate는 makeInstanceId가 로컬 날짜로 만든 값이므로 부모도 로컬 날짜로 비교한다.
+  const parentDay = localDateStr(new Date(data.start_at));
+  const hit = scope === 'this'
+    ? parentDay === parsed.instanceDate
+    : parentDay >= parsed.instanceDate;
+
+  if (hit) {
+    await cancelEventNotification(parentId);
+  } else {
+    console.log(
+      `[Notifications] 반복 정리 — 예약분(${parentDay})이 삭제 범위(${scope} ${parsed.instanceDate}) 밖 — 유지: ${parentId}`,
+    );
+  }
 }
 
 // ── 알림 재예약 ───────────────────────────────────────────────

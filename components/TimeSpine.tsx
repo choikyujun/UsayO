@@ -18,7 +18,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { isKoreanHoliday } from '../hooks/useHolidays';
 import { isLunchHour } from '../utils/timeHelpers';
 import { supabase } from '../lib/supabase';
-import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset } from '../services/notifications';
+import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset, reconcileRecurringDeletion } from '../services/notifications';
 import { Event } from '../types/database';
 import { formatTimeRow } from '../utils/timeHelpers';
 import { calculateNewTime, EventPosition } from '../utils/rescheduleHelpers';
@@ -284,7 +284,10 @@ export default function TimeSpine({
         .insert({ parent_id: parentId, instance_date: instanceDate, is_deleted: true })
         .then(({ error }) => {
           if (error) console.error('[TimeSpine] exception insert failed:', error.message);
-          else refreshWidget('timeSpineDeleteRecurring:this').catch(() => {});
+          else {
+            reconcileRecurringDeletion(event.id, 'this').catch(e => console.log('[Notifications] cancel 실패:', e));
+            refreshWidget('timeSpineDeleteRecurring:this').catch(() => {});
+          }
         });
     } else if (scope === 'future') {
       // recurrence_end_date = instanceDate - 1 day
@@ -297,7 +300,10 @@ export default function TimeSpine({
         .eq('id', parentId)
         .then(({ error }) => {
           if (error) console.error('[TimeSpine] recurrence_end_date update failed:', error.message);
-          else refreshWidget('timeSpineDeleteRecurring:future').catch(() => {});
+          else {
+            reconcileRecurringDeletion(event.id, 'future').catch(e => console.log('[Notifications] cancel 실패:', e));
+            refreshWidget('timeSpineDeleteRecurring:future').catch(() => {});
+          }
         });
     } else {
       // 전체: 부모 soft-delete

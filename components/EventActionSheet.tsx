@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { formatTimeKo } from '../utils/timeHelpers';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { cancelEventNotification } from '../services/notifications';
 import { haptic } from '../utils/haptics';
 import { useUndoToast } from '../contexts/UndoToastContext';
 import { Spacing } from '../constants/spacing';
@@ -55,11 +56,13 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
       ? (parseInstanceId(ev.id)?.parentId ?? ev.id)
       : ev.id;
 
-    const [, exceptionsRes] = await Promise.all([
+    const [eventsRes, exceptionsRes] = await Promise.all([
       supabase.from('events').select('*').or(`id.eq.${parentId},parent_event_id.eq.${parentId}`),
       supabase.from('event_exceptions').select('*').eq('parent_id', parentId),
     ]);
     const backupExceptions = (exceptionsRes.data ?? []) as any[];
+    // 삭제 대상 행들의 id — 알림 취소에 쓴다(부모 + 분리된 자식 행 전부).
+    const affectedIds = ((eventsRes.data ?? []) as Array<{ id: string }>).map(r => r.id);
 
     const now = new Date().toISOString();
     await Promise.all([
@@ -68,6 +71,12 @@ export default function EventActionSheet({ event, onClose, onEditTitle, onEditTi
         .or(`id.eq.${parentId},parent_event_id.eq.${parentId}`),
       supabase.from('event_exceptions').delete().eq('parent_id', parentId),
     ]);
+
+    // 다른 삭제 경로(TimeSpine/DayView/WeekView의 scope='all')와 같은 패턴 — 예약 알림을 거둔다.
+    // 조회가 비었더라도 부모 하나는 반드시 시도한다.
+    for (const id of affectedIds.length > 0 ? affectedIds : [parentId]) {
+      cancelEventNotification(id).catch(e => console.log('[Notifications] cancel 실패:', e));
+    }
 
     onDeleted?.();
 

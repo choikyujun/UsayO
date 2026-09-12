@@ -37,7 +37,8 @@ import { useSchedules } from '../hooks/useSchedules';
 import { refreshWidget } from '../services/widget/widgetRefresh';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { supabase } from '../lib/supabase';
-import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset } from '../services/notifications';
+import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset, reconcileRecurringDeletion } from '../services/notifications';
+import { setEventCompletion } from '../services/eventCompletion';
 import { Event } from '../types/database';
 import { ttsService } from '../services/voice/TTSService';
 import { useTheme } from '../contexts/ThemeContext';
@@ -139,14 +140,20 @@ export default function DayViewScreen() {
       supabase.from('event_exceptions').insert({ parent_id: parentId, instance_date: instDate, is_deleted: true })
         .then(({ error }) => {
           if (error) console.error('[DayView] exception insert failed:', error.message);
-          else { reload(); refreshWidget('dayDeleteRecurring:this').catch(() => {}); }
+          else {
+            reconcileRecurringDeletion(event.id, 'this').catch(e => console.log('[Notifications] cancel 실패:', e));
+            reload(); refreshWidget('dayDeleteRecurring:this').catch(() => {});
+          }
         });
     } else if (scope === 'future') {
       const d = new Date(instDate); d.setDate(d.getDate() - 1);
       supabase.from('events').update({ recurrence_end_date: d.toISOString().split('T')[0] }).eq('id', parentId)
         .then(({ error }) => {
           if (error) console.error('[DayView] recurrence_end_date update failed:', error.message);
-          else { reload(); refreshWidget('dayDeleteRecurring:future').catch(() => {}); }
+          else {
+            reconcileRecurringDeletion(event.id, 'future').catch(e => console.log('[Notifications] cancel 실패:', e));
+            reload(); refreshWidget('dayDeleteRecurring:future').catch(() => {});
+          }
         });
     } else {
       cancelEventNotification(parentId).catch(e => console.log('[Notifications] cancel 실패:', e));
@@ -158,11 +165,12 @@ export default function DayViewScreen() {
     }
   }
 
+  // 종전에는 여기서 supabase를 직접 호출해 toggleEventComplete를 우회했고, 그래서 알림 취소가
+  // 누락됐다. 이제 다른 완료 진입점과 같은 setEventCompletion을 거친다.
   function handleCompleteEvent(event: Event) {
-    const completed_at = event.completed_at ? null : new Date().toISOString();
-    supabase.from('events').update({ completed_at }).eq('id', event.id)
-      .then(({ error }) => {
-        if (error) console.error('[DayView] complete failed:', error.message);
+    setEventCompletion({ eventId: event.id, completed: !event.completed_at, caller: 'dayView' })
+      .then(res => {
+        if (!res.ok) console.error('[DayView] complete failed:', res.error);
         else refreshWidget('dayComplete').catch(() => {});
       });
   }

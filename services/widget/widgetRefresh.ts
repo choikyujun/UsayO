@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { useDataSyncStore } from '../../stores/useDataSyncStore';
 import { supabase } from '../../lib/supabase';
 import { getPendingCompletions, removePendingCompletion, PendingCompletion } from '../../modules/YuSayWidgetBridge';
+import { setEventCompletion } from '../eventCompletion';
 import { widgetService } from './WidgetService';
 
 // 위젯에서 탭한 완료를 서버로 반영하지 못한 채 큐에 남은 항목의 최대 보관 기간(7일).
@@ -57,16 +58,19 @@ export async function drainPendingCompletions(now: number): Promise<void> {
       continue;
     }
     try {
-      const { data, error } = await supabase
-        .from('events')
-        .update({ completed_at: item.done ? new Date(now).toISOString() : null })
-        .eq('id', item.id)
-        .select('id');
-      if (!error) {
-        // 성공(data 있음) 또는 0 rows(data 빈 배열 = 이벤트 삭제됨) 모두 큐에서 제거.
+      // 앱 안 완료 경로와 같은 함수를 쓴다 — 위젯에서 완료해도 알림이 같이 취소되도록.
+      // (이 파일은 훅 밖이라 useSchedules를 부를 수 없어, 공유 지점을 서비스 계층에 뒀다.)
+      const res = await setEventCompletion({
+        eventId: item.id,
+        completed: !!item.done,
+        caller: 'widgetDrain',
+        atIso: new Date(now).toISOString(),
+      });
+      if (res.ok) {
+        // 성공(rows>0) 또는 0 rows(이벤트 삭제됨) 모두 큐에서 제거.
         await removePendingCompletion(item.id);
-        if ((data?.length ?? 0) > 0) applied += 1;
-        console.log(`[Widget] pending 반영 id=${item.id} rows=${data?.length ?? 0}`);
+        if (res.rows > 0) applied += 1;
+        console.log(`[Widget] pending 반영 id=${item.id} rows=${res.rows}`);
       }
     } catch {
       // 네트워크/인증 실패 → 큐 유지, 다음 실행 때 재시도.

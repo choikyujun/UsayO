@@ -36,7 +36,7 @@ import { useVoiceInput } from '../hooks/useVoiceInput';
 import { useWeekEvents } from '../hooks/useWeekEvents';
 import { useSchedules } from '../hooks/useSchedules';
 import { supabase } from '../lib/supabase';
-import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset } from '../services/notifications';
+import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset, reconcileRecurringDeletion } from '../services/notifications';
 import { Event } from '../types/database';
 import { GRID_TOTAL_H, getNowY, scrollTargetForHour, yToTime, TIME_LABEL_W } from '../utils/dayViewLayout';
 import { localDateStr, todayDateStr } from '../utils/timeHelpers';
@@ -137,11 +137,17 @@ export default function WeekViewScreen() {
 
     if (scope === 'this') {
       supabase.from('event_exceptions').insert({ parent_id: parentId, instance_date: instDate, is_deleted: true })
-        .then(({ error }) => { if (error) console.error('[WeekView] exception insert failed:', error.message); });
+        .then(({ error }) => {
+          if (error) console.error('[WeekView] exception insert failed:', error.message);
+          else reconcileRecurringDeletion(event.id, 'this').catch(e => console.log('[Notifications] cancel 실패:', e));
+        });
     } else if (scope === 'future') {
       const d = new Date(instDate); d.setDate(d.getDate() - 1);
       supabase.from('events').update({ recurrence_end_date: d.toISOString().split('T')[0] }).eq('id', parentId)
-        .then(({ error }) => { if (error) console.error('[WeekView] recurrence_end_date update failed:', error.message); });
+        .then(({ error }) => {
+          if (error) console.error('[WeekView] recurrence_end_date update failed:', error.message);
+          else reconcileRecurringDeletion(event.id, 'future').catch(e => console.log('[Notifications] cancel 실패:', e));
+        });
     } else {
       cancelEventNotification(parentId).catch(e => console.log('[Notifications] cancel 실패:', e));
       supabase.from('events').update({ deleted_at: new Date().toISOString() }).eq('id', parentId)

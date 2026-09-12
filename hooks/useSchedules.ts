@@ -5,6 +5,7 @@ import { ClassifiedIntent, VoiceCommand } from '../types';
 import { refreshWidget } from '../services/widget/widgetRefresh';
 import { eventsDateRange, fetchExpandedEvents } from '../utils/fetchExpandedEvents';
 import { scheduleEventNotification, cancelEventNotification, getEnabledOffsets } from '../services/notifications';
+import { setEventCompletion } from '../services/eventCompletion';
 import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측 · voice-verify]
 import { useAuthStore } from '../stores/useAuthStore';
 
@@ -501,20 +502,19 @@ export function useSchedules(date: string, daysAhead = 0) {
         target = candidates[0];
       }
       console.log(`[VOICE][4-MATCH] intent=COMPLETE selectedId=${target.id} title=${JSON.stringify(target.title)}`);
-      const { data, error } = await supabase
-        .from('events')
-        .update({ completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq('id', target.id)
-        .select()
-        .single();
+      // 완료 처리는 setEventCompletion 한 곳으로 모았다 — DB 갱신과 알림 취소가 같이 일어난다.
+      const res = await setEventCompletion({ eventId: target.id, completed: true, caller: 'voice' });
 
-      console.log('[VoiceFlow] DB complete result: data=', !!data, '| error=', error?.message ?? null);
-      if (error) throw new Error(error.message);
-      console.log(`[VOICE][5-DB] op=update-complete success=${!!data} id=${target.id}`);
+      console.log('[VoiceFlow] DB complete result: data=', !!res.event, '| error=', res.error ?? null);
+      if (!res.ok) throw new Error(res.error ?? SAVE_ERROR_TEXT.noApplicableAction);
+      // 직전에 조회해 확정한 대상인데 갱신된 행이 0 = 그 사이 삭제됨. 종전 .single()과 같이 실패로 본다.
+      if (res.rows === 0) throw new Error('해당 일정을 찾을 수 없어요.');
+      console.log(`[VOICE][5-DB] op=update-complete success=${!!res.event} id=${target.id}`);
       console.log(`[VOICE][TOTAL] recEnd→DB ${voiceTrace.sinceRecordingEnd()}ms (intent=COMPLETE)`);
 
-      if (data) {
-        setEvents(prev => prev.map(e => e.id === target.id ? (data as Event) : e));
+      const completed = res.event;
+      if (completed) {
+        setEvents(prev => prev.map(e => e.id === target.id ? completed : e));
       }
       return target.id;
     }
@@ -682,15 +682,20 @@ export function useSchedules(date: string, daysAhead = 0) {
     return saved.id;
   }
 
+  // 홈 타임스파인 / 홈 Upcoming 스와이프가 공유. DB·알림 처리는 setEventCompletion이 맡고
+  // 여기에는 낙관적 목록 갱신만 남긴다.
   async function toggleEventComplete(eventId: string, currentlyCompleted: boolean): Promise<void> {
-    const completedAt = currentlyCompleted ? null : new Date().toISOString();
+    const completed   = !currentlyCompleted;
+    const completedAt = completed ? new Date().toISOString() : null;
     setEvents(prev => prev.map(e =>
       e.id === eventId ? { ...e, completed_at: completedAt } : e,
     ));
-    await supabase
-      .from('events')
-      .update({ completed_at: completedAt })
-      .eq('id', eventId);
+    await setEventCompletion({
+      eventId,
+      completed,
+      caller: 'toggle',
+      atIso: completedAt ?? undefined,
+    });
     refreshWidget('toggleComplete').catch(() => {});
   }
 
@@ -710,6 +715,8 @@ export function useSchedules(date: string, daysAhead = 0) {
       .eq('id', eventId);
     setEvents(prev => prev.filter(e => e.id !== eventId));
     setLastCreatedId(null);
+    // 방금 CREATE에서 예약한 알림을 같이 거둔다 — 이게 없으면 "취소한 일정"의 알림이 울렸다.
+    cancelEventNotification(eventId).catch(e => console.log('[Notifications] cancel 실패:', e));
     refreshWidget('undoSave').catch(() => {});
   }
 
