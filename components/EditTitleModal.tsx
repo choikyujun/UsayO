@@ -10,6 +10,7 @@ import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { reconcileNotifAfterEdit } from '../services/notifications';
 import { Spacing } from '../constants/spacing';
 
 type Scope = 'this' | 'future' | 'all';
@@ -106,6 +107,14 @@ function EditTitleModal({ visible, event, onClose, onSaved }: Props) {
           });
         }
       }
+
+      // 제목은 알림 content에 그대로 들어간다(services/notifications.ts의 content.title /
+      // buildNotifBody). 예약된 알림은 예약 시점 값으로 고정되므로, 재예약하지 않으면
+      // 수정 전 제목으로 발송된다 — 이 경로에 재예약이 아예 없어서 그 일이 일어났다.
+      // 위 쓰기를 모두 await로 끝낸 뒤 호출하므로 reconcile의 재조회는 수정 후 값을 읽는다.
+      // await하지 않는 이유: 모달 닫힘을 알림 예약 왕복만큼 지연시키지 않기 위해서다.
+      reconcileNotifAfterEdit(ev, scope, 'editTitle').catch(e =>
+        console.log('[Notif] 재예약 실패:', e));
 
       refreshWidget('editTitle').catch(() => {});
       onSaved();

@@ -280,6 +280,107 @@ export async function reconcileRecurringDeletion(
   }
 }
 
+// ── 알림 content·트리거에 영향을 주는 필드 ────────────────────
+// 예약된 알림의 제목·본문·발화 시각은 위 _doSchedule이 예약하는 순간의 값으로 고정된다.
+// 따라서 아래 필드가 하나라도 바뀌면 반드시 재예약해야 하고, 그대로면 재예약할 이유가 없다.
+//   title                       → content.title + buildNotifBody 문구
+//   start_at                    → calcNotifDate(발화 시각)
+//   is_all_day                  → calcNotifDate 분기 + buildNotifBody 문구
+//   notification_offset_minutes → calcNotifDate + buildNotifBody 문구
+//   completed_at                → 예약 여부 자체를 가른다(위 완료 가드)
+// location·description·attendees·color·category는 content에 들어가지 않는다 — 제외.
+const NOTIF_CONTENT_KEYS = [
+  'title', 'start_at', 'is_all_day', 'notification_offset_minutes', 'completed_at',
+] as const;
+
+type NotifContentKey = (typeof NOTIF_CONTENT_KEYS)[number];
+
+export function diffNotifContent(before: Event, after: Event): NotifContentKey[] {
+  return NOTIF_CONTENT_KEYS.filter(k => (before[k] ?? null) !== (after[k] ?? null));
+}
+
+// 재예약 판정 결과. 로그와 이 반환값으로 "왜 재예약했는지 / 왜 건너뛰었는지"를 구분한다.
+export type RescheduleOutcome =
+  | 'rescheduled'            // content 필드가 바뀌어 재예약했다
+  | 'skipped-unchanged'      // content 필드가 그대로다 — 재예약할 이유가 없다
+  | 'skipped-completed'      // 수정은 됐지만 완료된 일정이다(완료 가드 유지)
+  | 'skipped-instance-scope' // 반복 일정의 일부 회차만 수정 — 부모 알림과 무관
+  | 'skipped-notfound';      // 수정 후 행을 다시 읽지 못했다
+
+// 수정 후 값으로 재예약한다.
+// before를 주면 content 필드가 실제로 바뀐 경우에만 재예약하고,
+// before가 null이면(수정 전 값을 모르면) 안전한 쪽으로 무조건 재예약한다.
+// after는 반드시 "수정 후" 객체여야 한다 — DB 응답이거나 수정 후 재조회 결과.
+export async function rescheduleIfNotifContentChanged(
+  before: Event | null,
+  after: Event,
+  caller: string,
+): Promise<RescheduleOutcome> {
+  if (before) {
+    const changed = diffNotifContent(before, after);
+    if (changed.length === 0) {
+      console.log(`[Notif] 재예약 생략 — content 필드 변화 없음 (caller=${caller} id=${after.id})`);
+      return 'skipped-unchanged';
+    }
+    console.log(`[Notif] 재예약 — 변경 필드=${changed.join(',')} (caller=${caller} id=${after.id})`);
+  } else {
+    console.log(`[Notif] 재예약 — 수정 전 값을 몰라 무조건 재예약 (caller=${caller} id=${after.id})`);
+  }
+
+  // 완료된 일정은 _doSchedule이 선취소만 하고 예약을 건너뛴다(완료 가드).
+  // 그 경우에도 호출은 해서 남아 있던 예약을 거둔다 — 다만 결과는 재예약이 아니라고 보고한다.
+  await scheduleEventNotification(after);
+  if (after.completed_at) {
+    console.log(`[Notif] 완료된 일정 — 수정됐지만 재예약하지 않음 (caller=${caller} id=${after.id})`);
+    return 'skipped-completed';
+  }
+  return 'rescheduled';
+}
+
+// 수정 모달 전용 — 저장이 끝난 뒤 DB 행을 다시 읽어 재예약을 판정한다.
+// 모달이 쥐고 있는 Event는 수정 전 값이고 반복 일정이면 가상 인스턴스이므로,
+// "수정 후 값"은 DB에서 다시 읽어야 한다. 반드시 쓰기를 await로 끝낸 뒤 호출할 것.
+export async function reconcileNotifAfterEdit(
+  before: Event,
+  scope: 'this' | 'future' | 'all',
+  caller: string,
+): Promise<RescheduleOutcome> {
+  // 반복 일정을 회차 단위로 수정한 경우('이번만' / '이후 전체'), 바뀐 값은
+  // event_exceptions나 새로 분리된 행에 들어가고 부모 행의 content는 그대로다.
+  // 현재 구조에서 알림은 부모 행 하나만 예약되므로 여기서 재예약할 것이 없다.
+  // 부모 알림을 괜히 다시 깔면 reconcileRecurringDeletion이 이미 취소해 둔
+  // 회차의 알림을 되살릴 수 있다. 구조적 한계로 남긴다(설계 제안 참조).
+  if (scope !== 'all') {
+    console.log(
+      `[Notif] 재예약 생략 — 반복 회차 범위 수정(scope=${scope})은 부모 알림과 무관` +
+      ` (caller=${caller} id=${before.id})`,
+    );
+    return 'skipped-instance-scope';
+  }
+
+  const realId = isVirtualInstance(before.id)
+    ? (parseInstanceId(before.id)?.parentId ?? before.id)
+    : before.id;
+
+  const { data, error } = await supabase
+    .from('events').select('*').eq('id', realId).maybeSingle();
+  if (error || !data) {
+    console.log(
+      `[Notif] 재예약 생략 — 수정 후 행 조회 실패 (caller=${caller} id=${realId}):`,
+      error?.message ?? 'not found',
+    );
+    return 'skipped-notfound';
+  }
+
+  // 가상 인스턴스의 Event는 부모 행 + 예외 override를 합성한 값이라 DB 행과 직접
+  // 비교할 수 없다. 그럴 때는 before를 버리고 무조건 재예약한다.
+  return rescheduleIfNotifContentChanged(
+    before.id === realId ? before : null,
+    data as Event,
+    caller,
+  );
+}
+
 // ── 알림 재예약 ───────────────────────────────────────────────
 
 export async function rescheduleEventNotification(event: Event): Promise<string | null> {

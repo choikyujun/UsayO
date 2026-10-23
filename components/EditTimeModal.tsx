@@ -9,6 +9,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
 import { Event } from '../types/database';
 import { isVirtualInstance, parseInstanceId } from '../utils/recurrenceHelpers';
+import { reconcileNotifAfterEdit } from '../services/notifications';
 import { Spacing } from '../constants/spacing';
 
 type Scope = 'this' | 'future' | 'all';
@@ -185,6 +186,13 @@ function EditTimeModal({ visible, event, onClose, onSaved }: Props) {
           });
         }
       }
+
+      // 시간 변경도 제목 수정과 같은 공통 경로를 쓴다. 종전에는 이 재예약이 각 화면의
+      // onSaved 쪽에 흩어져 있었는데, 그 코드가 가상 인스턴스 id로 행을 찾아 반복 일정
+      // scope='all'에서는 조회가 비어 재예약이 누락됐고, HomeScreen에는 아예 없었다.
+      // 쓰기를 await로 끝낸 뒤 호출하므로 reconcile의 재조회는 수정 후 값을 읽는다.
+      reconcileNotifAfterEdit(ev, scope, 'editTime').catch(e =>
+        console.log('[Notif] 재예약 실패:', e));
 
       refreshWidget('editTime').catch(() => {});
       onSaved();

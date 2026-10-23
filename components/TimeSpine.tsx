@@ -18,7 +18,7 @@ import { AppTheme, useColors } from '../constants/colors';
 import { isKoreanHoliday } from '../hooks/useHolidays';
 import { isLunchHour } from '../utils/timeHelpers';
 import { supabase } from '../lib/supabase';
-import { cancelEventNotification, rescheduleEventNotification, persistNotificationOffset, reconcileRecurringDeletion } from '../services/notifications';
+import { cancelEventNotification, persistNotificationOffset, reconcileRecurringDeletion } from '../services/notifications';
 import { Event } from '../types/database';
 import { formatTimeRow } from '../utils/timeHelpers';
 import { calculateNewTime, EventPosition } from '../utils/rescheduleHelpers';
@@ -360,15 +360,11 @@ export default function TimeSpine({
   const closeEditTime = useCallback(() => setEditTimeVisible(false), []);
   const savedEditTime = useCallback(() => {
     setEditTimeVisible(false);
-    if (editEvent) {
-      supabase.from('events').select('*').eq('id', editEvent.id).single()
-        .then(({ data }) => {
-          if (data) rescheduleEventNotification(data as Event).catch(e =>
-            console.log('[Notifications] reschedule 실패:', e));
-        });
-    }
+    // 재예약은 EditTimeModal.save()가 공통 경로(reconcileNotifAfterEdit)로 처리한다.
+    // 화면마다 가상 인스턴스 id로 행을 다시 찾던 코드는 반복 일정에서 조회가 비어
+    // 재예약이 누락됐다 — 그 중복을 걷어내고 저장 지점 한 곳으로 모았다.
     onRefresh?.();
-  }, [editEvent, onRefresh]);
+  }, [onRefresh]);
   const closeEditNotif = useCallback(() => setEditNotifVisible(false), []);
   const savedEditNotif = useCallback(async (updated: Event) => {
     const ok = await persistNotificationOffset(updated);

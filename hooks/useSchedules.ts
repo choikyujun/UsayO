@@ -4,7 +4,7 @@ import { Database, Event } from '../types/database';
 import { ClassifiedIntent, VoiceCommand } from '../types';
 import { refreshWidget } from '../services/widget/widgetRefresh';
 import { eventsDateRange, fetchExpandedEvents } from '../utils/fetchExpandedEvents';
-import { scheduleEventNotification, cancelEventNotification, getEnabledOffsets } from '../services/notifications';
+import { scheduleEventNotification, cancelEventNotification, getEnabledOffsets, rescheduleIfNotifContentChanged } from '../services/notifications';
 import { setEventCompletion } from '../services/eventCompletion';
 import { voiceTrace } from '../services/voice/voiceTrace'; // [임시 계측 · voice-verify]
 import { useAuthStore } from '../stores/useAuthStore';
@@ -469,9 +469,11 @@ export function useSchedules(date: string, daysAhead = 0) {
 
       if (data) {
         setEvents(prev => prev.map(e => e.id === target.id ? (data as Event) : e));
-        // 시간이 바뀐 경우 알림 재예약 (fire-and-forget)
-        scheduleEventNotification(data as Event).catch(e =>
-          console.log('[Notifications] UPDATE 재예약 실패:', e),
+        // 알림 content 필드(제목·시작시각·종일·오프셋)가 바뀐 경우에만 재예약한다.
+        // target은 수정 전 DB 행, data는 수정 후 DB 응답 — 둘 다 실제 행이라 비교가 성립한다.
+        // 장소만 바꾼 UPDATE까지 재예약하던 종전 동작을 여기서 걸러낸다. (fire-and-forget)
+        rescheduleIfNotifContentChanged(target, data as Event, 'voice-update').catch(e =>
+          console.log('[Notif] UPDATE 재예약 실패:', e),
         );
       }
       await load();
